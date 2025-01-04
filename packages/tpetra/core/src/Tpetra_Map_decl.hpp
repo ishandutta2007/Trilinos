@@ -1,40 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //          Tpetra: Templated Linear Algebra Services Package
-//                 Copyright (2008) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// ************************************************************************
+// Copyright 2008 NTESS and the Tpetra contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef TPETRA_MAP_DECL_HPP
@@ -251,15 +221,6 @@ namespace Tpetra {
 
     //! Legacy typedef that will go away at some point.
     using node_type = Node;
-
-    //! The hash will be CudaSpace, not CudaUVMSpace
-#ifdef KOKKOS_ENABLE_CUDA
-    using no_uvm_memory_space = typename std::conditional<std::is_same<memory_space, Kokkos::CudaUVMSpace>::value,
-      Kokkos::CudaSpace, memory_space>::type;
-    using no_uvm_device_type = Kokkos::Device<execution_space, no_uvm_memory_space>;
-#else
-    using no_uvm_device_type = device_type;
-#endif
 
     /// \brief Type of the "local" Map.
     ///
@@ -682,9 +643,9 @@ namespace Tpetra {
     ///   Teuchos::OrdinalTraits<global_ordinal_type>::invalid().
     global_ordinal_type getGlobalElement (local_ordinal_type localIndex) const;
 
-    /// \brief Get the local Map for Kokkos kernels.
+    /// \brief Get the LocalMap for Kokkos-Kernels.
     ///
-    /// \warning The interface of the local Map object is SUBJECT TO
+    /// \warning The interface of the LocalMap object is SUBJECT TO
     ///   CHANGE and is for EXPERT USERS ONLY.
     local_map_type getLocalMap () const;
 
@@ -765,6 +726,9 @@ namespace Tpetra {
                          Kokkos::LayoutLeft,
                          Kokkos::HostSpace> global_indices_array_type;
 
+    typedef Kokkos::View<const global_ordinal_type*,
+                         device_type> global_indices_array_device_type;
+    
   public:
     /// \brief Return a view of the global indices owned by this process.
     ///
@@ -786,6 +750,10 @@ namespace Tpetra {
     /// calling this if the calling process owns a very large number
     /// of global indices.
     global_indices_array_type getMyGlobalIndices () const;
+
+    /// \brief Return a view of the global indices owned by this process on the Map's device.
+    global_indices_array_device_type getMyGlobalIndicesDevice () const;
+
 
     /// \brief Return a NONOWNING view of the global indices owned by
     ///   this process.
@@ -1128,6 +1096,9 @@ namespace Tpetra {
       const global_ordinal_type indexBase,
       const Teuchos::RCP<const Teuchos::Comm<int>>& comm);
 
+    /// \brief Push the device data to host, if needed
+    void lazyPushToHost() const;
+
     //! The communicator over which this Map is distributed.
     Teuchos::RCP<const Teuchos::Comm<int> > comm_;
 
@@ -1229,7 +1200,7 @@ namespace Tpetra {
     /// the nondefault layout.
     mutable Kokkos::View<const global_ordinal_type*,
                          Kokkos::LayoutLeft,
-                         no_uvm_device_type> lgMap_;
+                         device_type> lgMap_;
 
     /// \brief Host View of lgMap_.
     ///
@@ -1246,7 +1217,7 @@ namespace Tpetra {
 
     //! Type of a mapping from global IDs to local IDs.
     typedef ::Tpetra::Details::FixedHashTable<global_ordinal_type,
-      local_ordinal_type, no_uvm_device_type> global_to_local_table_type;
+      local_ordinal_type, device_type> global_to_local_table_type;
 
     /// \brief A mapping from global IDs to local IDs.
     ///
@@ -1272,7 +1243,7 @@ namespace Tpetra {
     /// Used by getLocalElement() (which is a host method, and therefore
     /// requires a host View) if necessary (only noncontiguous Maps
     /// need this).
-    global_to_local_table_host_type glMapHost_;
+    mutable global_to_local_table_host_type glMapHost_;
 
     /// \brief Object that can find the process rank and local index
     ///   for any given global index.

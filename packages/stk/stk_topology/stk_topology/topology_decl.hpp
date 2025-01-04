@@ -29,79 +29,93 @@ struct topology
 {
   enum rank_t : int8_t
   {
-      BEGIN_RANK
-    , NODE_RANK = BEGIN_RANK
-    , EDGE_RANK
-    , FACE_RANK
-    , ELEM_RANK, ELEMENT_RANK = ELEM_RANK
-    , CONSTRAINT_RANK
-    , END_RANK
-    , NUM_RANKS = END_RANK
-    , INVALID_RANK = std::numeric_limits<int8_t>::max()
+    BEGIN_RANK,
+    NODE_RANK = BEGIN_RANK,
+    EDGE_RANK,
+    FACE_RANK,
+    ELEM_RANK, ELEMENT_RANK = ELEM_RANK,
+    CONSTRAINT_RANK,
+    END_RANK,
+    NUM_RANKS = END_RANK,
+    INVALID_RANK = std::numeric_limits<int8_t>::max()
   };
 
   //To add new topologies consult the toolkit team
   enum topology_t
   {
-      INVALID_TOPOLOGY
-    , BEGIN_TOPOLOGY
-    //NODE_RANK
-    , NODE = BEGIN_TOPOLOGY
-    //EDGE_RANK
-    , LINE_2
-    , LINE_3
-    //FACE_RANK
-    , TRI_3, TRIANGLE_3 = TRI_3
-    , TRI_4, TRIANGLE_4 = TRI_4
-    , TRI_6, TRIANGLE_6 = TRI_6
-    , QUAD_4, QUADRILATERAL_4 = QUAD_4
-    , QUAD_6, QUADRILATERAL_6 = QUAD_6
-    , QUAD_8, QUADRILATERAL_8 = QUAD_8
-    , QUAD_9, QUADRILATERAL_9 = QUAD_9
-    //ELEMENT_RANK
-    , PARTICLE, BEGIN_ELEMENT_RANK = PARTICLE
-    , LINE_2_1D
-    , LINE_3_1D
-    , BEAM_2
-    , BEAM_3
-    , SHELL_LINE_2
-    , SHELL_LINE_3
-    , SPRING_2
-    , SPRING_3
-    , TRI_3_2D, TRIANGLE_3_2D = TRI_3_2D
-    , TRI_4_2D, TRIANGLE_4_2D = TRI_4_2D
-    , TRI_6_2D, TRIANGLE_6_2D = TRI_6_2D
-    , QUAD_4_2D, QUADRILATERAL_4_2D = QUAD_4_2D
-    , QUAD_8_2D, QUADRILATERAL_8_2D = QUAD_8_2D
-    , QUAD_9_2D, QUADRILATERAL_9_2D = QUAD_9_2D
-    , SHELL_TRI_3, SHELL_TRIANGLE_3 = SHELL_TRI_3
-    , SHELL_TRI_4, SHELL_TRIANGLE_4 = SHELL_TRI_4
-    , SHELL_TRI_6, SHELL_TRIANGLE_6 = SHELL_TRI_6
-    , SHELL_QUAD_4, SHELL_QUADRILATERAL_4 = SHELL_QUAD_4
-    , SHELL_QUAD_8, SHELL_QUADRILATERAL_8 = SHELL_QUAD_8
-    , SHELL_QUAD_9, SHELL_QUADRILATERAL_9 = SHELL_QUAD_9
-    , TET_4,  TETRAHEDRON_4  = TET_4
-    , TET_8,  TETRAHEDRON_8  = TET_8
-    , TET_10, TETRAHEDRON_10 = TET_10
-    , TET_11, TETRAHEDRON_11 = TET_11
-    , PYRAMID_5
-    , PYRAMID_13
-    , PYRAMID_14
-    , WEDGE_6
-    , WEDGE_12
-    , WEDGE_15
-    , WEDGE_18
-    , HEX_8,  HEXAHEDRON_8  = HEX_8
-    , HEX_20, HEXAHEDRON_20 = HEX_20
-    , HEX_27, HEXAHEDRON_27 = HEX_27
-    , END_TOPOLOGY
-    , NUM_TOPOLOGIES = END_TOPOLOGY - BEGIN_TOPOLOGY
-    , SUPEREDGE_START = END_TOPOLOGY+1
-    , SUPEREDGE_END = SUPEREDGE_START + 1000
-    , SUPERFACE_START = SUPEREDGE_END+1
-    , SUPERFACE_END = SUPERFACE_START + 1000
-    , SUPERELEMENT_START = SUPERFACE_END+1
-    , FORCE_TOPOLOGY_TO_UNSIGNED = ~0U // max unsigned int
+    INVALID_TOPOLOGY,
+    BEGIN_TOPOLOGY,
+
+    // NODE_RANK
+    NODE = BEGIN_TOPOLOGY,
+
+    // EDGE_RANK
+    LINE_2, BEGIN_EDGE_RANK = LINE_2,
+    LINE_3,
+
+    // FACE_RANK
+    TRI_3, TRIANGLE_3 = TRI_3, END_EDGE_RANK = TRI_3, BEGIN_FACE_RANK = TRI_3,
+    TRI_4, TRIANGLE_4 = TRI_4,
+    TRI_6, TRIANGLE_6 = TRI_6,
+    QUAD_4, QUADRILATERAL_4 = QUAD_4,
+    QUAD_6, QUADRILATERAL_6 = QUAD_6,
+    QUAD_8, QUADRILATERAL_8 = QUAD_8,
+    QUAD_9, QUADRILATERAL_9 = QUAD_9,
+    SHELL_SIDE_BEAM_2,
+    SHELL_SIDE_BEAM_3,
+
+    // ELEMENT_RANK
+    PARTICLE, END_FACE_RANK = PARTICLE, BEGIN_ELEMENT_RANK = PARTICLE,
+    LINE_2_1D,
+    LINE_3_1D,
+    BEAM_2,
+    BEAM_3,
+    SHELL_LINE_2,
+    SHELL_LINE_3,
+    SPRING_2,
+    SPRING_3,
+    TRI_3_2D, TRIANGLE_3_2D = TRI_3_2D,
+    TRI_4_2D, TRIANGLE_4_2D = TRI_4_2D,
+    TRI_6_2D, TRIANGLE_6_2D = TRI_6_2D,
+    QUAD_4_2D, QUADRILATERAL_4_2D = QUAD_4_2D,
+    QUAD_8_2D, QUADRILATERAL_8_2D = QUAD_8_2D,
+    QUAD_9_2D, QUADRILATERAL_9_2D = QUAD_9_2D,
+    SHELL_TRI_3, SHELL_TRIANGLE_3 = SHELL_TRI_3,
+    SHELL_TRI_4, SHELL_TRIANGLE_4 = SHELL_TRI_4,
+    SHELL_TRI_6, SHELL_TRIANGLE_6 = SHELL_TRI_6,
+    SHELL_TRI_3_ALL_FACE_SIDES, SHELL_TRIANGLE_3_ALL_FACE_SIDES = SHELL_TRI_3_ALL_FACE_SIDES,
+    SHELL_TRI_4_ALL_FACE_SIDES, SHELL_TRIANGLE_4_ALL_FACE_SIDES = SHELL_TRI_4_ALL_FACE_SIDES,
+    SHELL_TRI_6_ALL_FACE_SIDES, SHELL_TRIANGLE_6_ALL_FACE_SIDES = SHELL_TRI_6_ALL_FACE_SIDES,
+    SHELL_QUAD_4, SHELL_QUADRILATERAL_4 = SHELL_QUAD_4,
+    SHELL_QUAD_8, SHELL_QUADRILATERAL_8 = SHELL_QUAD_8,
+    SHELL_QUAD_9, SHELL_QUADRILATERAL_9 = SHELL_QUAD_9,
+    SHELL_QUAD_4_ALL_FACE_SIDES, SHELL_QUADRILATERAL_4_ALL_FACE_SIDES = SHELL_QUAD_4_ALL_FACE_SIDES,
+    SHELL_QUAD_8_ALL_FACE_SIDES, SHELL_QUADRILATERAL_8_ALL_FACE_SIDES = SHELL_QUAD_8_ALL_FACE_SIDES,
+    SHELL_QUAD_9_ALL_FACE_SIDES, SHELL_QUADRILATERAL_9_ALL_FACE_SIDES = SHELL_QUAD_9_ALL_FACE_SIDES,
+    TET_4,  TETRAHEDRON_4  = TET_4,
+    TET_8,  TETRAHEDRON_8  = TET_8,
+    TET_10, TETRAHEDRON_10 = TET_10,
+    TET_11, TETRAHEDRON_11 = TET_11,
+    PYRAMID_5,
+    PYRAMID_13,
+    PYRAMID_14,
+    WEDGE_6,
+    WEDGE_12,
+    WEDGE_15,
+    WEDGE_18,
+    HEX_8,  HEXAHEDRON_8  = HEX_8,
+    HEX_20, HEXAHEDRON_20 = HEX_20,
+    HEX_27, HEXAHEDRON_27 = HEX_27,
+
+    END_TOPOLOGY, END_ELEMENT_RANK = END_TOPOLOGY,
+    NUM_TOPOLOGIES = END_TOPOLOGY - BEGIN_TOPOLOGY,
+
+    SUPEREDGE_START = END_TOPOLOGY+1,
+    SUPEREDGE_END = SUPEREDGE_START + 1000,
+    SUPERFACE_START = SUPEREDGE_END+1,
+    SUPERFACE_END = SUPERFACE_START + 1000,
+    SUPERELEMENT_START = SUPERFACE_END+1,
+    FORCE_TOPOLOGY_TO_UNSIGNED = ~0U // max unsigned int
   };
 
   //***************************************************************************
@@ -123,9 +137,19 @@ struct topology
   STK_INLINE_FUNCTION
   bool has_homogeneous_faces() const;
 
+  /// does this topology use edge and face ranked topologies for sides
+  STK_INLINE_FUNCTION
+  bool has_mixed_rank_sides() const;
+
   /// is this topology a shell topology (i.e. an element with only two sides)
   STK_INLINE_FUNCTION
   bool is_shell() const;
+
+  STK_INLINE_FUNCTION
+  bool is_shell_side_ordinal(unsigned ord) const;
+
+  STK_INLINE_FUNCTION
+  bool is_shell_with_face_sides() const;
 
   /// what is the rank of this topology
   STK_INLINE_FUNCTION
@@ -133,7 +157,7 @@ struct topology
 
   /// what is the side rank of this topology
   STK_INLINE_FUNCTION
-  rank_t side_rank() const;
+  rank_t side_rank(unsigned ord = 0) const;
 
   /// what is the topological dimension of this topology
   STK_INLINE_FUNCTION
@@ -185,6 +209,9 @@ struct topology
   /// what is the topology of the given face
   STK_INLINE_FUNCTION
   topology face_topology(unsigned face_ordinal) const;
+
+  STK_INLINE_FUNCTION
+  topology shell_side_topology(unsigned shell_side_ordinal = 0) const;
 
   /// fill the output ordinals with the ordinals that make up the given edge
   template <typename OrdinalOutputIterator>
@@ -396,14 +423,14 @@ struct topology
 //***************************************************************************
 //increment and decrement rank_t
 //***************************************************************************
-inline
+STK_INLINE_FUNCTION
 topology::rank_t operator++(stk::topology::rank_t &r)
 {
   r = static_cast<topology::rank_t>(r+1);
   return r;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology::rank_t operator++(stk::topology::rank_t &r,int)
 {
   topology::rank_t tmp = r;
@@ -411,14 +438,14 @@ topology::rank_t operator++(stk::topology::rank_t &r,int)
   return tmp;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology::rank_t operator--(stk::topology::rank_t &r)
 {
   r = static_cast<topology::rank_t>(r-1);
   return r;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology::rank_t operator--(stk::topology::rank_t &r,int)
 {
   topology::rank_t tmp = r;
@@ -429,14 +456,14 @@ topology::rank_t operator--(stk::topology::rank_t &r,int)
 //***************************************************************************
 //increment and decrement topology_t
 //***************************************************************************
-inline
+STK_INLINE_FUNCTION
 topology::topology_t operator++(stk::topology::topology_t &t)
 {
   t = static_cast<topology::topology_t>(t+1);
   return t;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology::topology_t operator++(stk::topology::topology_t &t,int)
 {
   topology::topology_t tmp = t;
@@ -444,14 +471,14 @@ topology::topology_t operator++(stk::topology::topology_t &t,int)
   return tmp;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology::topology_t operator--(stk::topology::topology_t &t)
 {
   t = static_cast<topology::topology_t>(t-1);
   return t;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology::topology_t operator--(stk::topology::topology_t &t,int)
 {
   topology::topology_t tmp = t;
@@ -462,14 +489,14 @@ topology::topology_t operator--(stk::topology::topology_t &t,int)
 //***************************************************************************
 //increment and decrement topology
 //***************************************************************************
-inline
+STK_INLINE_FUNCTION
 topology operator++(topology &t)
 {
   ++t.m_value;
   return t;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology operator++(topology &t,int)
 {
   topology tmp = t;
@@ -477,14 +504,14 @@ topology operator++(topology &t,int)
   return tmp;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology operator--(topology &t)
 {
   --t.m_value;
   return t;
 }
 
-inline
+STK_INLINE_FUNCTION
 topology operator--(topology &t,int)
 {
   topology tmp = t;
@@ -495,42 +522,42 @@ topology operator--(topology &t,int)
 //***************************************************************************
 //create superelement
 //***************************************************************************
-inline
+STK_INLINE_FUNCTION
 topology create_superedge_topology(unsigned num_nodes)
 {
   if ( num_nodes < 1u ) return topology::INVALID_TOPOLOGY;
   return static_cast<topology::topology_t>(num_nodes + topology::SUPEREDGE_START);
 }
 
-inline
+STK_INLINE_FUNCTION
 topology create_superedge_topology(int num_nodes)
 {
   if ( num_nodes < 1 ) return topology::INVALID_TOPOLOGY;
   return static_cast<topology::topology_t>(num_nodes + topology::SUPEREDGE_START);
 }
 
-inline
+STK_INLINE_FUNCTION
 topology create_superface_topology(unsigned num_nodes)
 {
   if ( num_nodes < 1u ) return topology::INVALID_TOPOLOGY;
   return static_cast<topology::topology_t>(num_nodes + topology::SUPERFACE_START);
 }
 
-inline
+STK_INLINE_FUNCTION
 topology create_superface_topology(int num_nodes)
 {
   if ( num_nodes < 1 ) return topology::INVALID_TOPOLOGY;
   return static_cast<topology::topology_t>(num_nodes + topology::SUPERFACE_START);
 }
 
-inline
+STK_INLINE_FUNCTION
 topology create_superelement_topology(unsigned num_nodes)
 {
   if ( num_nodes < 1u ) return topology::INVALID_TOPOLOGY;
   return static_cast<topology::topology_t>(num_nodes + topology::SUPERELEMENT_START);
 }
 
-inline
+STK_INLINE_FUNCTION
 topology create_superelement_topology(int num_nodes)
 {
   if ( num_nodes < 1 ) return topology::INVALID_TOPOLOGY;

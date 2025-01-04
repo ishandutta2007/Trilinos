@@ -44,7 +44,7 @@
 #include <utility>   // for pair, swap
 
 #include "stk_util/environment/EnvData.hpp"      // for EnvData
-#include "stk_util/parallel/ParallelReduce.hpp"  // for all_reduce_max
+#include "stk_util/parallel/ParallelReduceBool.hpp"
 #include "stk_util/util/Callback.hpp"            // for create_callback
 #include "stk_util/util/SignalHandler.hpp"       // for SignalHandler
 
@@ -196,7 +196,7 @@ bool Scheduler::internal_is_it_time(Time time)
   // called multiple times with the same argument, it will return the
   // same response.
 
-  assert(time >= lastTime_);
+  STK_ThrowAssertMsg(time >= lastTime_, "time = " << time << ", lastTime_ = " << lastTime_);
 
   // If this is a restart, then calculate what the lastTime_ setting would
   // have been for this scheduler (based only on start time and deltas).
@@ -361,10 +361,7 @@ bool Scheduler::force_schedule()
   // processor so we need to see if it is true on any processor...
   bool result = forceSchedule_;
   if (EnvData::parallel_size() > 1) {
-    static int inbuf[1], outbuf[1];
-    inbuf[0] = forceSchedule_ ? 1 : 0;
-    stk::all_reduce_max(EnvData::parallel_comm(), inbuf, outbuf, 1);
-    result = outbuf[0] > 0;
+    result = stk::is_true_on_any_proc(EnvData::parallel_comm(), forceSchedule_);
   }
   forceSchedule_ = false;
   return result;

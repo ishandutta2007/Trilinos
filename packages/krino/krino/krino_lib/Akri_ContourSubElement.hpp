@@ -64,10 +64,10 @@ public:
 		       sierra::ArrayContainer<double,NINT> & determinants,
 		       int index = 0 );
 
-  int build_facets( Faceted_Surface & facets );
+  int build_facets( FacetedSurfaceBase & facets );
 
   // default implementation
-  virtual int side_facets( Faceted_Surface & facets, int side ) const;
+  virtual int side_facets( FacetedSurfaceBase & facets, int side ) const;
   virtual double side_area( int side ) const;
 
   stk::topology topology() const { return get_master_element().get_topology(); }
@@ -106,6 +106,26 @@ private:
 };
 
 template<stk::topology::topology_t TOPO>
+class MasterElementHolder
+{
+public:
+  static const MasterElement & get_master_element()
+  {
+    static const MasterElement * me = nullptr;
+    if (nullptr == me)
+      me = &MasterElementDeterminer::getMasterElement(stk::topology(TOPO));
+    return *me;
+  }
+  static const MasterElement & get_side_master_element()
+  {
+    static const MasterElement * sideMe = nullptr;
+    if (nullptr == sideMe)
+      sideMe = &MasterElementDeterminer::getMasterElement(stk::topology(TOPO).side_topology());
+    return *sideMe;
+  }
+};
+
+template<stk::topology::topology_t TOPO>
 class ContourSubElementWithTopology : public ContourSubElement {
 public:
   static constexpr unsigned NUM_NODES = TopologyData<TOPO>::num_nodes();
@@ -131,25 +151,14 @@ public:
   virtual const int * get_side_ids() const override { return mySideIds.data(); }
   virtual const double * get_distance_at_nodes() const override { return myDist.data(); }
   virtual const stk::math::Vector3d * get_coordinates_at_nodes() const override { return myCoords.data(); }
-  virtual const MasterElement & get_master_element() const override { return theMasterElement; }
-  virtual const MasterElement & get_side_master_element() const override
-  {
-    return theSideMasterElement;
-  }
+  virtual const MasterElement & get_master_element() const override { return MasterElementHolder<TOPO>::get_master_element(); }
+  virtual const MasterElement & get_side_master_element() const override { return MasterElementHolder<TOPO>::get_side_master_element(); }
 
 protected:
-  static const MasterElement& theMasterElement;
-  static const MasterElement& theSideMasterElement;
   std::array<stk::math::Vector3d,NUM_NODES> myCoords;
   std::array<int,NUM_SIDES> mySideIds;
   std::array<double,NUM_NODES> myDist;
 };
-
-template<stk::topology::topology_t TOPO>
-const MasterElement& ContourSubElementWithTopology<TOPO>::theMasterElement = MasterElementDeterminer::getMasterElement(stk::topology(TOPO));
-
-template<stk::topology::topology_t TOPO>
-const MasterElement& ContourSubElementWithTopology<TOPO>::theSideMasterElement = MasterElementDeterminer::getMasterElement(stk::topology(TOPO).side_topology());
 
 class ContourSubElement_Quad_4 : public ContourSubElementWithTopology<stk::topology::QUAD_4_2D> {
 public:
@@ -219,7 +228,7 @@ public:
                     const int subelement_sign = 0 );
   virtual ~ContourSubElement_Tri_3() {}
 
-  virtual int side_facets( Faceted_Surface & facets, int side ) const override;
+  virtual int side_facets( FacetedSurfaceBase & facets, int side ) const override;
   double side_area( int side ) const override;
 
 private:
@@ -286,7 +295,7 @@ public:
                     const int subelement_sign = 0 );
   virtual ~ContourSubElement_Tet_4() {}
 
-  virtual int side_facets( Faceted_Surface & facets, int side ) const override;
+  virtual int side_facets( FacetedSurfaceBase & facets, int side ) const override;
   virtual double side_area( int side ) const override;
 
 private:

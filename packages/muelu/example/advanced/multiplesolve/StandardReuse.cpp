@@ -1,48 +1,12 @@
 // @HEADER
-//
-// ***********************************************************************
-//
+// *****************************************************************************
 //        MueLu: A package for multigrid based preconditioning
-//                  Copyright 2012 Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact
-//                    Jonathan Hu       (jhu@sandia.gov)
-//                    Andrey Prokopenko (aprokop@sandia.gov)
-//                    Ray Tuminaro      (rstumin@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2012 NTESS and the MueLu contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
+
 #include <iostream>
 
 // Teuchos
@@ -53,6 +17,8 @@
 #include <Galeri_XpetraProblemFactory.hpp>
 #include <Galeri_XpetraUtils.hpp>
 #include <Galeri_XpetraMaps.hpp>
+
+#include <Xpetra_MatrixFactory2.hpp>
 
 #include <MueLu.hpp>
 #include <MueLu_Level.hpp>
@@ -79,21 +45,20 @@
 // The resulting preconditioners are identical to multigrid preconditioners built without recycling the parts described above.
 // This can be verified by using the --no-recycling option.
 
-template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 void ConstructData(const std::string& matrixType, Teuchos::ParameterList& galeriList,
                    Xpetra::UnderlyingLib lib, Teuchos::RCP<const Teuchos::Comm<int> >& comm,
-                   Teuchos::RCP<Xpetra::Matrix      <Scalar,LocalOrdinal,GlobalOrdinal,Node> >& A,
-                   Teuchos::RCP<const Xpetra::Map   <LocalOrdinal,GlobalOrdinal, Node> >&       map,
-                   Teuchos::RCP<Xpetra::MultiVector <typename Teuchos::ScalarTraits<Scalar>::magnitudeType,LocalOrdinal,GlobalOrdinal,Node> >& coordinates,
-                   Teuchos::RCP<Xpetra::MultiVector <Scalar,LocalOrdinal,GlobalOrdinal,Node> >& nullspace) {
+                   Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> >& A,
+                   Teuchos::RCP<const Xpetra::Map<LocalOrdinal, GlobalOrdinal, Node> >& map,
+                   Teuchos::RCP<Xpetra::MultiVector<typename Teuchos::ScalarTraits<Scalar>::magnitudeType, LocalOrdinal, GlobalOrdinal, Node> >& coordinates,
+                   Teuchos::RCP<Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> >& nullspace) {
 #include <MueLu_UseShortNames.hpp>
+  using Teuchos::ArrayRCP;
   using Teuchos::RCP;
   using Teuchos::rcp;
-  using Teuchos::ArrayRCP;
   using Teuchos::TimeMonitor;
   typedef typename Teuchos::ScalarTraits<SC>::magnitudeType real_type;
-  typedef typename Xpetra::MultiVector<real_type,LO,GO,NO> RealValuedMultiVector;
-
+  typedef typename Xpetra::MultiVector<real_type, LO, GO, NO> RealValuedMultiVector;
 
   // Galeri will attempt to create a square-as-possible distribution of subdomains di, e.g.,
   //                                 d1  d2  d3
@@ -109,36 +74,36 @@ void ConstructData(const std::string& matrixType, Teuchos::ParameterList& galeri
   // In the future, we hope to be able to first create a Galeri problem, and then request map and coordinates from it
   // At the moment, however, things are fragile as we hope that the Problem uses same map and coordinates inside
   if (matrixType == "Laplace1D") {
-    map = Galeri::Xpetra::CreateMap<LO, GO, Node>(lib, "Cartesian1D", comm, galeriList);
-    coordinates = Galeri::Xpetra::Utils::CreateCartesianCoordinates<real_type,LO,GO,Map,RealValuedMultiVector>("1D", map, galeriList);
+    map         = Galeri::Xpetra::CreateMap<LO, GO, Node>(lib, "Cartesian1D", comm, galeriList);
+    coordinates = Galeri::Xpetra::Utils::CreateCartesianCoordinates<real_type, LO, GO, Map, RealValuedMultiVector>("1D", map, galeriList);
 
   } else if (matrixType == "Laplace2D" || matrixType == "Star2D" ||
              matrixType == "BigStar2D" || matrixType == "Elasticity2D") {
-    map = Galeri::Xpetra::CreateMap<LO, GO, Node>(lib, "Cartesian2D", comm, galeriList);
-    coordinates = Galeri::Xpetra::Utils::CreateCartesianCoordinates<real_type,LO,GO,Map,RealValuedMultiVector>("2D", map, galeriList);
+    map         = Galeri::Xpetra::CreateMap<LO, GO, Node>(lib, "Cartesian2D", comm, galeriList);
+    coordinates = Galeri::Xpetra::Utils::CreateCartesianCoordinates<real_type, LO, GO, Map, RealValuedMultiVector>("2D", map, galeriList);
 
   } else if (matrixType == "Laplace3D" || matrixType == "Brick3D" || matrixType == "Elasticity3D") {
-    map = Galeri::Xpetra::CreateMap<LO, GO, Node>(lib, "Cartesian3D", comm, galeriList);
-    coordinates = Galeri::Xpetra::Utils::CreateCartesianCoordinates<real_type,LO,GO,Map,RealValuedMultiVector>("3D", map, galeriList);
+    map         = Galeri::Xpetra::CreateMap<LO, GO, Node>(lib, "Cartesian3D", comm, galeriList);
+    coordinates = Galeri::Xpetra::Utils::CreateCartesianCoordinates<real_type, LO, GO, Map, RealValuedMultiVector>("3D", map, galeriList);
   }
 
   // Expand map to do multiple DOF per node for block problems
   if (matrixType == "Elasticity2D")
-    map = Xpetra::MapFactory<LO,GO,Node>::Build(map, 2);
+    map = Xpetra::MapFactory<LO, GO, Node>::Build(map, 2);
   if (matrixType == "Elasticity3D")
-    map = Xpetra::MapFactory<LO,GO,Node>::Build(map, 3);
+    map = Xpetra::MapFactory<LO, GO, Node>::Build(map, 3);
 
   if (matrixType == "Elasticity2D" || matrixType == "Elasticity3D") {
     // Our default test case for elasticity: all boundaries of a square/cube have Neumann b.c. except left which has Dirichlet
-    galeriList.set("right boundary" , "Neumann");
+    galeriList.set("right boundary", "Neumann");
     galeriList.set("bottom boundary", "Neumann");
-    galeriList.set("top boundary"   , "Neumann");
-    galeriList.set("front boundary" , "Neumann");
-    galeriList.set("back boundary"  , "Neumann");
+    galeriList.set("top boundary", "Neumann");
+    galeriList.set("front boundary", "Neumann");
+    galeriList.set("back boundary", "Neumann");
   }
 
-  RCP<Galeri::Xpetra::Problem<Map,CrsMatrixWrap,MultiVector> > Pr =
-    Galeri::Xpetra::BuildProblem<SC,LO,GO,Map,CrsMatrixWrap,MultiVector>(matrixType, map, galeriList);
+  RCP<Galeri::Xpetra::Problem<Map, CrsMatrixWrap, MultiVector> > Pr =
+      Galeri::Xpetra::BuildProblem<SC, LO, GO, Map, CrsMatrixWrap, MultiVector>(matrixType, map, galeriList);
   A = Pr->BuildMatrix();
 
   if (matrixType == "Elasticity2D" ||
@@ -148,16 +113,16 @@ void ConstructData(const std::string& matrixType, Teuchos::ParameterList& galeri
   }
 }
 
-template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int argc, char *argv[]) {
+template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+int main_(Teuchos::CommandLineProcessor& clp, Xpetra::UnderlyingLib& lib, int argc, char* argv[]) {
 #include <MueLu_UseShortNames.hpp>
+  using Teuchos::ArrayRCP;
   using Teuchos::RCP;
   using Teuchos::rcp;
-  using Teuchos::ArrayRCP;
   using Teuchos::TimeMonitor;
 
   typedef typename Teuchos::ScalarTraits<SC>::magnitudeType real_type;
-  typedef typename Xpetra::MultiVector<real_type,LO,GO,NO> RealValuedMultiVector;
+  typedef typename Xpetra::MultiVector<real_type, LO, GO, NO> RealValuedMultiVector;
 
   // =========================================================================
   // MPI initialization using Teuchos
@@ -171,27 +136,31 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int ar
   SC one = STS::one(), zero = STS::zero();
 
   RCP<Teuchos::FancyOStream> fancy = Teuchos::fancyOStream(Teuchos::rcpFromRef(std::cout));
-  Teuchos::FancyOStream& out = *fancy;
+  Teuchos::FancyOStream& out       = *fancy;
   out.setOutputToRootOnly(0);
 
   // =========================================================================
   // Parameters initialization
   // =========================================================================
   GO nx = 100, ny = 100, nz = 100;
-  Galeri::Xpetra::Parameters<GO> galeriParameters(clp, nx, ny, nz, "Laplace2D"); // manage parameters of the test case
-  Xpetra::Parameters             xpetraParameters(clp);                          // manage parameters of Xpetra
+  Galeri::Xpetra::Parameters<GO> galeriParameters(clp, nx, ny, nz, "Laplace2D");  // manage parameters of the test case
+  Xpetra::Parameters xpetraParameters(clp);                                       // manage parameters of Xpetra
 
-  std::string xmlFileName = "";     clp.setOption("xml",                &xmlFileName, "read parameters from a file");
-  int         numRebuilds = 0;      clp.setOption("rebuild",            &numRebuilds, "#times to rebuild hierarchy");
-  bool        useFilter   = true;   clp.setOption("filter", "nofilter", &useFilter,   "Print out only Setup times");
-  bool        modify      = true;   clp.setOption("modify", "nomodify", &modify,      "Change values of the matrix used for reuse");
+  std::string xmlFileName = "";
+  clp.setOption("xml", &xmlFileName, "read parameters from a file");
+  int numRebuilds = 0;
+  clp.setOption("rebuild", &numRebuilds, "#times to rebuild hierarchy");
+  bool useFilter = true;
+  clp.setOption("filter", "nofilter", &useFilter, "Print out only Setup times");
+  bool modify = true;
+  clp.setOption("modify", "nomodify", &modify, "Change values of the matrix used for reuse");
 
   clp.recogniseAllOptions(true);
   switch (clp.parse(argc, argv)) {
-    case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED:        return EXIT_SUCCESS;
+    case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED: return EXIT_SUCCESS;
     case Teuchos::CommandLineProcessor::PARSE_ERROR:
     case Teuchos::CommandLineProcessor::PARSE_UNRECOGNIZED_OPTION: return EXIT_FAILURE;
-    case Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL:          break;
+    case Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL: break;
   }
 
   // Retrieve matrix parameters (they may have been changed on the command line)
@@ -202,12 +171,13 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int ar
   // Problem construction
   // =========================================================================
   // For comments, see Driver.cpp
-  out << "========================================================\n" << xpetraParameters << galeriParameters;
+  out << "========================================================\n"
+      << xpetraParameters << galeriParameters;
   std::string matrixType = galeriParameters.GetMatrixType();
-  RCP<Matrix>           A, B;
-  RCP<const Map>        map;
-  RCP<RealValuedMultiVector>  coordinates;
-  RCP<MultiVector>      nullspace;
+  RCP<Matrix> A, B;
+  RCP<const Map> map;
+  RCP<RealValuedMultiVector> coordinates;
+  RCP<MultiVector> nullspace;
   ConstructData(matrixType, galeriList, lib, comm, A, map, coordinates, nullspace);
 
   if (modify) {
@@ -237,7 +207,7 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int ar
 
   Teuchos::ParameterList paramList;
   paramList.set("verbosity", "none");
-  if(lib == Xpetra::UseEpetra) {
+  if (lib == Xpetra::UseEpetra) {
     out << "Setting: \"use kokkos refactor\" to: false" << std::endl;
     paramList.set("use kokkos refactor", false);
   }
@@ -289,10 +259,14 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int ar
   // Setup #2-inf (reuse)
   // =========================================================================
   std::vector<std::string> reuseTypes, reuseNames;
-  reuseTypes.push_back("none"); reuseNames.push_back("none");
-  reuseTypes.push_back("S");    reuseNames.push_back("smoothers");
-  reuseTypes.push_back("tP");   reuseNames.push_back("tentative P");
-  reuseTypes.push_back("RP");   reuseNames.push_back("smoothed P and R");
+  reuseTypes.push_back("none");
+  reuseNames.push_back("none");
+  reuseTypes.push_back("S");
+  reuseNames.push_back("smoothers");
+  reuseTypes.push_back("tP");
+  reuseNames.push_back("tentative P");
+  reuseTypes.push_back("RP");
+  reuseNames.push_back("smoothed P and R");
 
   for (size_t k = 0; k < reuseTypes.size(); k++) {
     out << thickSeparator << " " << reuseTypes[k] << " " << thickSeparator << std::endl;
@@ -310,7 +284,7 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int ar
     // Reuse setup
     RCP<Matrix> Bcopy = Xpetra::MatrixFactory2<Scalar, LocalOrdinal, GlobalOrdinal, Node>::BuildCopy(B);
 
-    RCP<Teuchos::Time> tm = TimeMonitor::getNewTimer("Setup #" + MueLu::toString(k+2) + ": reuse " + reuseNames[k]);
+    RCP<Teuchos::Time> tm = TimeMonitor::getNewTimer("Setup #" + MueLu::toString(k + 2) + ": reuse " + reuseNames[k]);
     for (int i = 0; i <= numRebuilds; i++) {
       out << thinSeparator << " " << reuseTypes[k] << " (rebuild #" << i << ") " << thinSeparator << std::endl;
 
@@ -350,11 +324,10 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int ar
   return EXIT_SUCCESS;
 }
 
-
 //- -- --------------------------------------------------------
 #define MUELU_AUTOMATIC_TEST_ETI_NAME main_
 #include "MueLu_Test_ETI.hpp"
 
-int main(int argc, char *argv[]) {
-  return Automatic_Test_ETI(argc,argv);
+int main(int argc, char* argv[]) {
+  return Automatic_Test_ETI(argc, argv);
 }

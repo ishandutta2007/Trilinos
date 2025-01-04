@@ -82,8 +82,14 @@ macro(submit_upload_config_files)
         if( NOT (skip_single_submit AND skip_by_parts_submit) )
             message(">>> ctest_upload(FILES ${configure_command_file}")
             message("                 ${configure_file}")
-            message("                 ${package_enables_file} )")
-            ctest_upload(FILES ${configure_command_file} ${configure_file} ${package_enables_file})
+            message("                 ${package_enables_file}")
+            message("                 ${genconfig_build_name_file})")
+
+            ctest_upload(FILES ${configure_command_file}
+                               ${configure_file}
+                               ${package_enables_file}
+                               ${genconfig_build_name_file})
+
             message(">>> ctest_submit(PARTS upload")
             message("                 RETRY_COUNT  ${ctest_submit_retry_count}")
             message("                 RETRY_DELAY  ${ctest_submit_retry_delay}")
@@ -127,6 +133,7 @@ macro(print_options_list)
     message(">>> subproject_count         = ${subproject_count}")
     message(">>> dashboard_model          = ${dashboard_model}")
     message(">>> dashboard_track          = ${dashboard_track}")
+    message(">>> genconfig_build_name_file= ${genconfig_build_name_file}")
     message(">>> configure_command_file   = ${configure_command_file}")
     message(">>> configure_file           = ${configure_file}")
     message(">>> build_root               = ${build_root}")
@@ -184,6 +191,21 @@ function(generate_build_url3 url_output cdash_site cdash_location project_name b
     )
     set(${url_output} ${url_output_tmp} PARENT_SCOPE)
     banner("generate_build_url3() FINISH")
+endfunction()
+
+
+# generate_build_url4 generates a link to view all builds for a particular PR
+function(generate_build_url4 url_output cdash_site cdash_location project_name pr_num)
+    banner("generate_build_url4() START")
+    message(">>> cdash_site    : ${cdash_site}")
+    message(">>> cdash_location: ${cdash_location}")
+    message(">>> project_name  : ${project_name}")
+    message(">>> pr_num        : ${pr_num}")
+    string(REPLACE " " "%20" url_output_tmp
+        "https://${cdash_site}${cdash_location}index.php?project=${project_name}&display=project&begin=2024-01-01&end=now&filtercount=1&showfilters=1&field1=buildname&compare1=65&value1=PR-${pr_num}"
+    )
+    set(${url_output} ${url_output_tmp} PARENT_SCOPE)
+    banner("generate_build_url4() FINISH")
 endfunction()
 
 

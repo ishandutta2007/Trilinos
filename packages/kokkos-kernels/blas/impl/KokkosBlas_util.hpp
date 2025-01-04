@@ -14,8 +14,8 @@
 //
 //@HEADER
 
-#ifndef KOKKOS_BLAS_UTIL_HPP
-#define KOKKOS_BLAS_UTIL_HPP
+#ifndef KOKKOSBLAS_UTIL_HPP
+#define KOKKOSBLAS_UTIL_HPP
 
 #include "Kokkos_ArithTraits.hpp"
 
@@ -85,6 +85,8 @@ struct Algo {
   using SolveLU   = Level3;
   using QR        = Level3;
   using UTV       = Level3;
+  using Pttrf     = Level3;
+  using Pttrs     = Level3;
 
   struct Level2 {
     struct Unblocked {};
@@ -116,6 +118,9 @@ struct Algo {
   using Gemv   = Level2;
   using Trsv   = Level2;
   using ApplyQ = Level2;
+  using Tbsv   = Level2;
+  using Pbtrf  = Level2;
+  using Pbtrs  = Level2;
 };
 
 namespace Impl {
@@ -133,12 +138,9 @@ namespace Impl {
 // Output params:
 //  * teamsPerReduction: number of teams to use for each reduction
 template <typename ExecSpace, typename size_type>
-void multipleReductionWorkDistribution(size_type length,
-                                       size_type numReductions,
-                                       size_type &teamsPerDot) {
-  constexpr size_type workPerTeam = 4096;  // Amount of work per team
-  size_type appxNumTeams =
-      (length * numReductions) / workPerTeam;  // Estimation for appxNumTeams
+void multipleReductionWorkDistribution(size_type length, size_type numReductions, size_type &teamsPerDot) {
+  constexpr size_type workPerTeam = 4096;                                    // Amount of work per team
+  size_type appxNumTeams          = (length * numReductions) / workPerTeam;  // Estimation for appxNumTeams
 
   // Adjust appxNumTeams in case it is too small or too large
   if (appxNumTeams < 1) appxNumTeams = 1;
@@ -175,4 +177,4 @@ struct TakeSqrtFunctor {
 }  // namespace Impl
 }  // namespace KokkosBlas
 
-#endif
+#endif  // KOKKOSBLAS_UTIL_HPP

@@ -13,6 +13,7 @@
 #include <Akri_DiagWriter.hpp>
 #include <Akri_MeshSurface.hpp>
 #include <Akri_Parser.hpp>
+#include <stk_mesh/base/MetaData.hpp>
 
 #include <stk_util/environment/RuntimeDoomed.hpp>
 
@@ -23,9 +24,6 @@ namespace {
 Sphere *
 parse_sphere(const Parser::Node & ic_node)
 {
-  std::string name;
-  ic_node.get_if_present("name", name);
-
   std::vector<double> center;
   if (ic_node.get_if_present("center", center))
   {
@@ -54,15 +52,12 @@ parse_sphere(const Parser::Node & ic_node)
     stk::RuntimeDoomedAdHoc() << "Missing radius for IC sphere.\n";
   }
 
-  return new Sphere(name, stk::math::Vector3d(center.data()), radius, sign);
+  return new Sphere(stk::math::Vector3d(center.data()), radius, sign);
 }
 
 Ellipsoid *
 parse_ellipsoid(const Parser::Node & ic_node)
 {
-  std::string name;
-  ic_node.get_if_present("name", name);
-
   std::vector<double> center;
   if (ic_node.get_if_present("center", center))
   {
@@ -107,15 +102,12 @@ parse_ellipsoid(const Parser::Node & ic_node)
     }
   }
 
-  return new Ellipsoid(name, center, semiaxes, rotationVec, sign);
+  return new Ellipsoid(center, semiaxes, rotationVec, sign);
 }
 
 Plane *
 parse_plane(const Parser::Node & ic_node)
 {
-  std::string name;
-  ic_node.get_if_present("name", name);
-
   std::vector<double> normal;
   if (ic_node.get_if_present("normal", normal))
   {
@@ -148,15 +140,12 @@ parse_plane(const Parser::Node & ic_node)
     stk::RuntimeDoomedAdHoc() << "Missing offset for IC plane.\n";
   }
 
-  return new Plane(name, normal.data(), offset, multiplier);
+  return new Plane(normal.data(), offset, multiplier);
 }
 
 Cylinder *
 parse_cylinder(const Parser::Node & ic_node)
 {
-  std::string name;
-  ic_node.get_if_present("name", name);
-
   std::vector<double> p1;
   if (ic_node.get_if_present("p1", p1))
   {
@@ -198,7 +187,7 @@ parse_cylinder(const Parser::Node & ic_node)
     }
   }
 
-  return new Cylinder(name, p1.data(), p2.data(), radius, sign);
+  return new Cylinder(p1.data(), p2.data(), radius, sign);
 }
 
 Surface *
@@ -269,7 +258,7 @@ parse_facets(const Parser::Node & ic_node, const stk::diag::Timer &parent_timer)
   return surface;
 }
 
-MeshSurface *
+Surface *
 parse_mesh_surface(const Parser::Node & ic_node, const stk::mesh::MetaData & meta)
 {
   std::string surface_name;
@@ -291,8 +280,11 @@ parse_mesh_surface(const Parser::Node & ic_node, const stk::mesh::MetaData & met
   const stk::mesh::Field<double>* coords = reinterpret_cast<const stk::mesh::Field<double>*>(&auxMeta.get_current_coordinates().field());
   STK_ThrowRequire(nullptr != coords);
 
-  const stk::mesh::Selector surface_selector = stk::mesh::Selector(io_part);
-  return new MeshSurface(meta, *coords, surface_selector, sign);
+  const stk::mesh::Selector surfaceSelector = stk::mesh::Selector(io_part);
+
+  if (meta.spatial_dimension() == 2)
+    return new MeshSurface<Facet2d>(meta, *coords, surfaceSelector, sign);
+  return new MeshSurface<Facet3d>(meta, *coords, surfaceSelector, sign);
 }
 
 LevelSet_String_Function *

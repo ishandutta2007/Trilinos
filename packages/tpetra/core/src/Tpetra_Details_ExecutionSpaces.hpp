@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//          Tpetra: Templated Linear Algebra Services Package
+//
+// Copyright 2008 NTESS and the Tpetra contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef TPETRA_DETAILS_EXECUTIONSPACES_HPP
 #define TPETRA_DETAILS_EXECUTIONSPACES_HPP
 
@@ -231,7 +240,7 @@ public:
       TPETRA_DETAILS_SPACES_THROW(
           "requested instance id "
           << i << " (>= " << Tpetra::Details::Behavior::spacesIdWarnLimit()
-          << ") set by TPETRA_SPACES_ID_WARN_LIMT");
+          << ") set by TPETRA_SPACES_ID_WARN_LIMIT");
     }
 
     // make sure we can store an exec space at index i for priority

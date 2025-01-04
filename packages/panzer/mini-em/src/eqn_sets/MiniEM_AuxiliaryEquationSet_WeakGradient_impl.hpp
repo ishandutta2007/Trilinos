@@ -1,3 +1,13 @@
+// @HEADER
+// *****************************************************************************
+//           Panzer: A partial differential equation assembly
+//       engine for strongly coupled complex multiphysics systems
+//
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef _MiniEM_AuxiliaryEquationSet_WeakGradient_impl_hpp_
 #define _MiniEM_AuxiliaryEquationSet_WeakGradient_impl_hpp_
 
@@ -139,6 +149,8 @@ buildAndRegisterScatterEvaluators(PHX::FieldManager<panzer::Traits>& fm,
    typedef typename panzer::BlockedEpetraLinearObjFactory<panzer::Traits,LocalOrdinalEpetra> blockedEpetraLinObjFactory;
    typedef typename panzer::BlockedEpetraLinearObjFactory<panzer::Traits,LocalOrdinalEpetra> epetraLinObjFactory;
 #endif
+
+   PANZER_FUNC_TIME_MONITOR_DIFF("mini_em::AuxEqSet_WeakGradient::buildAndRegisterScatterEvaluators()",scatter_eval);
 
    std::string fieldStr = (*this->m_dof_names)[0];
    int pFieldNum;

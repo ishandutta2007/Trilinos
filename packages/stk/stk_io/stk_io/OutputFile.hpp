@@ -47,6 +47,7 @@
 #include <string>                           // for string
 #include <utility>                          // for pair, swap
 #include <vector>                           // for vector
+#include <any>
 #include "mpi.h"                            // for MPI_Comm, ompi_communicat...
 #include "stk_io/FieldAndName.hpp"          // for FieldAndName, UserDataAnd...
 #include "stk_io/OutputVariableParams.hpp"  // for OutputVariableParams
@@ -183,10 +184,7 @@ public:
     void begin_output_step(double time, const stk::mesh::BulkData& bulk_data, const std::vector<std::vector<int>> &attributeOrdering);
     void end_output_step();
 
-    int write_defined_output_fields(const stk::mesh::BulkData& bulk_data, const stk::mesh::FieldState *state = nullptr);
-    int write_defined_output_fields_for_selected_subset(const stk::mesh::BulkData& bulk_data,
-                                                        std::vector<stk::mesh::Part*>& selectOutputElementParts,
-                                                        const stk::mesh::FieldState *state = nullptr);
+    int write_defined_output_fields(const stk::mesh::BulkData &bulk_data, const stk::mesh::FieldState *state = nullptr);
 
     int process_output_request(double time, const stk::mesh::BulkData& bulk_data, const std::vector<std::vector<int>> &attributeOrdering);
 
@@ -215,7 +213,6 @@ public:
     void has_adaptivity(bool hasAdaptivity);
 
     bool is_skin_mesh() const;
-    void is_skin_mesh(bool skinMesh);
 
     void set_enable_edge_io(bool enableEdgeIO);
 

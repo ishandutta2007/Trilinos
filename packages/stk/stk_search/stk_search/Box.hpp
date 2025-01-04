@@ -35,7 +35,7 @@
 #ifndef STK_SEARCH_BOX_HPP
 #define STK_SEARCH_BOX_HPP
 
-#include <Kokkos_ArithTraits.hpp>
+#include <Kokkos_Core.hpp>
 #include <stk_search/Point.hpp>
 
 namespace stk { namespace search {
@@ -48,14 +48,11 @@ public:
   typedef Point<value_type> point_type;
   static const int Dim = 3;
 
-  static KOKKOS_FUNCTION constexpr value_type max() { return Kokkos::Details::ArithTraits<T>::max() ;}
+  static KOKKOS_FUNCTION constexpr value_type max() { return Kokkos::Experimental::finite_max_v<T>;}
   static KOKKOS_FUNCTION constexpr value_type min() {
-    // Kokkos documentation claims this function is equivalent to numeric_limits<T>::min() which returns the 
-    // smallest positive representatble real value.  However, ArithTraits<T>::min() actually returns the most 
-    // negative real value (which would be equilvalent to numeric_limits<T>::lowest).  If Kokkos ever changes
-    // the behavior of this min  function to be consistent with Kokkos documentation this class will break badly 
-    // as it is the 'lowest' value we really want here.  
-    return Kokkos::Details::ArithTraits<T>::min();
+    // finite_min_v<T> returns the most negative real value (equivalent to numeric_limits<T>::lowest).
+    // it is the 'lowest' value that we want here.  
+    return Kokkos::Experimental::finite_min_v<T>;
   }
 
   KOKKOS_FUNCTION Box()
@@ -86,6 +83,31 @@ public:
   KOKKOS_FUNCTION value_type get_y_max() const { return m_max_corner[1]; }
   KOKKOS_FUNCTION value_type get_z_max() const { return m_max_corner[2]; }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  float get_expanded_x_min() const { return Kokkos::nextafter(static_cast<float>(m_min_corner[0]),
+                                                              Kokkos::Experimental::finite_min_v<float>); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  float get_expanded_y_min() const { return Kokkos::nextafter(static_cast<float>(m_min_corner[1]),
+                                                              Kokkos::Experimental::finite_min_v<float>); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  float get_expanded_z_min() const { return Kokkos::nextafter(static_cast<float>(m_min_corner[2]),  
+                                                              Kokkos::Experimental::finite_min_v<float>);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  float get_expanded_x_max() const { return Kokkos::nextafter(static_cast<float>(m_max_corner[0]),
+                                                              Kokkos::Experimental::finite_max_v<float>); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  float get_expanded_y_max() const { return Kokkos::nextafter(static_cast<float>(m_max_corner[1]),
+                                                              Kokkos::Experimental::finite_max_v<float>); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  float get_expanded_z_max() const { return Kokkos::nextafter(static_cast<float>(m_max_corner[2]),
+                                                              Kokkos::Experimental::finite_max_v<float>); }
+
   KOKKOS_FUNCTION void set_min_corner(point_type const& x_min_corner) { m_min_corner = x_min_corner; }
   KOKKOS_FUNCTION void set_max_corner(point_type const& x_max_corner) { m_max_corner = x_max_corner; }
 
@@ -107,8 +129,6 @@ public:
     set_min_corner(b.min_corner());
     set_max_corner(b.max_corner());
   }
-
-  KOKKOS_DEFAULTED_FUNCTION ~Box() = default;
 
 private:
   point_type m_min_corner;

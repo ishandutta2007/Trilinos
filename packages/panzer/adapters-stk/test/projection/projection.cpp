@@ -1,43 +1,11 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //           Panzer: A partial differential equation assembly
 //       engine for strongly coupled complex multiphysics systems
-//                 Copyright (2011) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Roger P. Pawlowski (rppawlo@sandia.gov) and
-// Eric C. Cyr (eccyr@sandia.gov)
-// ***********************************************************************
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 // Panzer STK
@@ -61,6 +29,7 @@
 #include "Panzer_Traits.hpp"
 #include "Panzer_Evaluator_WithBaseImpl.hpp"
 #include "Panzer_IntrepidBasisFactory.hpp"
+#include "Panzer_IntrepidOrientation.hpp"
 #include "Panzer_L2Projection.hpp"
 #include "Panzer_DOFManager.hpp"
 #include "Panzer_BlockedDOFManager.hpp"
@@ -152,7 +121,7 @@ TEUCHOS_UNIT_TEST(L2Projection, ToNodal)
   using LO = int;
   using GO = panzer::GlobalOrdinal;
   timer->start("ConnManager ctor");
-  const RCP<panzer::ConnManager> connManager = rcp(new panzer_stk::STKConnManager(mesh));
+  const RCP<panzer_stk::STKConnManager> connManager = rcp(new panzer_stk::STKConnManager(mesh));
   timer->stop("ConnManager ctor");
 
   // Set up bases for projections
@@ -243,6 +212,66 @@ TEUCHOS_UNIT_TEST(L2Projection, ToNodal)
   panzer::L2Projection projectionFactory;
   projectionFactory.setup(hgradBD,integrationDescriptor,comm,connManager,eBlockNames,worksetContainer);
   timer->stop("projectionFactory.setup()");
+
+  
+
+
+
+  // Ignore the workset factory and set the basis directly
+  bool ignoreWorksetFactory = true;
+  std::map<std::string,Teuchos::RCP<panzer::BasisValues2<double>>> map_basis_values;
+  if (ignoreWorksetFactory) {
+
+    // Get the orientations for all element blocks
+    std::map<std::string,std::vector<Intrepid2::Orientation>> orientations;
+    panzer::buildIntrepidOrientations(eBlockNames,*connManager,orientations);
+
+    std::vector<shards::CellTopology> topologies;
+    connManager->getElementBlockTopologies(topologies);
+
+    for (size_t i=0; i <  eBlockNames.size(); ++i) {
+
+      const auto& eblock = eBlockNames[i];
+      const auto& topo = topologies[i];
+ 
+      // Get nodal coordinates for integration rules
+      std::vector<std::size_t> lids;
+      panzer::Intrepid2FieldPattern coord_fp(hgradBasis);
+      Kokkos::DynRankView<double,PHX::Device> nodal_coords_kokkos;
+      connManager->getDofCoords(eblock,coord_fp,lids,nodal_coords_kokkos);
+
+      // This is ugly. Need to fix connManager interface for layouts (fad vs non-fad).
+      PHX::MDField<double,panzer::Cell,panzer::BASIS,panzer::Dim> nodal_coords("nodal_coords","<Cell,BASIS,Dim>",
+                                                                               nodal_coords_kokkos.extent(0),
+                                                                               nodal_coords_kokkos.extent(1),
+                                                                               nodal_coords_kokkos.extent(2));
+      Kokkos::deep_copy(nodal_coords.get_view(),nodal_coords_kokkos);
+
+      // Build IV
+      Teuchos::RCP<shards::CellTopology> rcp_topo = Teuchos::rcp(new shards::CellTopology(topo.getCellTopologyData()));
+      Teuchos::RCP<panzer::IntegrationRule> ir = Teuchos::rcp(new panzer::IntegrationRule(integrationDescriptor,rcp_topo,static_cast<int>(nodal_coords_kokkos.extent(0))));
+      Teuchos::RCP<panzer::IntegrationValues2<double>> iv = Teuchos::rcp(new panzer::IntegrationValues2<double>);
+      iv->setup(ir,nodal_coords);
+
+      // Build BV
+      Teuchos::RCP<panzer::BasisValues2<double>> bv = Teuchos::rcp(new panzer::BasisValues2<double>);
+      Teuchos::RCP<panzer::BasisIRLayout> birl = Teuchos::rcp(new panzer::BasisIRLayout(hgradBD.getType(),hgradBD.getOrder(),*ir));
+      bv->setupUniform(birl,
+                       iv->getUniformCubaturePointsRef(true),
+                       iv->getJacobian(true),
+                       iv->getJacobianDeterminant(true),
+                       iv->getJacobianInverse(true));
+      bv->setOrientations(orientations[eblock]);
+      bv->setWeightedMeasure(iv->getWeightedMeasure(true));
+      bv->setCellNodeCoordinates(nodal_coords);
+      map_basis_values[eblock] = bv;
+    }
+    projectionFactory.useBasisValues(map_basis_values);
+  }
+
+
+
+
 
   TEST_ASSERT(nonnull(projectionFactory.getTargetGlobalIndexer()));
 
@@ -369,11 +398,7 @@ TEUCHOS_UNIT_TEST(L2Projection, ToNodal)
         const int numBasisPHI = static_cast<int>(offsetsPHI.extent(0));
         const int numBasisE = static_cast<int>(offsetsE.extent(0));
         const int numBasisB = static_cast<int>(offsetsB.extent(0));
-  #ifdef HAVE_INTREPID2_EXPERIMENTAL_NAMESPACE
-        using li = Intrepid2::Experimental::LagrangianInterpolation<PHX::Device>;
-  #else
         using li = Intrepid2::LagrangianInterpolation<PHX::Device>;
-  #endif
 
         //Computing HGRAD coefficients for PHI to interpolate function f(x,y,z) = 1+x+2y+3z
         DynRankView basisCoeffsPHI("basisCoeffsPHI", workset.numOwnedCells(), numBasisPHI);

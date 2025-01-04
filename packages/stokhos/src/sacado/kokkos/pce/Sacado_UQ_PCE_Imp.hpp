@@ -1,42 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //                           Stokhos Package
-//                 Copyright (2009) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Eric T. Phipps (etphipp@sandia.gov).
-//
-// ***********************************************************************
+// Copyright 2009 NTESS and the Stokhos contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "Teuchos_SerialDenseMatrix.hpp"
@@ -392,20 +360,21 @@ operator*=(const PCE<Storage>& x)
   const ordinal_type sz = this->size();
   const ordinal_type csz = sz > xsz ? sz : xsz;
 
-#if !defined(__CUDA_ARCH__)
+
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     sz != xsz && sz != 1 && xsz != 1, std::logic_error,
     "Sacado::UQ::PCE::operator*=(): input sizes do not match");
-#endif
+  )
 
   if (cijk_.is_empty() && !x.cijk_.is_empty())
     cijk_ = x.cijk_;
 
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     cijk_.is_empty() && csz != 1, std::logic_error,
     "Sacado::UQ::PCE::operator*(): empty cijk but expansion size > 1");
-#endif
+  )
 
   if (csz > sz)
     s_.resize(csz);
@@ -452,11 +421,11 @@ operator/=(const PCE<Storage>& x)
   const ordinal_type sz = this->size();
   const ordinal_type csz = sz > xsz ? sz : xsz;
 
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     sz != xsz && sz != 1 && xsz != 1, std::logic_error,
     "Sacado::UQ::PCE::operator/=(): input sizes do not match");
-#endif
+  )
 
   if (cijk_.is_empty() && !x.cijk_.is_empty())
     cijk_ = x.cijk_;
@@ -467,13 +436,13 @@ operator/=(const PCE<Storage>& x)
   const_pointer xc = x.coeff();
   pointer cc = this->coeff();
 
-#if defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_DEVICE(
   const value_type xcz = xc[0];
     for (ordinal_type i=0; i<sz; ++i)
       cc[i] /= xcz;
-#endif
+  )
 
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   if (xsz == 1) {//constant denom
     const value_type xcz = xc[0];
     for (ordinal_type i=0; i<sz; ++i)
@@ -485,7 +454,7 @@ operator/=(const PCE<Storage>& x)
     CG_divide(*this, x, y);
     s_ = y.s_;
   }
-#endif
+  )
 
   return *this;
 
@@ -657,19 +626,19 @@ operator*(const PCE<Storage>& a, const PCE<Storage>& b)
   const ordinal_type bsz = b.size();
   const ordinal_type csz = asz > bsz ? asz : bsz;
 
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST((
   TEUCHOS_TEST_FOR_EXCEPTION(
     asz != bsz && asz != 1 && bsz != 1, std::logic_error,
     "Sacado::UQ::PCE::operator*(): input sizes do not match");
-#endif
+  ))
 
   my_cijk_type c_cijk = a.cijk().is_empty() ? b.cijk() : a.cijk();
 
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST((
   TEUCHOS_TEST_FOR_EXCEPTION(
     c_cijk.is_empty() && csz != 1, std::logic_error,
     "Sacado::UQ::PCE::operator*(): empty cijk but expansion size > 1");
-#endif
+  ))
 
   PCE<Storage> c(c_cijk, csz);
   const_pointer ac = a.coeff();
@@ -757,24 +726,24 @@ operator/(const PCE<Storage>& a, const PCE<Storage>& b)
   const ordinal_type bsz = b.size();
   const ordinal_type csz = asz > bsz ? asz : bsz;
   
-#if !defined(__CUDA_ARCH__)
-TEUCHOS_TEST_FOR_EXCEPTION(
+  KOKKOS_IF_ON_HOST((
+  TEUCHOS_TEST_FOR_EXCEPTION(
   asz != bsz && asz != 1 && bsz != 1, std::logic_error,
   "Sacado::UQ::PCE::operator/(): input sizes do not match");
-#endif
+  ))
   my_cijk_type c_cijk = asz == bsz || asz >1 ? a.cijk() : b.cijk();
 
   PCE<Storage> c(c_cijk, csz);
 
-#if defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST((
   const_pointer ac = a.coeff();
   pointer cc = c.coeff();
   value_type bcz = b.fastAccessCoeff(0);
   for (ordinal_type i=0; i<asz; ++i)
     cc[i] = ac[i]/bcz;
-#endif
+  ))
 
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST((
   if (bsz == 1) {//constant denom
     const_pointer ac = a.coeff();
     const_pointer bc = b.coeff();
@@ -786,7 +755,7 @@ TEUCHOS_TEST_FOR_EXCEPTION(
   else {
    CG_divide(a,b,c);
   }
-#endif
+  ))
 
   return c;
 }
@@ -826,11 +795,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 exp(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::exp():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::exp( a.fastAccessCoeff(0) );
@@ -843,11 +812,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 log(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::log():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::log( a.fastAccessCoeff(0) );
@@ -860,11 +829,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 log10(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::log10():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::log10( a.fastAccessCoeff(0) );
@@ -877,11 +846,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 sqrt(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::sqrt():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::sqrt( a.fastAccessCoeff(0) );
@@ -894,11 +863,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 cbrt(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::cbrt():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::cbrt( a.fastAccessCoeff(0) );
@@ -911,11 +880,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 pow(const PCE<Storage>& a, const PCE<Storage>& b)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1 || b.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::pow():  arguments have size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::pow(a.fastAccessCoeff(0), b.fastAccessCoeff(0));
@@ -929,11 +898,11 @@ PCE<Storage>
 pow(const typename PCE<Storage>::value_type& a,
     const PCE<Storage>& b)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     b.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::pow():  arguments have size != 1");
-#endif
+  )
 
   PCE<Storage> c(b.cijk(), 1);
   c.fastAccessCoeff(0) = std::pow(a, b.fastAccessCoeff(0));
@@ -947,11 +916,11 @@ PCE<Storage>
 pow(const PCE<Storage>& a,
     const typename PCE<Storage>::value_type& b)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::pow():  arguments have size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::pow(a.fastAccessCoeff(0), b);
@@ -964,11 +933,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 sin(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::sin():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::sin( a.fastAccessCoeff(0) );
@@ -981,11 +950,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 cos(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::cos():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::cos( a.fastAccessCoeff(0) );
@@ -998,11 +967,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 tan(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::tan():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::tan( a.fastAccessCoeff(0) );
@@ -1015,11 +984,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 sinh(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::sinh():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::sinh( a.fastAccessCoeff(0) );
@@ -1032,11 +1001,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 cosh(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::cosh():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::cosh( a.fastAccessCoeff(0) );
@@ -1049,11 +1018,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 tanh(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::tanh():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::tanh( a.fastAccessCoeff(0) );
@@ -1066,11 +1035,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 acos(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::acos():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::acos( a.fastAccessCoeff(0) );
@@ -1083,11 +1052,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 asin(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::asin():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::asin( a.fastAccessCoeff(0) );
@@ -1100,11 +1069,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 atan(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::atan():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::atan( a.fastAccessCoeff(0) );
@@ -1118,11 +1087,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 acosh(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::acosh():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::acosh( a.fastAccessCoeff(0) );
@@ -1135,11 +1104,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 asinh(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::asinh():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::asinh( a.fastAccessCoeff(0) );
@@ -1152,11 +1121,11 @@ KOKKOS_INLINE_FUNCTION
 PCE<Storage>
 atanh(const PCE<Storage>& a)
 {
-#if !defined(__CUDA_ARCH__)
+  KOKKOS_IF_ON_HOST(
   TEUCHOS_TEST_FOR_EXCEPTION(
     a.size() != 1, std::logic_error,
     "Sacado::UQ::PCE::atanh():  argument has size != 1");
-#endif
+  )
 
   PCE<Storage> c(a.cijk(), 1);
   c.fastAccessCoeff(0) = std::atanh( a.fastAccessCoeff(0) );

@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_MATRIX_DEF_HPP
 #define SHYLUBASKER_MATRIX_DEF_HPP
 
@@ -319,7 +328,7 @@ namespace BaskerNS
     if(nnz == _nnz)
     {
       copy_vec(_row_idx, _nnz, row_idx);
-      copy_vec(_val,_nnz,     val);
+      copy_vec(_val,     _nnz,     val);
     }
     else
     {
@@ -491,6 +500,13 @@ namespace BaskerNS
   
   template <class Int, class Entry, class Exe_Space>
   BASKER_INLINE
+  void BaskerMatrix<Int,Entry,Exe_Space>::init_ptr()
+  {
+    for (Int i = 0; i < ncol+1; i ++) col_ptr(i) = 0;
+  }
+
+  template <class Int, class Entry, class Exe_Space>
+  BASKER_INLINE
   void BaskerMatrix<Int,Entry,Exe_Space>::convert2D
   (
    BASKER_MATRIX &M,
@@ -562,12 +578,21 @@ namespace BaskerNS
         continue;
       }
 
+      Int skipped_count = 0;
+      Int kept_count = 0;
       Mag anorm_k (0.0);
       for(Int i = col_ptr(k-scol); i < M.col_ptr(k+1); i++)
       {
         Int j = M.row_idx(i);
         if(j >= srow+nrow)
         {
+          if (!keep_zeros && (kept_count == 0 && skipped_count > 0)) {
+            // if all were zero, then add the last entry to avoid empty column.
+            row_idx(temp_count) = M.row_idx(i-1)-srow;
+            val(temp_count) = M.val(i-1);
+            anorm_k += abs(M.val(i-1));
+            temp_count++;
+          }
           break;
         }
 
@@ -594,6 +619,9 @@ namespace BaskerNS
 
           anorm_k += abs(M.val(i));
           temp_count++;
+          kept_count ++;
+        } else {
+          skipped_count ++;
         }
       }
       anorm = (anorm > anorm_k ? anorm : anorm_k);

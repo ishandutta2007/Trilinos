@@ -29,8 +29,6 @@ static_assert(false,
 #include <impl/Kokkos_Error.hpp>
 #include <impl/Kokkos_SharedAlloc.hpp>
 
-#include <iostream>
-
 namespace Kokkos {
 namespace Impl {
 /* Report violation of size constraints:
@@ -198,9 +196,10 @@ class MemoryPool {
 
         stats.consumed_superblocks++;
         stats.consumed_blocks += block_used;
-        stats.consumed_bytes += block_used * block_size;
+        stats.consumed_bytes += static_cast<size_t>(block_used) * block_size;
         stats.reserved_blocks += block_count - block_used;
-        stats.reserved_bytes += (block_count - block_used) * block_size;
+        stats.reserved_bytes +=
+            static_cast<size_t>(block_count - block_used) * block_size;
       }
     }
 
@@ -236,9 +235,9 @@ class MemoryPool {
 
   //--------------------------------------------------------------------------
 
-  KOKKOS_DEFAULTED_FUNCTION MemoryPool(MemoryPool &&)      = default;
-  KOKKOS_DEFAULTED_FUNCTION MemoryPool(const MemoryPool &) = default;
-  KOKKOS_DEFAULTED_FUNCTION MemoryPool &operator=(MemoryPool &&) = default;
+  KOKKOS_DEFAULTED_FUNCTION MemoryPool(MemoryPool &&)                 = default;
+  KOKKOS_DEFAULTED_FUNCTION MemoryPool(const MemoryPool &)            = default;
+  KOKKOS_DEFAULTED_FUNCTION MemoryPool &operator=(MemoryPool &&)      = default;
   KOKKOS_DEFAULTED_FUNCTION MemoryPool &operator=(const MemoryPool &) = default;
 
   KOKKOS_INLINE_FUNCTION MemoryPool()

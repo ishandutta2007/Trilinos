@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperBackwardEulerObserverDefault_hpp
 #define Tempus_StepperBackwardEulerObserverDefault_hpp
@@ -16,7 +17,6 @@
 // if they need access to the stepper methods.
 //#include "Tempus_StepperBackwardEuler.hpp"
 
-
 namespace Tempus {
 
 /** \brief Default observer for StepperBackwardEuler.
@@ -27,41 +27,38 @@ namespace Tempus {
  *  Applications can copy this implementation, rename, implement their
  *  action, and set on the stepper to get app-specific functionality.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperBackwardEulerObserverDefault
-  : virtual public Tempus::StepperBackwardEulerObserverBase<Scalar>
-{
-public:
-
+  : virtual public Tempus::StepperBackwardEulerObserverBase<Scalar> {
+ public:
   /// Constructor
-  StepperBackwardEulerObserverDefault(){}
+  StepperBackwardEulerObserverDefault() {}
 
   /// Destructor
-  virtual ~StepperBackwardEulerObserverDefault(){}
+  virtual ~StepperBackwardEulerObserverDefault() {}
 
   /// Observe BackwardEuler Stepper at end of takeStep.
   virtual void observe(
-    Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<const StepperBackwardEuler<Scalar> > /* stepper */,
-    const typename StepperBackwardEulerAppAction<Scalar>::ACTION_LOCATION actLoc)
+      Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<const StepperBackwardEuler<Scalar> > /* stepper */,
+      const typename StepperBackwardEulerAppAction<Scalar>::ACTION_LOCATION
+          actLoc)
   {
-    switch(actLoc) {
+    switch (actLoc) {
       case StepperBackwardEulerAppAction<Scalar>::BEGIN_STEP:
       case StepperBackwardEulerAppAction<Scalar>::BEFORE_SOLVE:
       case StepperBackwardEulerAppAction<Scalar>::AFTER_SOLVE:
-      case StepperBackwardEulerAppAction<Scalar>::END_STEP:
-      {
+      case StepperBackwardEulerAppAction<Scalar>::END_STEP: {
         // No-op.
         break;
       }
       default:
         TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Error - unknown action location.\n");
+                                   "Error - unknown action location.\n");
     }
   }
-
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperBackwardEulerObserverDefault_hpp
+#endif  // Tempus_StepperBackwardEulerObserverDefault_hpp

@@ -143,9 +143,12 @@ void copy_meta(const stk::mesh::MetaData &inputMeta, stk::mesh::MetaData &output
   // Query the coordinate field, to figure out the final name (if none set by the user)
   inputMeta.coordinate_field();
 
-  outputMeta.initialize(inputMeta.spatial_dimension(),
-                        inputMeta.entity_rank_names(),
-                        inputMeta.coordinate_field_name());
+  if (!outputMeta.is_initialized()){
+     outputMeta.initialize(inputMeta.spatial_dimension(),
+                           inputMeta.entity_rank_names(),
+                           inputMeta.coordinate_field_name());
+  }
+
   copy_parts(inputMeta, outputMeta);
   copy_fields(inputMeta, outputMeta);
   copy_surface_to_block_mapping(inputMeta, outputMeta);
@@ -304,7 +307,7 @@ void make_nodes_shared(const stk::mesh::BulkData& inputBulk,
                        stk::mesh::Entity newEntity)
 {
   std::vector<int> commShared;
-  inputBulk.comm_shared_procs(inputBulk.entity_key(oldEntity), commShared);
+  inputBulk.comm_shared_procs(oldEntity, commShared);
   for(int sharedProc : commShared)
     outputBulk.add_node_sharing(newEntity, sharedProc);
 }

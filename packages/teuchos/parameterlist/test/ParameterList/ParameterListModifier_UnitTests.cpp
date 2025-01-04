@@ -1,42 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //                    Teuchos: Common Tools Package
-//                 Copyright (2004) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
+// Copyright 2004 NTESS and the Teuchos contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "Teuchos_ParameterList.hpp"
@@ -181,6 +149,55 @@ TEUCHOS_UNIT_TEST( ParameterListModifier, setDefaultsInSublists ) {
   // The AA sublist should change and the "A" parameter should be deleted
   // but the AB sublist should remain the same
   TEST_ASSERT(haveSameValuesSorted(expected_pl, pl, true));
+}
+
+
+class SimpleModifier : public Teuchos::ParameterListModifier
+{
+public:
+
+  SimpleModifier(const std::string &name) : Teuchos::ParameterListModifier(name){}
+};
+
+
+TEUCHOS_UNIT_TEST( ParameterListModifier, haveSameModifiers ) {
+  using Teuchos::ParameterListModifier;
+  RCP<ParameterListModifier> modifier1 = rcp(new ParameterListModifier("Modifier 1"));
+  RCP<ParameterListModifier> modifier2 = rcp(new ParameterListModifier("Modifier 2"));
+  RCP<ParameterListModifier> modifier3 = rcp(new ParameterListModifier("Modifier 1"));
+  RCP<SimpleModifier> modifier4 = rcp(new SimpleModifier("Modifier 1"));
+  
+  // These modifiers have the same type but different names
+  TEST_INEQUALITY(*modifier1, *modifier2);
+  // These modifiers have the same type and name
+  TEST_EQUALITY(*modifier1, *modifier3);
+  // These modifiers have different types but the same name
+  TEST_INEQUALITY(*modifier1, *modifier4);
+  // Test the `haveSameModifiers` function
+  {
+    ParameterList pl = ParameterList("pl", modifier1);
+    ParameterList expected_pl = ParameterList("expected_pl", modifier1);
+    TEST_ASSERT(haveSameModifiers(expected_pl, pl));
+  }
+  {
+    ParameterList pl = ParameterList("pl");
+    pl.sublist("Asub", modifier1);
+    ParameterList expected_pl = ParameterList("expected_pl");
+    expected_pl.sublist("Asub", modifier1);
+    TEST_ASSERT(haveSameModifiers(expected_pl, pl));
+    pl.sublist("Asub").setModifier(modifier2);
+    TEST_ASSERT(!haveSameModifiers(expected_pl, pl));
+  }
+  // const int a_val = 2;
+  // pl.sublist("AA");
+  // pl.sublist("AB").set("A", 3);
+  // ParameterList expected_pl(pl);
+  // pl.set("A", a_val);
+  // expected_pl.sublist("AA").set("A", a_val);
+  // empty_modifier->setDefaultsInSublists("A", pl, tuple<std::string>("AA", "AB"));
+  // // The AA sublist should change and the "A" parameter should be deleted
+  // // but the AB sublist should remain the same
+  // TEST_ASSERT(haveSameValuesSorted(expected_pl, pl, true));
 }
 
 

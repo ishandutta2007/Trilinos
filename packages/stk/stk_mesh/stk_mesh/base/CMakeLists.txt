@@ -47,15 +47,29 @@ FILE(GLOB SOURCES_IMPL ${CMAKE_CURRENT_SOURCE_DIR}/../baseImpl/*.cpp)
 FILE(GLOB HEADERS_ELEMGRAPH ${CMAKE_CURRENT_SOURCE_DIR}/../baseImpl/elementGraph/*.hpp)
 FILE(GLOB SOURCES_ELEMGRAPH ${CMAKE_CURRENT_SOURCE_DIR}/../baseImpl/elementGraph/*.cpp)
 
-#
-# C) Define the targets for package's library(s)
-#
-
-TRIBITS_ADD_LIBRARY(
-  stk_mesh_base
-  NOINSTALLHEADERS ${HEADERS} ${HEADERS_IMPL} ${HEADERS_ELEMGRAPH}
-  SOURCES ${SOURCES} ${SOURCES_IMPL} ${SOURCES_ELEMGRAPH}
+if(HAVE_STK_Trilinos)
+  TRIBITS_ADD_LIBRARY(stk_mesh_base
+    NOINSTALLHEADERS ${HEADERS} ${HEADERS_IMPL} ${HEADERS_ELEMGRAPH}
+    SOURCES ${SOURCES} ${SOURCES_IMPL} ${SOURCES_ELEMGRAPH}
   )
+else()
+  find_package(Shards REQUIRED)
+  add_library(stk_mesh_base ${SOURCES} ${SOURCES_IMPL} ${SOURCES_ELEMGRAPH})
+  target_link_libraries(stk_mesh_base ${Shards_LIBRARIES})
+  target_link_libraries(stk_mesh_base stk_topology)
+  target_link_libraries(stk_mesh_base stk_util_diag)
+  target_link_libraries(stk_mesh_base stk_util_env)
+  target_link_libraries(stk_mesh_base stk_util_parallel)
+
+  if(STK_BUILT_FOR_SIERRA)
+    find_package(SierraLapack REQUIRED)
+    target_link_libraries(stk_util_util PUBLIC SierraLapack::sierra_blas_lapack)
+  else()
+    find_package(BLAS REQUIRED)
+    target_link_libraries(stk_util_util PUBLIC BLAS::BLAS)
+  endif()
+    
+endif()
 
 target_include_directories(stk_mesh_base PUBLIC
   $<BUILD_INTERFACE:${STK_TOPLEVEL_SOURCE_DIR}/stk_mesh>
@@ -71,3 +85,6 @@ INSTALL(FILES ${HEADERS_IMPL} DESTINATION
 INSTALL(FILES ${HEADERS_ELEMGRAPH} DESTINATION
     ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_mesh/baseImpl/elementGraph)
 
+if(NOT HAVE_STK_Trilinos)
+  INSTALL(TARGETS stk_mesh_base EXPORT stkTargets DESTINATION ${STK_INSTALL_LIBDIR})
+endif()

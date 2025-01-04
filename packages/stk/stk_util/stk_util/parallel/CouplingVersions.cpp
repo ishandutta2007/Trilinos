@@ -62,9 +62,9 @@ class StkCompatibleVersion
 
     int get_global_max_version() const { return m_globalMaxVersion; }
 
-    void set_version_for_testing(unsigned int version)
+    void set_version_for_testing(MPI_Comm comm, unsigned int version)
     {
-      set_version_impl(MPI_COMM_WORLD, version);
+      set_version_impl(comm, version);
     }
 
     void set_version(MPI_Comm comm)
@@ -210,7 +210,9 @@ std::string get_deprecation_date(int version)
                                                       std::make_pair(9, "1/31/2023"),
                                                       std::make_pair(10, "4/12/2023"),
                                                       std::make_pair(11, "4/19/2023"),
-                                                      std::make_pair(12, "")
+                                                      std::make_pair(12, "3/11/2024"),
+                                                      std::make_pair(13, "3/28/2024"),
+                                                      std::make_pair(14, "")
                                                     };
 
   return deprecationDates.at(version);
@@ -242,10 +244,10 @@ void print_unsupported_version_warning(int version, int line, const char* file)
 
 namespace impl {
 
-void set_coupling_version(int version)
+void set_coupling_version(MPI_Comm comm, int version)
 {
 #ifdef STK_HAS_MPI
-  get_stk_coupling_version().set_version_for_testing(static_cast<unsigned int>(version));
+  get_stk_coupling_version().set_version_for_testing(comm, static_cast<unsigned int>(version));
 #endif
 }
 

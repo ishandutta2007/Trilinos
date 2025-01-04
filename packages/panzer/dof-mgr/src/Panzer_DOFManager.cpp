@@ -1,43 +1,11 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //           Panzer: A partial differential equation assembly
 //       engine for strongly coupled complex multiphysics systems
-//                 Copyright (2011) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Roger P. Pawlowski (rppawlo@sandia.gov) and
-// Eric C. Cyr (eccyr@sandia.gov)
-// ***********************************************************************
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef PANZER_DOF_MANAGER2_IMPL_HPP
@@ -408,7 +376,7 @@ DOFManager::getGIDFieldOffsetsKokkos(const std::string & blockID, int fieldNum) 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-const PHX::ViewOfViews3<1,PHX::View<const int*>>
+const PHX::ViewOfViews<1,PHX::View<const int*>>
 DOFManager::getGIDFieldOffsetsKokkos(const std::string & blockID, const std::vector<int> & fieldNums) const
 {
   TEUCHOS_TEST_FOR_EXCEPTION(!buildConnectivityRun_,std::logic_error, "DOFManager::getGIDFieldOffsets: cannot be called before "
@@ -418,7 +386,7 @@ DOFManager::getGIDFieldOffsetsKokkos(const std::string & blockID, const std::vec
     TEUCHOS_TEST_FOR_EXCEPTION(true,std::logic_error,"DOFManager::fieldInBlock: invalid block name");
   }
 
-  PHX::ViewOfViews3<1,PHX::View<const int*>> vov("panzer::getGIDFieldOffsetsKokkos vector version",fieldNums.size());
+  PHX::ViewOfViews<1,PHX::View<const int*>> vov("panzer::getGIDFieldOffsetsKokkos vector version",fieldNums.size());
   vov.disableSafetyCheck(); // Its going to be moved/copied
 
   int bid=bitr->second;
@@ -466,7 +434,7 @@ void DOFManager::buildGlobalUnknowns()
   connMngr_->buildConnectivity(*aggFieldPattern);
 
   // using new geometric pattern, build global unknowns
-  buildGlobalUnknowns(aggFieldPattern);
+  this->buildGlobalUnknowns(aggFieldPattern);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -512,13 +480,13 @@ void DOFManager::buildGlobalUnknowns(const Teuchos::RCP<const FieldPattern> & ge
   ElementBlockAccess ownedAccess(true,connMngr_);
 
   // INPUT: To the algorithm in the GUN paper
-  RCP<MultiVector> tagged_overlap_mv = buildTaggedMultiVector(ownedAccess);
+  RCP<MultiVector> tagged_overlap_mv = this->buildTaggedMultiVector(ownedAccess);
   RCP<const Map> overlap_map   = tagged_overlap_mv->getMap();
 
   RCP<MultiVector> overlap_mv = Tpetra::createMultiVector<panzer::GlobalOrdinal>(overlap_map,(size_t)numFields_);
 
   // call the GUN paper algorithm
-  auto non_overlap_pair = buildGlobalUnknowns_GUN(*tagged_overlap_mv,*overlap_mv);
+  auto non_overlap_pair = this->buildGlobalUnknowns_GUN(*tagged_overlap_mv,*overlap_mv);
   RCP<MultiVector> non_overlap_mv = non_overlap_pair.first;
   RCP<MultiVector> tagged_non_overlap_mv = non_overlap_pair.second;
   RCP<const Map> non_overlap_map = non_overlap_mv->getMap();
@@ -529,7 +497,7 @@ void DOFManager::buildGlobalUnknowns(const Teuchos::RCP<const FieldPattern> & ge
 
   // this bit of code takes the uniquely assigned GIDs and spreads them
   // out for processing by local element ID
-  fillGIDsFromOverlappedMV(ownedAccess,elementGIDs_,*overlap_map,*overlap_mv);
+  this->fillGIDsFromOverlappedMV(ownedAccess,elementGIDs_,*overlap_map,*overlap_mv);
 
   // if neighbor unknowns are required, then make sure they are included
   // in the elementGIDs_
@@ -537,7 +505,7 @@ void DOFManager::buildGlobalUnknowns(const Teuchos::RCP<const FieldPattern> & ge
                        // neighbor processors
     ElementBlockAccess neighborAccess(false,connMngr_);
     RCP<const Map> overlap_map_neighbor =
-      buildOverlapMapFromElements(neighborAccess);
+      this->buildOverlapMapFromElements(neighborAccess);
 
     // Export e(overlap_map_neighbor,non_overlap_map);
     Import imp_neighbor(non_overlap_map,overlap_map_neighbor);
@@ -549,7 +517,7 @@ void DOFManager::buildGlobalUnknowns(const Teuchos::RCP<const FieldPattern> & ge
     overlap_mv_neighbor->doImport(*non_overlap_mv, imp_neighbor,
       Tpetra::REPLACE);
 
-    fillGIDsFromOverlappedMV(neighborAccess, elementGIDs_,
+    this->fillGIDsFromOverlappedMV(neighborAccess, elementGIDs_,
       *overlap_map_neighbor, *overlap_mv_neighbor);
   }
 
@@ -794,8 +762,7 @@ DOFManager::buildGlobalUnknowns_GUN(const Tpetra::MultiVector<panzer::GlobalOrdi
   {
     PANZER_FUNC_TIME_MONITOR_DIFF("panzer::DOFManager::buildGlobalUnknowns_GUN::line_07-09 local_count",GUN07_09);
     auto values = non_overlap_mv->getLocalViewDevice(Tpetra::Access::ReadOnly);
-    auto mv_size = values.extent(0);
-    Kokkos::parallel_reduce(mv_size,panzer::dof_functors::SumRank2<panzer::GlobalOrdinal,decltype(values)>(values),localsum);
+    panzer::dof_functors::SumRank2<panzer::GlobalOrdinal, decltype(values)>{values}.apply(localsum);
   }
 
  /* 11. Create a map using local sums to generate final GIDs.
@@ -906,7 +873,7 @@ DOFManager::buildTaggedMultiVector(const ElementBlockAccess & ownedAccess)
     }
   }
 
-  RCP<const Map> overlapmap       = buildOverlapMapFromElements(ownedAccess);
+  RCP<const Map> overlapmap       = this->buildOverlapMapFromElements(ownedAccess);
 
   // LINE 22: In the GUN paper...the overlap_mv is reused for the tagged multivector.
   //          This is a bit of a practical abuse of the algorithm presented in the paper.

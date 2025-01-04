@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperRKObserverBase_hpp
 #define Tempus_StepperRKObserverBase_hpp
@@ -12,7 +13,6 @@
 #include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
 #include "Tempus_StepperRKAppAction.hpp"
-
 
 namespace Tempus {
 
@@ -31,12 +31,10 @@ namespace Tempus {
  *  in takeStep are documented in each of the RK Algorithm sections:
  *  StepperExplicitRK, StepperDIRK and StepperIMEX_RK.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperRKObserverBase
-  : virtual public Tempus::StepperRKAppAction<Scalar>
-{
-private:
-
+  : virtual public Tempus::StepperRKAppAction<Scalar> {
+ private:
   /* \brief Adaptor execute function
    *
    *  This is an adaptor function to bridge between the AppAction
@@ -48,22 +46,21 @@ private:
    *  to the arguments.
    */
   void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperRKBase<Scalar> > stepper,
-    const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc)
-  { this->observe(sh, stepper, actLoc); }
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperRKBase<Scalar> > stepper,
+      const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc)
+  {
+    this->observe(sh, stepper, actLoc);
+  }
 
-public:
-
+ public:
   /// Observe RK Stepper.
   virtual void observe(
-    Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<const StepperRKBase<Scalar> > /* stepper */,
-    const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
-
+      Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<const StepperRKBase<Scalar> > /* stepper */,
+      const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
 };
 
+}  // namespace Tempus
 
-} // namespace Tempus
-
-#endif // Tempus_StepperRKObserverBase_hpp
+#endif  // Tempus_StepperRKObserverBase_hpp

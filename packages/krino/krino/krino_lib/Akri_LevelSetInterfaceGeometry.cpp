@@ -12,7 +12,6 @@
 #include <Akri_Element_Cutter.hpp>
 #include <Akri_Element_Intersections.hpp>
 #include <Akri_ElementCutterUtils.hpp>
-#include <Akri_LevelSet.hpp>
 #include <Akri_LevelSetInterfaceGeometry.hpp>
 #include <Akri_MathUtil.hpp>
 #include <Akri_MeshHelpers.hpp>
@@ -69,6 +68,17 @@ std::unique_ptr<Element_Cutter> create_element_cutter_with_error_handling(const 
   return cutter;
 }
 
+static stk::math::Vector3d get_centroid(const std::vector<stk::math::Vector3d> & elemNodesCoords)
+{
+  stk::math::Vector3d centroid = stk::math::Vector3d::ZERO;
+  for(auto && nodeCoords : elemNodesCoords)
+  {
+    centroid += nodeCoords;
+  }
+  centroid *= 1./elemNodesCoords.size();
+  return centroid;
+}
+
 LevelSetElementCutter::LevelSetElementCutter(const stk::mesh::BulkData & mesh,
     stk::mesh::Entity element,
     const ParentEdgeMap & parentEdges,
@@ -77,6 +87,20 @@ LevelSetElementCutter::LevelSetElementCutter(const stk::mesh::BulkData & mesh,
 {
   fill_element_parent_edges(mesh, element, parentEdges, myParentEdges, myParentEdgesAreOrientedSameAsElementEdges);
   myElementInterfaceCutter = create_element_cutter_with_error_handling(mesh, element, myParentEdges, myParentEdgesAreOrientedSameAsElementEdges, phaseSupport, intersectingPlanesDiagonalPicker);
+}
+
+int LevelSetElementCutter::interface_sign_for_uncrossed_element(const InterfaceID interface, const std::vector<stk::math::Vector3d> & elemNodesCoords) const
+{
+  return myElementInterfaceCutter->sign_at_position(interface, get_centroid(elemNodesCoords));
+}
+
+std::pair<int, double> LevelSetElementCutter::interface_edge_crossing_sign_and_position(const InterfaceID interface, const std::array<stk::math::Vector3d,2> & edgeNodeCoords) const
+{
+  const double sign0 = myElementInterfaceCutter->sign_at_position(interface, edgeNodeCoords[0]);
+  const double sign1 = myElementInterfaceCutter->sign_at_position(interface, edgeNodeCoords[1]);
+  if (sign0 == -sign1)
+    return {sign1, myElementInterfaceCutter->interface_crossing_position(interface, edgeNodeCoords)};
+  return {0, -1.};
 }
 
 std::string LevelSetElementCutter::visualize(const stk::mesh::BulkData & mesh) const
@@ -284,17 +308,6 @@ static int get_interface_index(const std::vector<InterfaceID> & sortedInterfaces
   return std::distance(sortedInterfaces.begin(), iter);
 }
 
-static stk::math::Vector3d get_centroid(const std::vector<stk::math::Vector3d> & elemNodesCoords)
-{
-  stk::math::Vector3d centroid = stk::math::Vector3d::ZERO;
-  for(auto && nodeCoords : elemNodesCoords)
-  {
-    centroid += nodeCoords;
-  }
-  centroid *= 1./elemNodesCoords.size();
-  return centroid;
-}
-
 std::vector<int>
 LevelSetElementCutter::get_interface_signs_based_on_crossings(const std::vector<stk::math::Vector3d> & elemNodesCoords,
     const std::vector<const std::vector<int> *> & elemNodesSnappedDomains) const
@@ -387,7 +400,7 @@ static ParentEdgeFilter keep_owned_edges_filter(const stk::mesh::BulkData & mesh
   {
     const std::pair<stk::mesh::Entity,stk::mesh::Entity> edgeNodes = edge.get_parent_nodes();
     std::vector<stk::mesh::Entity> edgeElems;
-    stk::mesh::get_entities_through_relations(mesh, {edgeNodes.first, edgeNodes.second}, stk::topology::ELEMENT_RANK, edgeElems);
+    stk::mesh::get_entities_through_relations(mesh, stk::mesh::EntityVector{edgeNodes.first, edgeNodes.second}, stk::topology::ELEMENT_RANK, edgeElems);
     {
     bool foundOwnedElement = false;
     for (auto && edgeElem : edgeElems)
@@ -516,7 +529,7 @@ void LevelSetInterfaceGeometry::set_parent_element_selector()
     get_active_and_any_levelset_selector(myActivePart, myLSFields);
 }
 
-void LevelSetInterfaceGeometry::prepare_to_process_elements(const stk::mesh::BulkData & mesh,
+void LevelSetInterfaceGeometry::build_parent_edges_for_mesh(const stk::mesh::BulkData & mesh,
     const NodeToCapturedDomainsMap & nodesToCapturedDomains) const
 {
   const bool addHigherOrderMidSideNodes = determine_if_mesh_has_higher_order_midside_nodes_with_level_set_locally(mesh, myPhaseSupport, myLSFields);
@@ -525,7 +538,7 @@ void LevelSetInterfaceGeometry::prepare_to_process_elements(const stk::mesh::Bul
   myParentEdges = build_parent_edges(mesh, myParentsToChildMapper, shouldLinearizeEdges, myParentElementSelector, myPhaseSupport, myLSFields);
 }
 
-void LevelSetInterfaceGeometry::prepare_to_process_elements(const stk::mesh::BulkData & mesh,
+void LevelSetInterfaceGeometry::build_parent_edges_for_elements(const stk::mesh::BulkData & mesh,
     const std::vector<stk::mesh::Entity> & elementsToIntersect,
     const NodeToCapturedDomainsMap & nodesToCapturedDomains) const
 {
@@ -533,6 +546,31 @@ void LevelSetInterfaceGeometry::prepare_to_process_elements(const stk::mesh::Bul
   myParentsToChildMapper.build_map(mesh, myActivePart, myCdfemSupport, addHigherOrderMidSideNodes);
   const bool shouldLinearizeEdges = false;
   myParentEdges = build_parent_edges_using_elements(mesh, myParentsToChildMapper, shouldLinearizeEdges, elementsToIntersect, myParentElementSelector, myPhaseSupport, myLSFields);
+}
+
+void LevelSetInterfaceGeometry::prepare_to_decompose_elements(const stk::mesh::BulkData & mesh,
+    const NodeToCapturedDomainsMap & nodesToCapturedDomains) const
+{
+  build_parent_edges_for_mesh(mesh, nodesToCapturedDomains);
+}
+
+void LevelSetInterfaceGeometry::prepare_to_intersect_elements(const stk::mesh::BulkData & mesh) const
+{
+  const NodeToCapturedDomainsMap emptyNodesToCapturedDomains;
+  prepare_to_intersect_elements(mesh, emptyNodesToCapturedDomains);
+}
+
+void LevelSetInterfaceGeometry::prepare_to_intersect_elements(const stk::mesh::BulkData & mesh,
+    const NodeToCapturedDomainsMap & nodesToCapturedDomains) const
+{
+  build_parent_edges_for_mesh(mesh, nodesToCapturedDomains);
+}
+
+void LevelSetInterfaceGeometry::prepare_to_intersect_elements(const stk::mesh::BulkData & mesh,
+    const std::vector<stk::mesh::Entity> & elementsToIntersect,
+    const NodeToCapturedDomainsMap & nodesToCapturedDomains) const
+{
+  build_parent_edges_for_elements(mesh, elementsToIntersect, nodesToCapturedDomains);
 }
 
 static double compute_edge_length(const stk::mesh::BulkData & mesh, const std::array<stk::mesh::Entity,2> & edgeNodes)
@@ -574,55 +612,66 @@ static bool element_has_possibly_cut_edge(const stk::mesh::BulkData & mesh, cons
   return false;
 }
 
-std::vector<stk::mesh::Entity> LevelSetInterfaceGeometry::get_possibly_cut_elements(const stk::mesh::BulkData & mesh) const
+std::vector<stk::mesh::Entity> LevelSetInterfaceGeometry::get_active_elements_that_may_be_cut_by_levelsets(const stk::mesh::BulkData & mesh, const stk::mesh::Part & activePart, const std::vector<LS_Field> & LSFields)
 {
   std::vector<stk::mesh::Entity> possibleCutElements;
 
-  const stk::mesh::Selector activeLocallyOwned = myActivePart & mesh.mesh_meta_data().locally_owned_part();
+  const stk::mesh::Selector activeLocallyOwned = activePart & mesh.mesh_meta_data().locally_owned_part();
 
   for(const auto & bucketPtr : mesh.get_buckets(stk::topology::ELEMENT_RANK, activeLocallyOwned))
     for(const auto & elem : *bucketPtr)
-      if (element_has_possibly_cut_edge(mesh, myLSFields, elem))
+      if (element_has_possibly_cut_edge(mesh, LSFields, elem))
         possibleCutElements.push_back(elem);
 
   return possibleCutElements;
 }
 
-static void fill_node_distances(const stk::mesh::BulkData & mesh, const LS_Field & LSField, const stk::mesh::Entity elem, std::vector<double> & nodeDist)
+std::vector<stk::mesh::Entity> LevelSetInterfaceGeometry::get_possibly_cut_elements(const stk::mesh::BulkData & mesh) const
 {
-  nodeDist.clear();
+  return get_active_elements_that_may_be_cut_by_levelsets(mesh, myActivePart, myLSFields);
+}
+
+static void fill_node_levelset(const stk::mesh::BulkData & mesh, const LS_Field & LSField, const stk::mesh::Entity elem, std::vector<double> & nodeLS)
+{
+  nodeLS.clear();
   for (auto node : StkMeshEntities{mesh.begin_nodes(elem), mesh.end_nodes(elem)})
   {
-    const double * distPtr = field_data<double>(LSField.isovar, node);
-    if (distPtr)
-      nodeDist.push_back(*distPtr);
+    const double * lsPtr = field_data<double>(LSField.isovar, node);
+    if (lsPtr)
+      nodeLS.push_back(*lsPtr);
   }
 }
 
-static bool element_intersects_interval(const stk::mesh::BulkData & mesh, const std::vector<LS_Field> & LSFields, const stk::mesh::Entity elem, const std::array<double,2> & loAndHi, std::vector<double> & elemNodeDistWorkspace)
+static bool element_intersects_distance_interval(const stk::mesh::BulkData & mesh, const LS_Field & LSField, const stk::mesh::Entity elem, const std::array<double,2> & loAndHi, std::vector<double> & elemNodeDistWorkspace)
 {
-  for(auto && LSField : LSFields)
-  {
-    fill_node_distances(mesh, LSField, elem, elemNodeDistWorkspace);
-    if (elemNodeDistWorkspace.size() == mesh.num_nodes(elem) && InterfaceGeometry::element_with_nodal_distance_intersects_interval(elemNodeDistWorkspace, loAndHi))
-      return true;
-  }
-  return false;
+  // Note that levelset is assumed to signed distance here
+  fill_node_levelset(mesh, LSField, elem, elemNodeDistWorkspace);
+  return (elemNodeDistWorkspace.size() == mesh.num_nodes(elem) && InterfaceGeometry::element_with_nodal_distance_intersects_distance_interval(elemNodeDistWorkspace, loAndHi));
 }
 
-std::vector<stk::mesh::Entity> LevelSetInterfaceGeometry::get_elements_that_intersect_interval(const stk::mesh::BulkData & mesh, const std::array<double,2> loAndHi) const
+void LevelSetInterfaceGeometry::fill_active_elements_that_intersect_levelset_interval(const stk::mesh::BulkData & mesh, const stk::mesh::Part & activePart, const LS_Field & lsField, const std::array<double,2> loAndHi, std::vector<stk::mesh::Entity> & elementsThaIntersectInterval)
 {
-  std::vector<stk::mesh::Entity> elementsThaIntersectInterval;
   std::vector<double> elementNodeDist;
 
-  const stk::mesh::Selector activeLocallyOwned = myActivePart & mesh.mesh_meta_data().locally_owned_part();
+  const stk::mesh::Selector activeLocallyOwned = activePart & mesh.mesh_meta_data().locally_owned_part();
 
+  elementsThaIntersectInterval.clear();
   for(const auto & bucketPtr : mesh.get_buckets(stk::topology::ELEMENT_RANK, activeLocallyOwned))
     for(const auto & elem : *bucketPtr)
-      if (element_intersects_interval(mesh, myLSFields, elem, loAndHi, elementNodeDist))
+      if (element_intersects_distance_interval(mesh, lsField, elem, loAndHi, elementNodeDist))
         elementsThaIntersectInterval.push_back(elem);
+}
 
-  return elementsThaIntersectInterval;
+const LS_Field & LevelSetInterfaceGeometry::get_ls_field_with_identifier(const Surface_Identifier surfaceIdentifier) const
+{
+  auto iter = std::find(mySurfaceIdentifiers.begin(), mySurfaceIdentifiers.end(), surfaceIdentifier);
+  STK_ThrowRequire(iter != mySurfaceIdentifiers.end());
+  return myLSFields[std::distance(mySurfaceIdentifiers.begin(), iter)];
+}
+
+void LevelSetInterfaceGeometry::fill_elements_that_intersect_distance_interval(const stk::mesh::BulkData & mesh, const Surface_Identifier surfaceIdentifier, const std::array<double,2> loAndHi, std::vector<stk::mesh::Entity> & elementsThaIntersectInterval) const
+{
+  fill_active_elements_that_intersect_levelset_interval(mesh, myActivePart, get_ls_field_with_identifier(surfaceIdentifier), loAndHi, elementsThaIntersectInterval);
 }
 
 bool LevelSetInterfaceGeometry::have_enough_levelsets_to_have_interior_intersections_or_multiple_crossings() const
@@ -640,7 +689,7 @@ std::vector<IntersectionPoint> LevelSetInterfaceGeometry::get_edge_intersection_
     const NodeToCapturedDomainsMap & nodesToCapturedDomains) const
 {
   std::vector<IntersectionPoint> intersectionPoints;
-  prepare_to_process_elements(mesh, nodesToCapturedDomains);
+  prepare_to_intersect_elements(mesh, nodesToCapturedDomains);
   const IntersectionPointFilter intersectionPointFilter = keep_all_intersection_points_filter();
   append_intersection_points_from_all_parent_edges(intersectionPoints, myParentEdges, intersectionPointFilter);
   return intersectionPoints;
@@ -652,7 +701,7 @@ void LevelSetInterfaceGeometry::append_element_intersection_points(const stk::me
     const IntersectionPointFilter & intersectionPointFilter,
     std::vector<IntersectionPoint> & intersectionPoints) const
 {
-  prepare_to_process_elements(mesh, elementsToIntersect, nodesToCapturedDomains);
+  prepare_to_intersect_elements(mesh, elementsToIntersect, nodesToCapturedDomains);
   append_intersection_points_from_owned_parent_edges(mesh, myParentElementSelector, intersectionPoints, myParentEdges, intersectionPointFilter);
   if (have_enough_levelsets_to_have_interior_intersections_or_multiple_crossings())
   {

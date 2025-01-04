@@ -21,6 +21,7 @@ public:
   static RefinementSupport & get(stk::mesh::MetaData & meta);
   static RefinementSupport & get(const stk::mesh::MetaData & meta);
   static bool use_nonconformal_adaptivity(stk::mesh::MetaData & meta) { RefinementSupport & refinementSupport = get(meta); return refinementSupport.get_interface_maximum_refinement_level() > 0; }
+  static stk::mesh::Selector do_not_refine_or_unrefine_selector(const stk::mesh::MetaData & meta);
 
   void set_initial_refinement_levels(int levels) { my_initial_refinement_levels = levels; }
   int get_initial_refinement_levels() const { return my_initial_refinement_levels; }
@@ -51,9 +52,6 @@ public:
   bool has_refinement_interval() const { return is_valid_interval(myRefinementInterval); }
   const std::array<double,2> get_refinement_interval() const { return myRefinementInterval; }
 
-  void set_use_percept(bool usePercept) { myFlagUsePercept = usePercept; }
-  bool get_use_percept() const { return myFlagUsePercept; }
-
   stk::diag::Timer & get_timer() const { return myTimer; }
 
 private:
@@ -75,7 +73,6 @@ private:
   std::string my_nonconformal_adapt_indicator_name;
   RefinementInterface * myNonInterfaceConformingRefinement{nullptr};
   bool myFlagDoNearbyRefinementBeforeInterfaceRefinement{false};
-  bool myFlagUsePercept{false};
   mutable stk::diag::Timer myTimer;
 };
 

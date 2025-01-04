@@ -15,10 +15,29 @@ namespace krino
 
 template<stk::topology::topology_t TOPO>
 StkMeshBuilder<TOPO>::StkMeshBuilder(stk::mesh::BulkData & mesh, const stk::ParallelMachine comm)
-: mMesh(mesh), mAuxMeta(AuxMetaData::create(mesh.mesh_meta_data())), mPhaseSupport(Phase_Support::get(mesh.mesh_meta_data())), mComm(comm)
+: mMesh(mesh), mAuxMeta(AuxMetaData::create(mesh.mesh_meta_data())), mPhaseSupport(Phase_Support::get(mesh.mesh_meta_data())), mComm(comm), time(0.0)
 {
   declare_coordinates();
-  mMesh.mesh_meta_data().use_simple_fields();
+}
+
+template<stk::topology::topology_t TOPO>
+std::vector<int> StkMeshBuilder<TOPO>::get_processor_distribution_for_num_elements(const unsigned numElements) const
+{
+  std::vector<int> elemOwners(numElements);
+  int elemOwner = 0;
+  for (unsigned iElem=0; iElem<numElements; ++iElem)
+  {
+    elemOwners[iElem] = elemOwner;
+    if (++elemOwner == stk::parallel_machine_size(mComm))
+      elemOwner = 0;
+  }
+  return elemOwners;
+}
+
+template<stk::topology::topology_t TOPO>
+const stk::mesh::FieldBase & StkMeshBuilder<TOPO>::get_coordinates_field() const
+{
+  return *mMesh.mesh_meta_data().coordinate_field();
 }
 
 template<stk::topology::topology_t TOPO>
@@ -51,14 +70,26 @@ std::string get_surface_name(const unsigned sidesetId)
 }
 
 template<stk::topology::topology_t TOPO>
+const stk::mesh::Part & StkMeshBuilder<TOPO>::get_sideset_part(const unsigned sidesetId)
+{
+  stk::mesh::Part * sidesetPart = mMesh.mesh_meta_data().get_part(get_surface_name(sidesetId));
+  STK_ThrowRequireMsg(sidesetPart, "No sideset with id " << sidesetId);
+  return *sidesetPart;
+}
+
+template<stk::topology::topology_t TOPO>
+void StkMeshBuilder<TOPO>::create_sideset_part(const unsigned sidesetId)
+{
+    stk::mesh::Part &sidesetPart = mMesh.mesh_meta_data().declare_part(get_surface_name(sidesetId), mMesh.mesh_meta_data().side_rank());
+    mMesh.mesh_meta_data().set_part_id(sidesetPart, sidesetId);
+    stk::io::put_io_part_attribute(sidesetPart);
+}
+
+template<stk::topology::topology_t TOPO>
 void StkMeshBuilder<TOPO>::create_sideset_parts(const std::vector<unsigned> &sidesetIds)
 {
     for (unsigned sidesetId : sidesetIds)
-    {
-      stk::mesh::Part &sidesetPart = mMesh.mesh_meta_data().declare_part(get_surface_name(sidesetId), mMesh.mesh_meta_data().side_rank());
-      mMesh.mesh_meta_data().set_part_id(sidesetPart, sidesetId);
-      stk::io::put_io_part_attribute(sidesetPart);
-    }
+      create_sideset_part(sidesetId);
 }
 
 template<stk::topology::topology_t TOPO>
@@ -440,20 +471,29 @@ void StkMeshBuilder<TOPO>::write_mesh(const std::string & fileName)
   Ioss::PropertyManager properties;
   properties.add(Ioss::Property("INTEGER_SIZE_API", 8));
   properties.add(Ioss::Property("INTEGER_SIZE_DB", 8));
-
+  properties.add(Ioss::Property("MAXIMUM_NAME_LENGTH", 180));
   size_t outputFileIndex = stkIo.create_output_mesh(fileName, stk::io::WRITE_RESULTS, properties);
+  const stk::mesh::FieldVector fields = stkIo.bulk_data().mesh_meta_data().get_fields();
+  for(stk::mesh::FieldBase* field : fields)
+  {
+      const Ioss::Field::RoleType* fieldRole = stk::io::get_field_role(*field);
+      if(fieldRole == nullptr || *fieldRole == Ioss::Field::TRANSIENT)
+          stkIo.add_field(outputFileIndex, *field);
+  }
   stkIo.set_active_selector(get_aux_meta().active_part());
   stkIo.set_subset_selector(outputFileIndex, get_aux_meta().active_part());
   stkIo.write_output_mesh(outputFileIndex);
-  stkIo.begin_output_step(outputFileIndex, 0.);
+  stkIo.begin_output_step(outputFileIndex, time);
   stkIo.write_defined_output_fields(outputFileIndex);
   stkIo.end_output_step(outputFileIndex);
+  time+=1.0;
 }
 
 // Explicit template instantiation
+template class StkMeshBuilder<stk::topology::BEAM_2>;
 template class StkMeshBuilder<stk::topology::TRIANGLE_3_2D>;
 template class StkMeshBuilder<stk::topology::TETRAHEDRON_4>;
 template class StkMeshBuilder<stk::topology::QUADRILATERAL_4_2D>;
-
+template class StkMeshBuilder<stk::topology::HEXAHEDRON_8>;
 
 }

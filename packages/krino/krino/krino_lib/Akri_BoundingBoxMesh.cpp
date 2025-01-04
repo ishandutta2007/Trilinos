@@ -24,16 +24,18 @@
 
 namespace krino{
 
-BoundingBoxMesh::BoundingBoxMesh(stk::topology element_topology, const std::vector<std::string> & entity_rank_names)
-: m_element_topology(element_topology), m_nx(0), m_ny(0), m_nz(0)
+BoundingBoxMesh::BoundingBoxMesh(stk::topology element_topology, stk::ParallelMachine comm)
+: myComm(comm),
+  m_element_topology(element_topology), m_nx(0), m_ny(0), m_nz(0)
 {
   STK_ThrowRequire(element_topology == stk::topology::TRIANGLE_3_2D ||
       element_topology == stk::topology::QUADRILATERAL_4_2D ||
       element_topology == stk::topology::TETRAHEDRON_4 ||
       element_topology == stk::topology::HEXAHEDRON_8);
 
+  myMeshStructureType = default_structure_type_for_topology(element_topology);
+
   m_meta = stk::mesh::MeshBuilder().set_spatial_dimension(element_topology.dimension())
-                                   .set_entity_rank_names(entity_rank_names)
                                    .create_meta_data();
 
   AuxMetaData & aux_meta = AuxMetaData::create(*m_meta);
@@ -44,6 +46,21 @@ BoundingBoxMesh::BoundingBoxMesh(stk::topology element_topology, const std::vect
   m_node_parts.push_back(&aux_meta.active_part());
 
   declare_domain_side_parts(block_part);
+
+  stk::mesh::Field<double> & coordsField = m_meta->declare_field<double>(stk::topology::NODE_RANK, "coordinates", 1);
+  stk::mesh::put_field_on_mesh(coordsField, m_meta->universal_part(), m_meta->spatial_dimension(), nullptr);
+}
+
+BoundingBoxMeshStructureType BoundingBoxMesh::default_structure_type_for_topology(const stk::topology elementTopology)
+{
+  if (elementTopology == stk::topology::QUADRILATERAL_4_2D || elementTopology == stk::topology::HEXAHEDRON_8)
+    return CUBIC_BOUNDING_BOX_MESH;
+  else if (elementTopology == stk::topology::TETRAHEDRON_4)
+    return FLAT_WALLED_BCC_BOUNDING_BOX_MESH;
+  else if (elementTopology == stk::topology::TRIANGLE_3_2D)
+    return FLAT_WALLED_TRIANGULAR_LATTICE_BOUNDING_BOX_MESH;
+  STK_ThrowRequireMsg(false, "Unsupport topology " << elementTopology.name());
+  return CUBIC_BOUNDING_BOX_MESH;
 }
 
 void
@@ -114,10 +131,10 @@ void BoundingBoxMesh::set_is_cell_edge_function_for_BCC_mesh() const
 }
 
 void
-BoundingBoxMesh::populate_mesh(stk::ParallelMachine pm, const stk::mesh::BulkData::AutomaticAuraOption auto_aura_option)
-{ /* %TRACE[ON]% */ Trace trace__("krino::BoundingBoxMesh::populate_mesh()"); /* %TRACE% */
+BoundingBoxMesh::populate_mesh(const stk::mesh::BulkData::AutomaticAuraOption auto_aura_option)
+{
   STK_ThrowRequireMsg(m_mesh_bbox.valid(), "Must call set_domain() before populate_mesh()");
-  m_mesh = stk::mesh::MeshBuilder(pm).set_aura_option(auto_aura_option).create(m_meta);
+  m_mesh = stk::mesh::MeshBuilder(myComm).set_aura_option(auto_aura_option).create(m_meta);
   if (CUBIC_BOUNDING_BOX_MESH == myMeshStructureType)
     populate_cell_based_mesh();
   else if (TRIANGULAR_LATTICE_BOUNDING_BOX_MESH == myMeshStructureType || FLAT_WALLED_TRIANGULAR_LATTICE_BOUNDING_BOX_MESH == myMeshStructureType)
@@ -126,6 +143,12 @@ BoundingBoxMesh::populate_mesh(stk::ParallelMachine pm, const stk::mesh::BulkDat
     populate_BCC_mesh();
   else
     STK_ThrowRequireMsg(false, "Unsupported or unrecognized mesh structure type " << myMeshStructureType);
+
+
+  stk::mesh::create_exposed_block_boundary_sides(*m_mesh, m_meta->universal_part(), {&AuxMetaData::get(*m_meta).exposed_boundary_part()});
+
+  if (has_flat_boundaries())
+    create_domain_sides();
 }
 
 enum BCCNode { BCC_NODE=8, BCC_NODE_XMINUS=9, BCC_NODE_XPLUS=10, BCC_NODE_YMINUS=11, BCC_NODE_YPLUS=12, BCC_NODE_ZMINUS=13, BCC_NODE_ZPLUS=14 };
@@ -386,7 +409,7 @@ BoundingBoxMesh::populate_cell_based_mesh()
   stk::mesh::FieldBase const* coord_field = m_meta->coordinate_field();
 
   std::vector<std::array<int,3>> hex_cell_node_locations = { {0,0,0}, {1,0,0}, {1,1,0}, {0,1,0}, {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1} };
-  std::vector<std::vector<int>> hex_cell_elem_nodes = {{0, 1, 2, 3, 4, 6, 7}};
+  std::vector<std::vector<int>> hex_cell_elem_nodes = {{0, 1, 2, 3, 4, 5, 6, 7}};
 
   std::vector<std::vector<int>> tet_even_cell_elem_nodes = {{0, 1, 2, 5},
         {0, 2, 7, 5},
@@ -408,12 +431,12 @@ BoundingBoxMesh::populate_cell_based_mesh()
   const std::vector<std::array<int,3>> & cell_node_locations = (dim == 2) ? quad_cell_node_locations : hex_cell_node_locations;
   const std::vector<std::vector<int>> & even_cell_elem_nodes =
       (m_element_topology == stk::topology::TRIANGLE_3_2D) ? tri_even_cell_elem_nodes :
-      ((m_element_topology == stk::topology::QUADRILATERAL_4) ? quad_cell_elem_nodes :
+      ((m_element_topology == stk::topology::QUADRILATERAL_4_2D) ? quad_cell_elem_nodes :
       ((m_element_topology == stk::topology::TETRAHEDRON_4) ? tet_even_cell_elem_nodes :
       hex_cell_elem_nodes));
   const std::vector<std::vector<int>> & odd_cell_elem_nodes =
       (m_element_topology == stk::topology::TRIANGLE_3_2D) ? tri_odd_cell_elem_nodes :
-      ((m_element_topology == stk::topology::QUADRILATERAL_4) ? quad_cell_elem_nodes :
+      ((m_element_topology == stk::topology::QUADRILATERAL_4_2D) ? quad_cell_elem_nodes :
       ((m_element_topology == stk::topology::TETRAHEDRON_4) ? tet_odd_cell_elem_nodes :
       hex_cell_elem_nodes));
 
@@ -469,7 +492,7 @@ BoundingBoxMesh::populate_cell_based_mesh()
 
         for (auto && node_id : elem_nodes)
         {
-          stk::mesh::Entity const node = m_mesh->get_entity( stk::topology::NODE_RANK , node_id );
+          stk::mesh::Entity const node = m_mesh->get_entity( stk::topology::NODE_RANK, node_id );
           m_mesh->change_entity_parts(node, m_node_parts);
 
           auto map_it = nodes_to_procs.find(node_id);
@@ -537,14 +560,11 @@ BoundingBoxMesh::create_domain_sides()
 
   require_has_flat_boundaries();
 
-  AuxMetaData & aux_meta = AuxMetaData::get(*m_meta);
-  stk::mesh::create_exposed_block_boundary_sides(*m_mesh, m_meta->universal_part(), {&aux_meta.exposed_boundary_part()});
-
   stk::topology side_topology = m_element_topology.side_topology();
   STK_ThrowRequire(mySideParts.size() >= m_meta->spatial_dimension()*2);
 
   std::vector<stk::mesh::Entity> sides;
-  stk::mesh::get_selected_entities( aux_meta.exposed_boundary_part() & m_meta->locally_owned_part(), m_mesh->buckets( m_meta->side_rank() ), sides );
+  stk::mesh::get_selected_entities( AuxMetaData::get(*m_meta).exposed_boundary_part() & m_meta->locally_owned_part(), m_mesh->buckets( m_meta->side_rank() ), sides );
   std::vector<stk::mesh::PartVector> add_parts(sides.size());
   std::vector<stk::mesh::PartVector> remove_parts(sides.size());
   stk::mesh::FieldBase const* coord_field = m_meta->coordinate_field();

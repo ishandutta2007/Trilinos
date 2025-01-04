@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_NFACTOR_COL_INC_HPP
 #define SHYLUBASKER_NFACTOR_COL_INC_HPP
 
@@ -645,7 +654,7 @@ namespace BaskerNS
     //end get needed variables//
 
     //BASKER_MATRIX        &L = LL(L_col)(L_row); //NDE - warning: unused L
-    BASKER_MATRIX        &U = LU(U_col)(U_row); 
+    BASKER_MATRIX        &U = LU(U_col)(U_row);
     
     //Ask C++ guru if this is ok
     BASKER_MATRIX        *Bp;
@@ -655,7 +664,7 @@ namespace BaskerNS
       }
     else
       {
-	Bp = &(thread_array[kid].C);
+	Bp = &(thread_array(kid).C);
       }
     BASKER_MATRIX    &B = *Bp;
     //if(kid ==0)
@@ -715,7 +724,7 @@ namespace BaskerNS
 	    printf("--------------ERROR---------");
 	    printf("kid: %d k: %d i: %d ws[i]=%d L.scol: %d \n",
 		   kid, k, i, ws[i], L.scol);
-	    ASSERT(ws[i] == 0);
+	    BASKER_ASSERT(ws[i] == 0);
 	  }
       }
     #endif
@@ -1970,14 +1979,14 @@ namespace BaskerNS
     ucnt = 0;
     
    #ifdef BASKER_DEBUG_NFACTOR_COL
-   ASSERT(top == ws_size);
+   BASKER_ASSERT(top == ws_size);
    for(i = 0 ; i < ws_size; i++){
      if(X[i] !=0)
        {
 	 printf("--Error, kid: %d X[%d] = %f \n", kid, i,X[i]); 
        }
-     ASSERT(X[i] == 0);}
-   for(i = 0; i <  ws_size; i++){ASSERT(ws[i] == 0 );}
+     BASKER_ASSERT(X[i] == 0);}
+   for(i = 0; i <  ws_size; i++){BASKER_ASSERT(ws[i] == 0 );}
    #endif
 
 
@@ -2462,7 +2471,7 @@ namespace BaskerNS
     Int col_idx_offset    = 0;  //can get rid of?
    
     //BASKER_MATRIX        &L = LL(L_col)(L_row); //NDE - warning: unused L
-    BASKER_MATRIX        &U = LU(U_col)(U_row); 
+    BASKER_MATRIX        &U = LU(U_col)(U_row);
     
     INT_1DARRAY     ws = LL(X_col)(X_row).iws;
     //const Int  ws_size = LL(X_col)(X_row).iws_size;
@@ -2583,7 +2592,7 @@ namespace BaskerNS
     //Int col_idx_offset    = 0;  //can get rid of?//NDE - warning: unused 
    
     //BASKER_MATRIX        &L = LL(L_col)(L_row); //NDE - warning: unused
-    BASKER_MATRIX        &U = LU(U_col)(U_row); 
+    BASKER_MATRIX        &U = LU(U_col)(U_row);
     
     INT_1DARRAY     ws = LL(X_col)(X_row).iws;
     //const Int  ws_size = LL(X_col)(X_row).iws_size; 

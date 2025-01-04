@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//        MueLu: A package for multigrid based preconditioning
+//
+// Copyright 2012 NTESS and the MueLu contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #include <iostream>
 
 // Teuchos
@@ -5,12 +14,10 @@
 #include <Teuchos_DefaultComm.hpp>
 #include <Teuchos_StandardCatchMacros.hpp>
 
-
-//Galeri
+// Galeri
 #include "Galeri_Maps.h"
 #include "Galeri_CrsMatrices.h"
 #include "Galeri_Utils.h"
-
 
 // MueLu
 #include "MueLu.hpp"
@@ -25,8 +32,6 @@
 #include <BelosBlockGmresSolMgr.hpp>
 #include <BelosXpetraAdapter.hpp>
 #include <BelosMueLuAdapter.hpp>
-
-
 
 #ifdef HAVE_MPI
 #include "Epetra_MpiComm.h"
@@ -46,8 +51,7 @@ using namespace Galeri;
 // main driver //
 // =========== //
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 #ifdef HAVE_MPI
   MPI_Init(&argc, &argv);
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
@@ -60,9 +64,9 @@ int main(int argc, char* argv[])
   //   Matrix * LHS = RHS
   //
   // with Matrix arising from a 5-point formula discretization.
-  
-  Epetra_Map*         Map = 0;
-  Epetra_RowMatrix*   Matrix = 0;
+
+  Epetra_Map* Map          = 0;
+  Epetra_RowMatrix* Matrix = 0;
 
   Teuchos::ParameterList GaleriList;
   // dimension of the problem is nx x ny
@@ -72,12 +76,13 @@ int main(int argc, char* argv[])
   GaleriList.set("mx", Comm.NumProc());
   GaleriList.set("my", 1);
 
-  try
-  {
-    Map = CreateMap("Cartesian2D", Comm, GaleriList);
+  try {
+    Map    = CreateMap("Cartesian2D", Comm, GaleriList);
     Matrix = CreateCrsMatrix("Laplace2D", Map, GaleriList);
-    Epetra_Vector ExactSolution(*Map); ExactSolution.Random();
-    Epetra_Vector LHS(*Map); LHS.PutScalar(0.0);
+    Epetra_Vector ExactSolution(*Map);
+    ExactSolution.Random();
+    Epetra_Vector LHS(*Map);
+    LHS.PutScalar(0.0);
     Epetra_Vector RHS(*Map);
 
     Matrix->Multiply(false, ExactSolution, RHS);
@@ -88,7 +93,7 @@ int main(int argc, char* argv[])
     // used, for example AztecOO, Amesos. IFPACK and ML can be used to define a
     // preconditioner for Matrix. Here we use a simple solver, based on
     // LAPACK, that is meant for simple testing only.
-    
+
     Solve(Problem);
 
     // and we compute the norm of the true residual.
@@ -99,9 +104,7 @@ int main(int argc, char* argv[])
 
     delete Map;
     delete Matrix;
-  }
-  catch (Galeri::Exception& rhs)
-  {
+  } catch (Galeri::Exception& rhs) {
     if (Comm.MyPID() == 0)
       rhs.Print();
     exit(EXIT_FAILURE);
@@ -111,5 +114,5 @@ int main(int argc, char* argv[])
   MPI_Finalize();
 #endif
 
-  return(EXIT_SUCCESS);
+  return (EXIT_SUCCESS);
 }

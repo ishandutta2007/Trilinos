@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_ORDER_HPP
 #define SHYLUBASKER_ORDER_HPP
 
@@ -405,26 +414,23 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
     //================================================================
     // allocate mapping into C block
     btfc_nnz = BTF_C.nnz;
-    if(btf_nblks > 1) //else only BTF_A exists, A is assigned directly to it...
-    {
-      if ( btf_tabs_offset == 0 && BTF_C.nnz > 0 ) {
-        // NDE: May need to add permutation for this case...
-        //new for sfactor_copy2 replacement
-        MALLOC_INT_1DARRAY(vals_order_ndbtfc_array, BTF_C.nnz); //track nd perms; BTF_A must be declared here, else it does not exist
-        MALLOC_INT_1DARRAY(inv_vals_order_ndbtfc_array, BTF_C.nnz);
-        for (Int i = 0; i < BTF_C.nnz; ++i) {
-          vals_order_ndbtfc_array(i) = i;
-          inv_vals_order_ndbtfc_array(i) = i;
-        }
-        // NDE: already sorted above; this is redundant, unless btf_tabs_offset = 0
-        //sort_matrix_store_valperms(BTF_C, vals_order_ndbtfc_array);
-        //permute_inv(inv_vals_order_ndbtfc_array, vals_order_ndbtfc_array, BTF_C.nnz);
+    if ( btf_tabs_offset == 0 && BTF_C.nnz > 0 ) {
+      // NDE: May need to add permutation for this case...
+      //new for sfactor_copy2 replacement
+      MALLOC_INT_1DARRAY(vals_order_ndbtfc_array, BTF_C.nnz); //track nd perms; BTF_A must be declared here, else it does not exist
+      MALLOC_INT_1DARRAY(inv_vals_order_ndbtfc_array, BTF_C.nnz);
+      for (Int i = 0; i < BTF_C.nnz; ++i) {
+        vals_order_ndbtfc_array(i) = i;
+        inv_vals_order_ndbtfc_array(i) = i;
       }
+      // NDE: already sorted above; this is redundant, unless btf_tabs_offset = 0
+      //sort_matrix_store_valperms(BTF_C, vals_order_ndbtfc_array);
+      //permute_inv(inv_vals_order_ndbtfc_array, vals_order_ndbtfc_array, BTF_C.nnz);
+    }
 
-      if(Options.verbose_matrix_out == BASKER_TRUE)
-      {
-        printMTX("C_Symbolic.mtx", BTF_C);
-      }
+    if(Options.verbose_matrix_out == BASKER_TRUE)
+    {
+      printMTX("C_Symbolic.mtx", BTF_C);
     }
     #ifdef BASKER_TIMER
     order_time = timer_order.seconds();
@@ -1089,13 +1095,20 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
     //finds the starting point of A for submatrices
     find_2D_convert(BTF_A);
     //now we can fill submatrices
-    //printf("AFTER CONVERT\n"); fflush(stdout);
     #ifdef BASKER_KOKKOS
-    kokkos_order_init_2D<Int,Entry,Exe_Space> iO(this);
-    Kokkos::parallel_for(TeamPolicy(num_threads,1), iO);
-    Kokkos::fence();
+     #ifdef BASKER_PARALLEL_INIT_2D
+     kokkos_order_init_2D<Int,Entry,Exe_Space> iO(this);
+     Kokkos::parallel_for(TeamPolicy(num_threads,1), iO);
+     Kokkos::fence();
+     #else
+     bool alloc = true;
+     //bool keep_zeros = true;
+     for (Int p = 0; p < num_threads; p++) {
+       this->t_init_2DA(p, alloc, keep_zeros);
+     }
+     #endif
     #else
-    //Comeback
+     //Comeback
     #endif
     #ifdef BASKER_TIMER
     double init_2d_time = scotch_timer.seconds();
@@ -1147,8 +1160,10 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
         std::cout << " > scotch_partition returned with info = " << info_scotch << " and apply_nd = " << apply_nd << std::endl;
       }
       return info_scotch;
+    } else if(Options.verbose == BASKER_TRUE) {
+      printf( "\n part_scotch done (num_threads = %d,%d)\n",num_threads,part_tree.leaf_nnz.extent(0) );
+      //for (Int i = 0; i < num_threads; i++) printf( " nnz_leaf[%d] = %d\n",i,part_tree.leaf_nnz[i] ); printf( "\n" );
     }
-
     nd_flag = BASKER_TRUE;
     //permute
     permute_row(M, part_tree.permtab);
@@ -1408,7 +1423,7 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
       {
       // ND blocks
         //x[i] = xconv(p(i)); 
-        x[i] = xconv(permi); 
+        x[i] = xconv(permi);
       } 
       else {
       // btf blocks
@@ -1420,6 +1435,56 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
     return 0;
   }
 
+  template <class Int, class Entry, class Exe_Space>
+  BASKER_INLINE
+  int Basker<Int, Entry, Exe_Space>::permute_and_init_for_solve
+  (
+   Entry* y,
+   ENTRY_1DARRAY &xcon,
+   ENTRY_1DARRAY &ycon,
+   INT_1DARRAY  &p, 
+   Int n
+  )
+  {
+    //Permute
+    for(Int i = 0; i < n; i++) {
+      xcon(i)  = y[p(i)];
+      ycon(i)  = (Entry) 0.0;
+    }
+    return 0;
+  }
+
+  template <class Int, class Entry, class Exe_Space>
+  BASKER_INLINE
+  int Basker<Int, Entry, Exe_Space>::permute_inv_and_finalcopy_after_solve
+  (
+   Entry* x,
+   ENTRY_1DARRAY &xconv,
+   ENTRY_1DARRAY &yconv,
+   INT_1DARRAY  &p,
+   Int n
+  )
+  {
+
+    const Int poffset = btf_tabs(btf_tabs_offset);
+    // pre-offset indices of xconv solution in ND block partition
+    // >= poffset indices of yconv solution in small BTF block partition
+    for(Int i = 0; i < n; i++) //perm xconv back to original ordering and copy back to raw lhs pointer
+    { 
+      Int permi = p(i);
+      if ( i < poffset )
+      {
+      // ND blocks
+        x[permi] = xconv(i); 
+      } 
+      else {
+      // small btf blocks
+        x[permi] = yconv(i); 
+      }
+    }
+
+    return 0;
+  }
 
   template <class Int, class Entry, class Exe_Space>
   BASKER_INLINE
@@ -1535,6 +1600,29 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
 
   template <class Int, class Entry, class Exe_Space>
   BASKER_INLINE
+  int Basker<Int, Entry, Exe_Space>::permute_array_with_workspace
+  (
+   Entry* vec,
+   INT_1DARRAY & p,
+   Int n
+  )
+  {
+    //Permute
+    for(Int i = 0; i < n; i++)
+    {
+      perm_comp_fworkspace_array(i) = vec[p(i)];
+    }
+    //Copy back
+    for(Int i = 0; i < n; i++)
+    {
+      vec[i] = perm_comp_fworkspace_array(i);
+    }
+    return BASKER_SUCCESS;
+  }
+
+
+  template <class Int, class Entry, class Exe_Space>
+  BASKER_INLINE
   int Basker<Int, Entry, Exe_Space>::permute_with_workspace
   (
    ENTRY_1DARRAY & vec,
@@ -1555,6 +1643,29 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
     return BASKER_SUCCESS;
   }
 
+
+  template <class Int, class Entry, class Exe_Space>
+  BASKER_INLINE
+  int Basker<Int,Entry, Exe_Space>::permute_inv_array_with_workspace
+  (
+   Entry* vec,
+   INT_1DARRAY & p,
+   Int n
+  )
+  {
+    //Permute
+    for(Int i = 0; i < n; ++i)
+    {
+      perm_comp_fworkspace_array(p(i)) = vec[i];
+    }
+    //Copy back
+    for(Int i = 0; i < n; ++i)
+    {
+      vec[i] = perm_comp_fworkspace_array(i);
+    }
+
+    return BASKER_SUCCESS;
+  }
 
   template <class Int, class Entry, class Exe_Space>
   BASKER_INLINE
@@ -2091,7 +2202,9 @@ static int basker_sort_matrix_col(const void *arg1, const void *arg2)
    INT_1DARRAY row
   )
   {
-    permute_row(M.nnz, &(M.row_idx(0)), &(row(0)));
+    if (M.nnz > 0) {
+      permute_row(M.nnz, &(M.row_idx(0)), &(row(0)));
+    }
     return 0;
   }//end permute_row(matrix,int)
 

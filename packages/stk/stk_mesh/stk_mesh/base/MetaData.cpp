@@ -42,13 +42,13 @@
 #include <stk_mesh/base/BulkData.hpp>   // for BulkData
 #include <stk_util/parallel/ParallelComm.hpp>  // for CommBuffer, etc
 #include <stk_util/parallel/ParallelReduce.hpp>  // for Reduce, ReduceMin, etc
-#include <stk_util/util/string_case_compare.hpp>  // for equal_case
 #include "Shards_BasicTopologies.hpp"   // for getCellTopologyData, etc
 #include "stk_mesh/base/Bucket.hpp"     // for Bucket
 #include "stk_mesh/base/EntityKey.hpp"  // for EntityKey
 #include "stk_mesh/base/Part.hpp"       // for Part, etc
 #include "stk_mesh/base/Selector.hpp"   // for Selector
 #include "stk_mesh/base/Types.hpp"      // for PartVector, EntityRank, etc
+#include "stk_mesh/base/StkFieldSyncDebugger.hpp"
 #include "stk_mesh/baseImpl/PartRepository.hpp"  // for PartRepository
 #include "stk_topology/topology.hpp"    // for topology, etc
 #include "stk_util/parallel/Parallel.hpp"  // for parallel_machine_rank, etc
@@ -103,7 +103,7 @@ void MetaData::assign_topology(Part& part, stk::topology stkTopo)
 
   m_partTopologyVector[part_ordinal] = stkTopo;
 
-  part.m_partImpl.set_topology(stkTopo);
+  part.set_topology(stkTopo);
 
   STK_ThrowRequireMsg(stkTopo != stk::topology::INVALID_TOPOLOGY, "bad topology in MetaData::assign_topology");
 }
@@ -146,28 +146,24 @@ void MetaData::require_valid_entity_rank( EntityRank rank ) const
 //----------------------------------------------------------------------
 
 MetaData::MetaData(size_t spatial_dimension, const std::vector<std::string>& entity_rank_names)
-  : m_bulk_data(NULL),
-    m_commit( false ),
-    m_are_late_fields_enabled( false ),
-    m_use_simple_fields(false),
-    m_part_repo( this ),
+  : m_bulk_data(nullptr),
+    m_part_repo(this),
     m_attributes(),
-    m_universal_part( NULL ),
-    m_owns_part( NULL ),
-    m_shares_part( NULL ),
-    m_aura_part(NULL),
+    m_universal_part(nullptr),
+    m_owns_part(nullptr),
+    m_shares_part(nullptr),
+    m_aura_part(nullptr),
     m_field_repo(*this),
-    m_coord_field(NULL),
-    m_entity_rank_names( ),
-    m_spatial_dimension( 0 /*invalid spatial dimension*/),
-    m_surfaceToBlock()
+    m_coord_field(nullptr),
+    m_entity_rank_names(),
+    m_spatial_dimension(0 /*invalid spatial dimension*/),
+    m_surfaceToBlock(),
+    m_commit(false),
+    m_are_late_fields_enabled(false),
+    m_isFieldSyncDebuggerEnabled(false)
 {
   const size_t numRanks = stk::topology::NUM_RANKS;
   STK_ThrowRequireMsg(entity_rank_names.size() <= numRanks, "MetaData: number of entity-ranks (" << entity_rank_names.size() << ") exceeds limit of stk::topology::NUM_RANKS (" << numRanks <<")");
-
-#ifdef STK_USE_SIMPLE_FIELDS
-  m_use_simple_fields = true;
-#endif
 
   m_universal_part = m_part_repo.universal_part();
   m_owns_part = & declare_internal_part("OWNS");
@@ -178,26 +174,22 @@ MetaData::MetaData(size_t spatial_dimension, const std::vector<std::string>& ent
 }
 
 MetaData::MetaData()
-  : m_bulk_data(NULL),
-    m_commit( false ),
-    m_are_late_fields_enabled( false ),
-    m_use_simple_fields(false),
-    m_part_repo( this ),
+  : m_bulk_data(nullptr),
+    m_part_repo(this),
     m_attributes(),
-    m_universal_part( NULL ),
-    m_owns_part( NULL ),
-    m_shares_part( NULL ),
-    m_aura_part(NULL),
+    m_universal_part(nullptr),
+    m_owns_part(nullptr),
+    m_shares_part(nullptr),
+    m_aura_part(nullptr),
     m_field_repo(*this),
-    m_coord_field(NULL),
-    m_entity_rank_names( ),
-    m_spatial_dimension( 0 /*invalid spatial dimension*/),
-    m_surfaceToBlock()
+    m_coord_field(nullptr),
+    m_entity_rank_names(),
+    m_spatial_dimension(0 /*invalid spatial dimension*/),
+    m_surfaceToBlock(),
+    m_commit(false),
+    m_are_late_fields_enabled(false),
+    m_isFieldSyncDebuggerEnabled(false)
 {
-#ifdef STK_USE_SIMPLE_FIELDS
-  m_use_simple_fields = true;
-#endif
-
   // Declare the predefined parts
 
   m_universal_part = m_part_repo.universal_part();
@@ -455,59 +447,51 @@ void MetaData::internal_declare_part_subset( Part & superset , Part & subset, bo
 
 //----------------------------------------------------------------------
 
-void MetaData::declare_field_restriction(
-  FieldBase      & arg_field ,
-  const Part     & arg_part ,
-  const unsigned   arg_num_scalars_per_entity ,
-  const unsigned   arg_first_dimension ,
-  const void     * arg_init_value )
+void MetaData::declare_field_restriction(FieldBase& field,
+                                         const Part& part,
+                                         const unsigned numScalarsPerEntity,
+                                         const unsigned firstDimension,
+                                         const void* initValue)
 {
-  static const char method[] =
-    "std::mesh::MetaData::declare_field_restriction" ;
+  require_same_mesh_meta_data(MetaData::get(field));
+  require_same_mesh_meta_data(MetaData::get(part));
 
-  require_same_mesh_meta_data( MetaData::get(arg_field) );
-  require_same_mesh_meta_data( MetaData::get(arg_part) );
-
-  m_field_repo.declare_field_restriction(
-      method,
-      arg_field,
-      arg_part,
-      m_part_repo.get_all_parts(),
-      arg_num_scalars_per_entity,
-      arg_first_dimension,
-      arg_init_value
-      );
+  m_field_repo.declare_field_restriction("std::mesh::MetaData::declare_field_restriction",
+                                         field,
+                                         part,
+                                         m_part_repo.get_all_parts(),
+                                         numScalarsPerEntity,
+                                         firstDimension,
+                                         initValue);
 
   if (is_commit()) {
-    m_bulk_data->reallocate_field_data(arg_field);
+    m_bulk_data->reallocate_field_data(field);
   }
+
+  FieldSyncDebugger::declare_field_restriction(field, part, numScalarsPerEntity, firstDimension);
 }
 
-void MetaData::declare_field_restriction(
-  FieldBase      & arg_field ,
-  const Selector & arg_selector ,
-  const unsigned   arg_num_scalars_per_entity ,
-  const unsigned   arg_first_dimension ,
-  const void     * arg_init_value )
+void MetaData::declare_field_restriction(FieldBase& field,
+                                         const Selector& selector,
+                                         const unsigned numScalarsPerEntity,
+                                         const unsigned firstDimension,
+                                         const void* initValue)
 {
-  static const char method[] =
-    "std::mesh::MetaData::declare_field_restriction" ;
+  require_same_mesh_meta_data(MetaData::get(field));
 
-  require_same_mesh_meta_data( MetaData::get(arg_field) );
-
-  m_field_repo.declare_field_restriction(
-      method,
-      arg_field,
-      arg_selector,
-      m_part_repo.get_all_parts(),
-      arg_num_scalars_per_entity,
-      arg_first_dimension,
-      arg_init_value
-      );
+  m_field_repo.declare_field_restriction("std::mesh::MetaData::declare_field_restriction",
+                                         field,
+                                         selector,
+                                         m_part_repo.get_all_parts(),
+                                         numScalarsPerEntity,
+                                         firstDimension,
+                                         initValue);
 
   if (is_commit()) {
-    m_bulk_data->reallocate_field_data(arg_field);
+    m_bulk_data->reallocate_field_data(field);
   }
+
+  FieldSyncDebugger::declare_field_restriction(field, selector, numScalarsPerEntity, firstDimension);
 }
 
 //----------------------------------------------------------------------
@@ -611,12 +595,22 @@ void MetaData::internal_declare_known_cell_topology_parts()
     register_topology(stk::topology::HEX_20);
     register_topology(stk::topology::HEX_27);
 
+    register_topology(stk::topology::SHELL_SIDE_BEAM_2);
+    register_topology(stk::topology::SHELL_SIDE_BEAM_3);
+
     register_topology(stk::topology::SHELL_TRI_3);
     register_topology(stk::topology::SHELL_TRI_6);
+
+    register_topology(stk::topology::SHELL_TRI_3_ALL_FACE_SIDES);
+    register_topology(stk::topology::SHELL_TRI_6_ALL_FACE_SIDES);
 
     register_topology(stk::topology::SHELL_QUAD_4);
     register_topology(stk::topology::SHELL_QUAD_8);
     register_topology(stk::topology::SHELL_QUAD_9);
+
+    register_topology(stk::topology::SHELL_QUAD_4_ALL_FACE_SIDES);
+    register_topology(stk::topology::SHELL_QUAD_8_ALL_FACE_SIDES);
+    register_topology(stk::topology::SHELL_QUAD_9_ALL_FACE_SIDES);
   }
 }
 
@@ -755,6 +749,13 @@ std::vector<std::string> MetaData::get_part_aliases(const Part& part) const
 
   return std::vector<std::string>();
 }
+
+void MetaData::declare_field_sync_debugger_field(stk::mesh::FieldBase& field)
+{
+  FieldSyncDebugger::declare_field(field);
+}
+
+
 //----------------------------------------------------------------------
 //----------------------------------------------------------------------
 // Verify parallel consistency of fields and parts
@@ -784,10 +785,11 @@ public:
       }
     });
 
+    m_errStream.str(""); //clear
     int ok = unpack_verify(comm.recv_buffer());
     stk::all_reduce(m_parallelMachine, ReduceMin<1>(&ok));
 
-    STK_ThrowRequireMsg(ok, "[p" << m_pRank << "] MetaData parallel consistency failure");
+    STK_ThrowRequireMsg(ok, "[p" << m_pRank << "] MetaData parallel consistency failure: "<<m_errStream.str());
   }
 
   virtual void pack(CommBuffer & b) = 0;
@@ -797,6 +799,7 @@ protected:
   const MetaData & m_meta;
   ParallelMachine m_parallelMachine;
   int m_pRank;
+  std::ostringstream m_errStream;
 };
 
 class VerifyPartConsistency : public VerifyConsistency
@@ -885,7 +888,7 @@ public:
   {
     bool localPartValid = true;
     if (localPart == nullptr) {
-      std::cerr << "[p" << m_pRank << "] Received extra Part (" << m_rootPartName << ") from root processor" << std::endl;
+      m_errStream << "[p" << m_pRank << "] Received extra Part (" << m_rootPartName << ") from root processor" << std::endl;
       localPartValid = false;
     }
     return localPartValid;
@@ -899,7 +902,7 @@ public:
     bool nameMatches = nameLengthMatches && (strncmp(localPartNamePtr, m_rootPartName, localPartNameLen-1) == 0);
 
     if (!nameMatches) {
-      std::cerr << "[p" << m_pRank << "] Part name (" << localPart->name()
+      m_errStream << "[p" << m_pRank << "] Part name (" << localPart->name()
                 << ") does not match Part name (" << m_rootPartName << ") on root processor" << std::endl;
     }
     return nameMatches;
@@ -911,7 +914,7 @@ public:
     bool partRankMatches = (localPartRank == m_rootPartRank);
 
     if (!partRankMatches) {
-      std::cerr << "[p" << m_pRank << "] Part " << localPart->name() << " rank (" << localPartRank
+      m_errStream << "[p" << m_pRank << "] Part " << localPart->name() << " rank (" << localPartRank
                 << ") does not match Part " << m_rootPartName << " rank (" << m_rootPartRank << ") on root processor" << std::endl;
     }
     return partRankMatches;
@@ -923,7 +926,7 @@ public:
     bool partTopologyMatches = (localPartTopology == m_rootPartTopology);
 
     if (!partTopologyMatches) {
-      std::cerr << "[p" << m_pRank << "] Part " << localPart->name() << " topology (" << localPartTopology
+      m_errStream << "[p" << m_pRank << "] Part " << localPart->name() << " topology (" << localPartTopology
                 << ") does not match Part " << m_rootPartName << " topology (" << stk::topology(m_rootPartTopology)
                 << ") on root processor" << std::endl;
     }
@@ -943,15 +946,15 @@ public:
     }
 
     if (!subsetMatches) {
-      std::cerr << "[p" << m_pRank << "] Part " << localPart->name() << " subset ordinals (";
+      m_errStream << "[p" << m_pRank << "] Part " << localPart->name() << " subset ordinals (";
       for (const stk::mesh::Part * subsetPart : localSubsetParts) {
-        std::cerr << subsetPart->mesh_meta_data_ordinal() << " ";
+        m_errStream << subsetPart->mesh_meta_data_ordinal() << " ";
       }
-      std::cerr << ") does not match Part " << m_rootPartName << " subset ordinals (";
+      m_errStream << ") does not match Part " << m_rootPartName << " subset ordinals (";
       for (const unsigned rootPartSubsetOrdinal : m_rootPartSubsetOrdinals) {
-        std::cerr << rootPartSubsetOrdinal << " ";
+        m_errStream << rootPartSubsetOrdinal << " ";
       }
-      std::cerr << ") on root processor" << std::endl;
+      m_errStream << ") on root processor" << std::endl;
     }
 
     return subsetMatches;
@@ -962,7 +965,7 @@ public:
     bool noExtraParts = true;
     for (const stk::mesh::Part * part : unprocessedParts) {
       if (!stk::mesh::impl::is_internal_part(*part)) {
-        std::cerr << "[p" << m_pRank << "] Have extra Part (" << part->name() << ") that does not exist on root processor" << std::endl;
+        m_errStream << "[p" << m_pRank << "] Have extra Part (" << part->name() << ") that does not exist on root processor" << std::endl;
         noExtraParts = false;
       }
     }
@@ -1008,8 +1011,6 @@ public:
       b.pack<unsigned>(field->number_of_states());
 
       //  Remaining Fields attributes that should be checked:
-      //    field->field_array_rank()
-      //    field->dimension_tags()
       //    field->data_traits()
       //    field->state()
       //    field->restrictions()
@@ -1060,7 +1061,7 @@ public:
   {
     bool localFieldValid = true;
     if (localField == nullptr) {
-      std::cerr << "[p" << m_pRank << "] Received extra Field (" << m_rootFieldName << ") from root processor" << std::endl;
+      m_errStream << "[p" << m_pRank << "] Received extra Field (" << m_rootFieldName << ") from root processor" << std::endl;
       localFieldValid = false;
     }
     return localFieldValid;
@@ -1074,7 +1075,7 @@ public:
     bool fieldNameMatches = fieldNameLengthMatches && (strncmp(localFieldNamePtr, m_rootFieldName, localFieldNameLen-1) == 0);
 
     if (!fieldNameMatches) {
-      std::cerr << "[p" << m_pRank << "] Field name (" << localField->name()
+      m_errStream << "[p" << m_pRank << "] Field name (" << localField->name()
                 << ") does not match Field name (" << m_rootFieldName << ") on root processor" << std::endl;
     }
     return fieldNameMatches;
@@ -1086,7 +1087,7 @@ public:
     bool fieldRankMatches = (localFieldRank == m_rootFieldRank);
 
     if (!fieldRankMatches) {
-      std::cerr << "[p" << m_pRank << "] Field " << localField->name() << " rank (" << localFieldRank
+      m_errStream << "[p" << m_pRank << "] Field " << localField->name() << " rank (" << localFieldRank
                 << ") does not match Field " << m_rootFieldName << " rank (" << m_rootFieldRank << ") on root processor" << std::endl;
     }
     return fieldRankMatches;
@@ -1098,7 +1099,7 @@ public:
     bool fieldNumberOfStatesMatches = (localNumberOfStates == m_rootFieldNumberOfStates);
 
     if (!fieldNumberOfStatesMatches) {
-      std::cerr << "[p" << m_pRank << "] Field " << localField->name() << " number of states (" << localNumberOfStates
+      m_errStream << "[p" << m_pRank << "] Field " << localField->name() << " number of states (" << localNumberOfStates
                 << ") does not match Field " << m_rootFieldName << " number of states (" << m_rootFieldNumberOfStates
                 << ") on root processor" << std::endl;
     }
@@ -1109,7 +1110,7 @@ public:
   {
     bool noExtraFields = true;
     for (const stk::mesh::FieldBase * field : unprocessedFields) {
-      std::cerr << "[p" << m_pRank << "] Have extra Field (" << field->name() << ") that does not exist on root processor" << std::endl;
+      m_errStream << "[p" << m_pRank << "] Have extra Field (" << field->name() << ") that does not exist on root processor" << std::endl;
       noExtraFields = false;
     }
     return noExtraFields;
@@ -1217,7 +1218,7 @@ get_topology(const MetaData& meta_data, EntityRank entity_rank, const std::pair<
 }
 
 
-stk::topology get_topology( shards::CellTopology shards_topology, unsigned spatial_dimension)
+stk::topology get_topology( shards::CellTopology shards_topology, unsigned spatial_dimension, bool useAllFaceSideShell)
 {
   stk::topology t;
 
@@ -1269,22 +1270,27 @@ stk::topology get_topology( shards::CellTopology shards_topology, unsigned spati
   //else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::Spring<3> >()) )
   //  t = stk::topology::SPRING_3;
 
-  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellTriangle<3> >()) )
-    t = stk::topology::SHELL_TRI_3;
+  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellTriangle<3> >()) ) {
+    t = (useAllFaceSideShell) ? stk::topology::SHELL_TRI_3_ALL_FACE_SIDES : stk::topology::SHELL_TRI_3;
+  }
 
   //NOTE: shards does not define a shell triangle 4
   //else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellTriangle<4> >()) )
   //  t = stk::topology::SHELL_TRI_4;
 
-  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellTriangle<6> >()) )
-    t = stk::topology::SHELL_TRI_6;
+  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellTriangle<6> >()) ) {
+    t = (useAllFaceSideShell) ? stk::topology::SHELL_TRI_6_ALL_FACE_SIDES : stk::topology::SHELL_TRI_6;
+  }
 
-  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellQuadrilateral<4> >()) )
-    t = stk::topology::SHELL_QUAD_4;
-  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellQuadrilateral<8> >()) )
-    t = stk::topology::SHELL_QUAD_8;
-  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellQuadrilateral<9> >()) )
-    t = stk::topology::SHELL_QUAD_9;
+  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellQuadrilateral<4> >()) ) {
+    t = (useAllFaceSideShell) ? stk::topology::SHELL_QUAD_4_ALL_FACE_SIDES : stk::topology::SHELL_QUAD_4;
+  }
+  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellQuadrilateral<8> >()) ) {
+    t = (useAllFaceSideShell) ? stk::topology::SHELL_QUAD_8_ALL_FACE_SIDES : stk::topology::SHELL_QUAD_8;
+  }
+  else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::ShellQuadrilateral<9> >()) ) {
+    t = (useAllFaceSideShell) ? stk::topology::SHELL_QUAD_9_ALL_FACE_SIDES : stk::topology::SHELL_QUAD_9;
+  }
 
   else if ( shards_topology == shards::CellTopology(shards::getCellTopologyData< shards::Tetrahedron<4> >()) )
     t = stk::topology::TET_4;
@@ -1338,100 +1344,113 @@ shards::CellTopology get_cell_topology(stk::topology t)
   switch(t())
   {
   case stk::topology::NODE:         
-      return shards::CellTopology( shards::getCellTopologyData< shards::Node                  >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Node>());
   case stk::topology::LINE_2:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Line<2>               >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Line<2>>());
   case stk::topology::LINE_3:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Line<3>               >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Line<3>>());
   case stk::topology::TRI_3:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Triangle<3>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Triangle<3>>());
   case stk::topology::TRI_4:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Triangle<4>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Triangle<4>>());
   case stk::topology::TRI_6:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Triangle<6>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Triangle<6>>());
   case stk::topology::QUAD_4:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<4>      >() );
-  case stk::topology::QUAD_6:
-      //NOTE: shards does not define a topology for a 6-noded quadrilateral element
-      // return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<6>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<4>>());
+  case stk::topology::QUAD_6: break;
+    //NOTE: shards does not define a topology for a 6-noded quadrilateral element
+    // return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<6>>());
   case stk::topology::QUAD_8:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<8>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<8>>());
   case stk::topology::QUAD_9:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<9>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<9>>());
   case stk::topology::PARTICLE:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Particle              >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Particle>());
   case stk::topology::LINE_2_1D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Line<2>               >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Line<2>>());
   case stk::topology::LINE_3_1D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Line<3>               >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Line<3>>());
   case stk::topology::BEAM_2:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Beam<2>               >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Beam<2>>());
   case stk::topology::BEAM_3:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Beam<3>               >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Beam<3>>());
   case stk::topology::SHELL_LINE_2:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellLine<2>          >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellLine<2>>());
   case stk::topology::SHELL_LINE_3:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellLine<3>          >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellLine<3>>());
   case stk::topology::SPRING_2: break;
     //NOTE: shards does not define a topology for a 2-noded spring element
-    //return shards::CellTopology( shards::getCellTopologyData< shards::Spring<2>             >() );
+    //return shards::CellTopology(shards::getCellTopologyData<shards::Spring<2>>());
   case stk::topology::SPRING_3: break;
     //NOTE: shards does not define a topology for a 3-noded spring element
-    //return shards::CellTopology( shards::getCellTopologyData< shards::Spring<3>             >() );
+    //return shards::CellTopology(shards::getCellTopologyData<shards::Spring<3>>());
   case stk::topology::TRI_3_2D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Triangle<3>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Triangle<3>>());
   case stk::topology::TRI_4_2D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Triangle<4>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Triangle<4>>());
   case stk::topology::TRI_6_2D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Triangle<6>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Triangle<6>>());
   case stk::topology::QUAD_4_2D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<4>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<4>>());
   case stk::topology::QUAD_8_2D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<8>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<8>>());
   case stk::topology::QUAD_9_2D:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Quadrilateral<9>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Quadrilateral<9>>());
   case stk::topology::SHELL_TRI_3:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellTriangle<3>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellTriangle<3>>());
   case stk::topology::SHELL_TRI_4: break;
     //NOTE: shards does not define a topology for a 4-noded triangular shell
-    //return shards::CellTopology( shards::getCellTopologyData< shards::ShellTriangle<4>      >() );
+    //return shards::CellTopology(shards::getCellTopologyData<shards::ShellTriangle<4>>());
   case stk::topology::SHELL_TRI_6:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellTriangle<6>      >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellTriangle<6>>());
+  case stk::topology::SHELL_TRI_3_ALL_FACE_SIDES:
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellTriangle<3>>());
+  case stk::topology::SHELL_TRI_4_ALL_FACE_SIDES: break;
+    //NOTE: shards does not define a topology for a 4-noded triangular shell
+    //return shards::CellTopology(shards::getCellTopologyData<shards::ShellTriangle<4>>());
+  case stk::topology::SHELL_TRI_6_ALL_FACE_SIDES:
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellTriangle<6>>());
   case stk::topology::SHELL_QUAD_4:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellQuadrilateral<4> >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellQuadrilateral<4>>());
   case stk::topology::SHELL_QUAD_8:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellQuadrilateral<8> >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellQuadrilateral<8>>());
   case stk::topology::SHELL_QUAD_9:
-      return shards::CellTopology( shards::getCellTopologyData< shards::ShellQuadrilateral<9> >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellQuadrilateral<9>>());
+  case stk::topology::SHELL_QUAD_4_ALL_FACE_SIDES:
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellQuadrilateral<4>>());
+  case stk::topology::SHELL_QUAD_8_ALL_FACE_SIDES:
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellQuadrilateral<8>>());
+  case stk::topology::SHELL_QUAD_9_ALL_FACE_SIDES:
+    return shards::CellTopology(shards::getCellTopologyData<shards::ShellQuadrilateral<9>>());
   case stk::topology::TET_4:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Tetrahedron<4>        >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Tetrahedron<4>>());
   case stk::topology::TET_8:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Tetrahedron<8>        >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Tetrahedron<8>>());
   case stk::topology::TET_10:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Tetrahedron<10>       >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Tetrahedron<10>>());
   case stk::topology::TET_11:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Tetrahedron<11>       >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Tetrahedron<11>>());
   case stk::topology::PYRAMID_5:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Pyramid<5>            >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Pyramid<5>>());
   case stk::topology::PYRAMID_13:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Pyramid<13>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Pyramid<13>>());
   case stk::topology::PYRAMID_14:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Pyramid<14>           >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Pyramid<14>>());
   case stk::topology::WEDGE_6:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Wedge<6>              >() );
-  case stk::topology::WEDGE_12:
-      //NOTE: shards does not define a topology for a 12-noded wedge
-      // return shards::CellTopology( shards::getCellTopologyData< shards::Wedge<12>             >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Wedge<6>>());
+  case stk::topology::WEDGE_12: break;
+    //NOTE: shards does not define a topology for a 12-noded wedge
+    // return shards::CellTopology(shards::getCellTopologyData<shards::Wedge<12>>());
   case stk::topology::WEDGE_15:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Wedge<15>             >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Wedge<15>>());
   case stk::topology::WEDGE_18:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Wedge<18>             >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Wedge<18>>());
   case stk::topology::HEX_8:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Hexahedron<8>         >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Hexahedron<8>>());
   case stk::topology::HEX_20:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Hexahedron<20>        >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Hexahedron<20>>());
   case stk::topology::HEX_27:
-      return shards::CellTopology( shards::getCellTopologyData< shards::Hexahedron<27>        >() );
+    return shards::CellTopology(shards::getCellTopologyData<shards::Hexahedron<27>>());
   default: break;
   }
   return shards::CellTopology(NULL);
@@ -1450,6 +1469,9 @@ FieldBase* MetaData::get_field(stk::mesh::EntityRank entity_rank, const std::str
   return nullptr;
 }
 
+void MetaData::use_simple_fields() { }
+
+bool MetaData::is_using_simple_fields() const { return true; }
 
 FieldBase* get_field_by_name( const std::string& name, const MetaData & metaData )
 {

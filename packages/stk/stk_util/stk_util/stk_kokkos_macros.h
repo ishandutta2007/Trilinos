@@ -3,17 +3,27 @@
 
 #include "Kokkos_Macros.hpp"
 
-// This should eventually need to be supplemented with checks for ROCM and
-// other accelerator platforms
-//
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#define STK_ENABLE_GPU
+#endif
+
+#if defined(STK_ENABLE_GPU)
   #ifndef STK_USE_DEVICE_MESH
     #define STK_USE_DEVICE_MESH
   #endif
 #endif
 
+#if defined(STK_ENABLE_GPU)
+#if !defined(KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE) && !defined(KOKKOS_ENABLE_HIP_RELOCATABLE_DEVICE_CODE)
+#define STK_ENABLE_GPU_BUT_NO_RDC
+#endif
+#endif
+
 #define STK_INLINE_FUNCTION KOKKOS_INLINE_FUNCTION
 #define STK_FUNCTION KOKKOS_FUNCTION
 
+#if defined KOKKOS_ENABLE_IMPL_HIP_UNIFIED_MEMORY
+#define STK_UNIFIED_MEMORY
 #endif
 
+#endif

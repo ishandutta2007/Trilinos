@@ -1,3 +1,11 @@
+// @HEADER
+// *****************************************************************************
+//   Zoltan2: A package of combinatorial algorithms for scientific computing
+//
+// Copyright 2012 NTESS and the Zoltan2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
 
 #include "Tpetra_Core.hpp"
 #include "Kokkos_Random.hpp"
@@ -189,7 +197,7 @@ public:
       Kokkos::RangePolicy<execution_space_t>(0, num_local_nz),
       KOKKOS_LAMBDA(const size_t nz, int &errorcnt) {
         if (J_local_matrix.values(nz) != Jp_local_matrix.values(nz)) {
-          printf("Error in nonzero comparison %zu:  %g != %g",
+          Kokkos::printf("Error in nonzero comparison %zu:  %g != %g",
                   nz, J_local_matrix.values(nz), Jp_local_matrix.values(nz));
           errorcnt++;
         }

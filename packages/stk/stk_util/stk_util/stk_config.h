@@ -35,14 +35,22 @@
 #ifndef stk_util_config_h
 #define stk_util_config_h
 
-#ifdef STK_BUILT_IN_SIERRA
+#ifdef STK_BUILT_WITH_BJAM
 
 #define STK_HAS_MPI
+#define STK_HAS_ARBORX
 #define STK_HAVE_BOOST
 #define STK_HAVE_KOKKOS
+#define STK_HAVE_INTREPID2
 #define STK_HAVE_STKMESH
+#define STK_16BIT_CONNECTIVITY_ORDINAL
 #define STK_HAVE_STKIO
 #define STK_HAVE_STKNGP_TEST
+#define STK_HAS_SEACAS_IOSS
+#define STK_HAS_SEACAS_EXODUS
+#define STK_HAS_SEACAS_NEMESIS
+#define STK_HAVE_FP_EXCEPT
+#define STK_HAVE_FP_ERRNO
 
 #else
 // This file gets created by cmake during a Trilinos build
@@ -63,8 +71,8 @@
 #define MPI_COMM_SELF 0
 #endif
 
-#endif
-#endif
+#endif // STK_HAS_MPI
+#endif // STK_BUILT_WITH_BJAM
 
 // GCC address sanitizer
 #ifdef __SANITIZE_ADDRESS__

@@ -47,16 +47,17 @@
 #include <utility>                          // for pair
 #include <vector>                           // for vector
 #include <functional>
+#include <limits>
 #include "Ioss_EntityType.h"                // for EntityType, SIDEBLOCK
 #include "Ioss_GroupingEntity.h"            // for GroupingEntity
 #include "SidesetTranslator.hpp"            // for fill_element_and_side_ids
 #include "stk_io/OutputParams.hpp"          // for OutputParams
-#include "stk_mesh/base/BulkData.hpp"       // for BulkData
 #include "stk_mesh/base/FieldState.hpp"     // for FieldState
 #include "stk_mesh/base/Part.hpp"           // for Part
 #include "stk_topology/topology.hpp"        // for topology
 #include "stk_util/util/ParameterList.hpp"  // for Type
 #include "stk_util/util/ReportHandler.hpp"  // for ThrowRequireMsg
+#include "Ioss_SideBlock.h"                         // for SideBlock
 namespace Ioss { class DatabaseIO; }
 namespace Ioss { class ElementTopology; }
 namespace Ioss { class EntityBlock; }
@@ -75,7 +76,6 @@ namespace stk { namespace mesh { class Part; } }
 
 namespace Ioss {
 class SideSet;
-class SideBlock;
 class NodeBlock;
 class Field;
 class GroupingEntity;
@@ -94,6 +94,17 @@ namespace stk {
  * control over the mesh reading and results/restart writing.
  */
 namespace io {
+
+struct FieldReadStatus {
+    bool possiblyCorrupt;
+    bool fieldRead;
+    double timeRead;
+
+    FieldReadStatus()
+    : possiblyCorrupt(false)
+    , fieldRead(false)
+    , timeRead(std::numeric_limits<double>::max()) {}
+};
 
 using TopologyErrorHandler = std::function<void(stk::mesh::Part &part)>;
 
@@ -160,6 +171,8 @@ bool include_entity(const Ioss::GroupingEntity *entity);
 void internal_part_processing(Ioss::GroupingEntity *entity, stk::mesh::MetaData &meta, TopologyErrorHandler handler);
 
 void internal_part_processing(Ioss::EntityBlock *entity, stk::mesh::MetaData &meta, TopologyErrorHandler handler);
+
+void declare_stk_aliases(Ioss::Region& region, stk::mesh::MetaData& meta);
 
 /** This is the primary function used by an application to define
  *	the stk::mesh which corresponds to the Ioss mesh read from the
@@ -321,7 +334,7 @@ void define_io_fields(Ioss::GroupingEntity *entity,
  *  stk::topology. If a corresponding topology is not found, a
  *  runtime error exception will be thrown.
  */
-stk::topology map_ioss_topology_to_stk(const Ioss::ElementTopology *topology, unsigned mesh_spatial_dimension);
+stk::topology map_ioss_topology_to_stk(const Ioss::ElementTopology *topology, unsigned mesh_spatial_dimension, bool useShellAllFaceSides = false);
 
 /** Given a stk::topology, return the
  *	corresponding Ioss::ElementTopology string. If a corresponding
@@ -359,13 +372,14 @@ void delete_selector_property(Ioss::Region &io_region);
 void delete_selector_property(Ioss::GroupingEntity *io_entity);
 
 std::string get_stated_field_name(const std::string &field_base_name, stk::mesh::FieldState state_identifier,
-                                  std::vector<std::string>* multiStateSuffixes=nullptr);
+                                  const std::vector<std::string>* multiStateSuffixes=nullptr);
 
 bool field_state_exists_on_io_entity(const std::string& db_name, const stk::mesh::FieldBase* field, stk::mesh::FieldState state_identifier,
-                                     Ioss::GroupingEntity *io_entity, std::vector<std::string>* multiStateSuffixes=nullptr);
+                                     Ioss::GroupingEntity *io_entity, const std::vector<std::string>* multiStateSuffixes=nullptr);
 
-bool all_field_states_exist_on_io_entity(const std::string& db_name, const stk::mesh::FieldBase* field, Ioss::GroupingEntity *io_entity,
-                                         std::vector<stk::mesh::FieldState> &missing_states, std::vector<std::string>* multiStateSuffixes=nullptr);
+bool all_field_states_exist_on_io_entity(const std::string& db_name, const stk::mesh::FieldBase* field,
+                                         Ioss::GroupingEntity *io_entity, std::vector<stk::mesh::FieldState> &missing_states,
+                                         const std::vector<std::string>* multiStateSuffixes=nullptr);
 
 void multistate_field_data_from_ioss(const stk::mesh::BulkData& mesh,
                                      const stk::mesh::FieldBase *field,
@@ -630,6 +644,11 @@ const stk::mesh::Part* get_parent_element_block(const stk::mesh::BulkData &bulk,
                                                 const Ioss::Region &ioRegion,
                                                 const std::string& name);
 
+int64_t get_side_offset(const Ioss::ElementTopology* sideTopo,
+                        const Ioss::ElementTopology* parentTopo);
+
+int64_t get_side_offset(const Ioss::SideBlock* sb);
+
 template <typename INT>
 void fill_data_for_side_block( OutputParams &params,
                                Ioss::GroupingEntity & io ,
@@ -640,7 +659,8 @@ void fill_data_for_side_block( OutputParams &params,
 {
     STK_ThrowRequireMsg(io.type() == Ioss::SIDEBLOCK, "Input GroupingEntity must be of type Ioss::SIDEBLOCK");
 
-    stk::topology stk_elem_topology = map_ioss_topology_to_stk(element_topology, params.bulk_data().mesh_meta_data().spatial_dimension());
+    bool useShellAllFaceSides = io.get_database()->get_region()->property_exists("ENABLE_ALL_FACE_SIDES_SHELL");
+    stk::topology stk_elem_topology = map_ioss_topology_to_stk(element_topology, params.bulk_data().mesh_meta_data().spatial_dimension(), useShellAllFaceSides);
 
     const stk::mesh::Part *parentElementBlock = get_parent_element_block(params.bulk_data(), params.io_region(), part->name());
 
@@ -648,7 +668,14 @@ void fill_data_for_side_block( OutputParams &params,
         parentElementBlock = get_parent_element_block(params.bulk_data(), params.io_region(), io.name());
     }
 
-    fill_element_and_side_ids(params, part, parentElementBlock, stk_elem_topology, sides, elem_side_ids);
+    // An offset required to translate Ioss's interpretation of shell ordinals 
+    INT sideOrdOffset = 0;
+    if(io.type() == Ioss::SIDEBLOCK) {
+      Ioss::SideBlock* sb = dynamic_cast<Ioss::SideBlock*>(&io);
+      sideOrdOffset = get_side_offset(sb);
+    }
+    
+    fill_element_and_side_ids(params, part, parentElementBlock, stk_elem_topology, sides, elem_side_ids, sideOrdOffset);
 }
 
 namespace impl {
@@ -656,8 +683,7 @@ namespace impl {
 const stk::mesh::FieldBase *declare_stk_field_internal(stk::mesh::MetaData &meta,
                                                        stk::mesh::EntityRank type,
                                                        stk::mesh::Part &part,
-                                                       const Ioss::Field &io_field,
-                                                       bool use_cartesian_for_scalar);
+                                                       const Ioss::Field &io_field);
 }//namespace impl
 
 }//namespace io

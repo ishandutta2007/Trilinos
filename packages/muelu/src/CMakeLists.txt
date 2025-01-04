@@ -59,6 +59,12 @@ TRIBITS_INCLUDE_DIRECTORIES(${DIR}/Utils)
 TRIBITS_INCLUDE_DIRECTORIES(${DIR}/Utils/ForwardDeclaration)
 TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../adapters/xpetra)
 TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../adapters/tpetra)
+IF (${PACKAGE_NAME}_ENABLE_Stratimikos)
+  TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../adapters/stratimikos)
+ENDIF()
+IF (${PACKAGE_NAME}_ENABLE_Thyra)
+  TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../adapters/thyra)
+ENDIF()
 IF (${PACKAGE_NAME}_ENABLE_Epetra)
   TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../adapters/epetra)
 ENDIF()
@@ -72,7 +78,9 @@ IF (${PACKAGE_NAME}_ENABLE_Experimental)
   TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../research/regionMG/src)
 ENDIF()
 IF (${PACKAGE_NAME}_ENABLE_Stratimikos)
-   TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../adapters/stratimikos)
+ ENDIF()
+IF (TPL_ENABLE_MATLAB)
+  TRIBITS_INCLUDE_DIRECTORIES(${DIR}/../matlab/src)
 ENDIF()
 
 # Function to generate ETI (explicit template instantiation) files
@@ -341,18 +349,11 @@ ENDIF() # split ETI files
 
 ###############################################
 #The HEADERS variable is the list of headers that will be copied to the install directory during "make install".
-## TODO check this
 SET(HEADERS "")
 APPEND_GLOB(HEADERS ${BDIR}/${PACKAGE_NAME}_config.hpp)
 APPEND_GLOB(HEADERS */*.hpp)
 APPEND_GLOB(HEADERS */*/*.hpp)
 APPEND_GLOB(HEADERS */*/*/*.hpp)
-
-# SET(HEADERS_INTERFACE "")
-# APPEND_GLOB(HEADERS_INTERFACE Interface/*.hpp)
-# APPEND_GLOB(HEADERS_INTERFACE Interface/FacadeClasses/*.hpp)
-# LIST(REMOVE_ITEM HEADERS ${HEADERS_INTERFACE})
-
 
 ###############################################
 SET(SOURCES ${MUELU_ETI_CPP_SOURCES})
@@ -404,6 +405,9 @@ TRILINOS_CREATE_CLIENT_TEMPLATE_HEADERS(${DIR}/../adapters/tpetra NOSIERRABJAM)
 IF (${PACKAGE_NAME}_ENABLE_Intrepid2)
   TRILINOS_CREATE_CLIENT_TEMPLATE_HEADERS(${DIR}/Transfers/PCoarsen NOSIERRABJAM)
 ENDIF()
+IF (TPL_ENABLE_MATLAB)
+  TRIBITS_CREATE_CLIENT_TEMPLATE_HEADERS(${DIR}/../matlab/src)
+ENDIF()
 
 # Cpp file
 IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
@@ -414,34 +418,10 @@ ENDIF()
 TRIBITS_INCLUDE_DIRECTORIES(${BDIR}/)
 APPEND_GLOB(HEADERS ${BDIR}/*.hpp)
 
-# # Remove everything in the interface directory and add it to a list for muelu-interface instead
-# SET(SOURCES_INTERFACE "")
-# APPEND_GLOB(SOURCES_INTERFACE Interface/*.cpp)
-# IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_FacadeClassFactory.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_FacadeClassBase.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_FacadeSimple.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_FacadeBGS2x2.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_ParameterListInterpreter.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_MLParameterListInterpreter.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_FactoryFactory.cpp)
-#   APPEND_SET(SOURCES_INTERFACE Utils/ExplicitInstantiation/ETI_MueLu_AdaptiveSaMLParameterListInterpreter.cpp)
-
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_FacadeClassFactory.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_FacadeClassBase.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_FacadeSimple.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_FacadeBGS2x2.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_ParameterListInterpreter.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_MLParameterListInterpreter.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_FactoryFactory.cpp)
-#   APPEND_SET(SOURCES_INTERFACE ${DIR}/Utils/ExplicitInstantiation/ETI_MueLu_AdaptiveSaMLParameterListInterpreter.cpp)
-# ENDIF()
-# LIST(REMOVE_ITEM SOURCES ${SOURCES_INTERFACE})
 
 if (NOT ${PACKAGE_NAME}_ENABLE_Ifpack2)
   LIST(REMOVE_ITEM HEADERS ${DIR}/Smoothers/MueLu_Ifpack2Smoother.hpp)
-  LIST(REMOVE_ITEM SOURCES
-    ${DIR}/Utils/ExplicitInstantiation/MueLu_Ifpack2Smoother.cpp)
+  LIST(REMOVE_ITEM SOURCES ${DIR}/Utils/ExplicitInstantiation/MueLu_Ifpack2Smoother.cpp)
 ENDIF()
 
 
@@ -454,4 +434,5 @@ TRIBITS_ADD_LIBRARY(
   HEADERS ${HEADERS}
   SOURCES ${SOURCES}
   )
+# touch CMakeLists.txt because a new file was created in Utils/ExplicitInstantiation of Utils/ForwardDeclaration
 # touch CMakeLists.txt because a new file was created in Utils/ExplicitInstantiation of Utils/ForwardDeclaration

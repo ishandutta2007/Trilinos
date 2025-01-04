@@ -56,6 +56,8 @@ namespace impl {
 class Partition
 {
 public:
+  enum RemoveMode {FILL_HOLE_THEN_SORT, TRACK_THEN_SLIDE};
+
   Partition(BulkData& mesh, BucketRepository *repo, EntityRank rank,
             const PartOrdinal* keyBegin, const PartOrdinal* keyEnd);
 
@@ -139,11 +141,16 @@ public:
 
   void reset_partition_key(const std::vector<unsigned>& newKey);
 
+  void set_remove_mode(RemoveMode removeMode);
+  RemoveMode get_remove_mode() const { return m_removeMode; }
+
 private:
   BulkData& m_mesh;
   BucketRepository *m_repository;
 
   EntityRank m_rank;
+
+  void check_sorted(const std::string& prefixMsg);
 
   // Identifies the partition, borrowing the representation from BucketRepository.
   std::vector<PartOrdinal> m_extPartitionKey;
@@ -156,11 +163,18 @@ private:
 
   bool m_updated_since_sort;
 
+  RemoveMode m_removeMode;
+
+  std::vector<FastMeshIndex> m_removedEntities;
   //
   // Internal methods
   //
 
+  void remove_internal(Bucket& bucket, unsigned bucketOrd);
   void remove_impl();
+
+  void clear_pending_removes_by_filling_from_end();
+  void finalize_pending_removes_by_sliding_memory();
 
   // The partition has no buckets, not even an empty one left after removing all its
   // entities.
@@ -196,41 +210,29 @@ private:
 std::ostream &operator<<(std::ostream &, const stk::mesh::impl::Partition &);
 
 struct PartitionLess {
-  bool operator()( const Partition * lhs_Partition , const unsigned * rhs ) const ;
-  bool operator()( const unsigned * lhs , const Partition * rhs_Partition ) const ;
+  bool operator()( const Partition * lhs_Partition , const OrdinalVector& rhs ) const
+  {
+    return lhs_Partition->get_legacy_partition_id().size() != rhs.size() ?
+           lhs_Partition->get_legacy_partition_id().size() < rhs.size() :
+           lhs_Partition->get_legacy_partition_id() < rhs;
+  }
+
+  bool operator()( const OrdinalVector& lhs , const Partition * rhs_Partition ) const
+  {
+    return lhs.size() != rhs_Partition->get_legacy_partition_id().size() ?
+           lhs.size() < rhs_Partition->get_legacy_partition_id().size() :
+           lhs < rhs_Partition->get_legacy_partition_id();
+  }
 };
 
 inline
-bool partition_key_less( const unsigned * lhs , const unsigned * rhs )
-{
-//  const unsigned * const last_lhs = lhs + ( *lhs < *rhs ? *lhs : *rhs );
-//  while ( last_lhs != lhs && *lhs == *rhs ) { ++lhs ; ++rhs ; }
-
-  if (*lhs == *rhs) {
-    const unsigned * const last_lhs = lhs + *lhs;
-    do {
-      ++lhs ; ++rhs ;
-    } while ( last_lhs != lhs && *lhs == *rhs );
-  }
-  return *lhs < *rhs ;
-}
-
-// The part count and part ordinals are less
-inline bool PartitionLess::operator()( const Partition * lhs_partition ,
-                                       const unsigned * rhs ) const
-{ return partition_key_less( lhs_partition->key() , rhs ); }
-
-inline bool PartitionLess::operator()( const unsigned * lhs ,
-                                       const Partition * rhs_partition ) const
-{ return partition_key_less( lhs , rhs_partition->key() ); }
-
-inline
 std::vector<Partition*>::iterator
-lower_bound( std::vector<Partition*> & v , const unsigned * key )
-{ return std::lower_bound( v.begin() , v.end() , key , PartitionLess() ); }
+upper_bound( std::vector<Partition*> & v , const OrdinalVector& key )
+{ return std::upper_bound( v.begin() , v.end() , key , PartitionLess() ); }
 
 } // impl
 } // mesh
 } // stk
 
-#endif /* PartitionFAMILY_HPP_ */
+#endif /* STK_MESH_IMPL_PARTITION_HPP_ */
+

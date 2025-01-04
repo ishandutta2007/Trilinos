@@ -1,44 +1,10 @@
 // @HEADER
-//
-// ***********************************************************************
-//
+// *****************************************************************************
 //           Amesos2: Templated Direct Sparse Solver Package
-//                  Copyright 2011 Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2011 NTESS and the Amesos2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include <string>
@@ -61,6 +27,17 @@
 
 #include "Amesos2.hpp"
 #include "Amesos2_Meta.hpp"
+
+#if defined(HAVE_AMESOS2_EPETRA)
+#ifdef HAVE_MPI
+#include <Epetra_MpiComm.h>
+#else
+#include <Epetra_SerialComm.h>
+#endif
+#include <Epetra_Map.h>
+#include <Epetra_MultiVector.h>
+#include <Epetra_CrsMatrix.h>
+#endif
 
 namespace {
 
@@ -630,6 +607,143 @@ namespace {
     } // end if numProcs = 2
   }
 
+#if defined(HAVE_AMESOS2_EPETRA)
+  //! @test Test for Epetra non-contiguous GIDs.
+  TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( KLU2, NonContigGIDEpetra, SCALAR, LO, GO )
+  {
+    typedef Epetra_CrsMatrix MAT;
+    typedef ScalarTraits<SCALAR> ST;
+    typedef Epetra_MultiVector MV;
+    typedef typename ST::magnitudeType Mag;
+    typedef Epetra_Map map_type;
+
+    using Tpetra::global_size_t;
+    using Teuchos::tuple;
+    using Teuchos::RCP;
+    using Teuchos::rcp;
+    using Scalar = SCALAR;
+
+    RCP<const Comm<int> > comm = Tpetra::getDefaultComm();
+
+    size_t myRank = comm->getRank();
+    const global_size_t numProcs = comm->getSize();
+
+    // Unit test created for 2 processes
+    if ( numProcs == 2 ) {
+
+      const global_size_t numVectors = 1;
+      const global_size_t nrows = 6;
+
+      const int numGlobalEntries = nrows;
+      const LO numLocalEntries = nrows / numProcs;
+
+      // Create non-contiguous Map
+      // This example: np 2 leads to GIDS: proc0 - 0,2,4  proc 1 - 1,3,5
+      Teuchos::Array<int> elementList(numLocalEntries);
+      for ( LO k = 0; k < numLocalEntries; ++k ) {
+        elementList[k] = myRank + k*numProcs + 4*myRank;
+      }
+
+#ifdef HAVE_MPI
+      const Epetra_MpiComm comm(MPI_COMM_WORLD);
+#else
+      const Epetra_SerialComm comm;
+#endif
+
+      RCP< const map_type > map = rcp( new Epetra_Map( numGlobalEntries, numLocalEntries, elementList.data(), 0, comm ));
+      RCP<MAT> A = rcp( new MAT(Epetra_DataAccess::Copy, *map, numLocalEntries) );
+
+      /*
+       * We will solve a system with a known solution, for which we will be using
+       * the following matrix:
+       *
+       *  GID  0   2   4   5   7   9
+       * [ 0 [ 7,  0, -3,  0, -1,  0 ]
+       *   2 [ 2,  8,  0,  0,  0,  0 ]
+       *   4 [ 0,  0,  1,  0,  0,  0 ]
+       *   5 [-3,  0,  0,  5,  0,  0 ]
+       *   7 [ 0, -1,  0,  0,  4,  0 ]
+       *   9 [ 0,  0,  0, -2,  0,  6 ] ]
+       *
+       */
+
+      // Construct matrix
+      if( myRank == 0 ){
+        A->InsertGlobalValues(0,3,tuple<Scalar>(7,-3,-1).data(),tuple<GO>(0,4,7).data());
+        A->InsertGlobalValues(2,2,tuple<Scalar>(2,8).data(),tuple<GO>(0,2).data());
+        A->InsertGlobalValues(4,1,tuple<Scalar>(1).data(),tuple<GO>(4).data());
+      } else {
+        A->InsertGlobalValues(5,2,tuple<Scalar>(-3,5).data(),tuple<GO>(0,5).data());
+        A->InsertGlobalValues(7,2,tuple<Scalar>(-1,4).data(),tuple<GO>(2,7).data());
+        A->InsertGlobalValues(9,2,tuple<Scalar>(-2,6).data(),tuple<GO>(5,9).data());
+      }
+      A->FillComplete();
+
+      // Create X with random values
+      RCP<MV> X = rcp(new MV(*map, numVectors));
+      X->Random();
+
+      /* Create B, use same GIDs
+       *
+       * Use RHS:
+       *
+       *  [[-7]
+       *   [18]
+       *   [ 3]
+       *   [17]
+       *   [18]
+       *   [28]]
+       */
+      RCP<MV> B = rcp(new MV(*map, numVectors));
+      GO rowids[nrows] = {0,2,4,5,7,9};
+      Scalar data[nrows] = {-7,18,3,17,18,28};
+      for( global_size_t i = 0; i < nrows; ++i ){
+        if( B->Map().MyGID(rowids[i]) ){
+          B->ReplaceGlobalValue(rowids[i],0,data[i]);
+        }
+      }
+
+      // Create solver interface with Amesos2 factory method
+      RCP<Amesos2::Solver<MAT,MV> > solver = Amesos2::create<MAT,MV>("KLU2", A, X, B);
+
+      // Create a Teuchos::ParameterList to hold solver parameters
+      Teuchos::ParameterList amesos2_params("Amesos2");
+      amesos2_params.sublist("KLU2").set("IsContiguous", false, "Are GIDs Contiguous");
+
+      solver->setParameters( Teuchos::rcpFromRef(amesos2_params) );
+
+      solver->symbolicFactorization().numericFactorization().solve();
+
+      /* Check the solution
+       *
+       * Should be:
+       *
+       *  [[1]
+       *   [2]
+       *   [3]
+       *   [4]
+       *   [5]
+       *   [6]]
+       */
+      // Solution Vector for later comparison
+      RCP<MV> Xhat = rcp(new MV(*map, numVectors));
+      GO rowids_soln[nrows] = {0,2,4,5,7,9};
+      Scalar data_soln[nrows] = {1,2,3,4,5,6};
+      for( global_size_t i = 0; i < nrows; ++i ){
+        if( Xhat->Map().MyGID(rowids_soln[i]) ){
+          Xhat->ReplaceGlobalValue(rowids_soln[i],0,data_soln[i]);
+        }
+      }
+
+      // Check result of solve
+      Array<Mag> xhatnorms(numVectors), xnorms(numVectors);
+      Xhat->Norm2(xhatnorms().data());
+      X->Norm2(xnorms().data());
+      TEST_COMPARE_FLOATING_ARRAYS( xhatnorms, xnorms, 0.005 );
+    } // end if numProcs = 2
+  }
+#endif
+
   /*
    * Unit Tests for Complex data types
    */
@@ -857,6 +971,11 @@ namespace {
   TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( KLU2, SolveIR, SCALAR, LO, GO ) \
   TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( KLU2, SolveTrans, SCALAR, LO, GO ) \
   TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( KLU2, NonContigGID, SCALAR, LO, GO )
+
+#ifdef HAVE_AMESOS2_EPETRA
+#define UNIT_TEST_GROUP_EPETRA( LO, GO, SCALAR)  \
+  TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( KLU2, NonContigGIDEpetra, SCALAR, LO, GO )
+#endif
 
 #define UNIT_TEST_GROUP_ORDINAL( ORDINAL )              \
   UNIT_TEST_GROUP_ORDINAL_ORDINAL( ORDINAL, ORDINAL )

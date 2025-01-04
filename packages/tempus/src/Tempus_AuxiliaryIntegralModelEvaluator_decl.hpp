@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_AuxiliaryIntegralModelEvaluator_decl_hpp
 #define Tempus_AuxiliaryIntegralModelEvaluator_decl_hpp
@@ -25,24 +26,26 @@ namespace Tempus {
  * can then be used by Tempus to compute the definite integral.
  */
 template <typename Scalar>
-class AuxiliaryIntegralModelEvaluator :
-    public Thyra::StateFuncModelEvaluatorBase<Scalar> {
-public:
-  typedef Thyra::VectorBase<Scalar>  Vector;
-  typedef Thyra::MultiVectorBase<Scalar>  MultiVector;
+class AuxiliaryIntegralModelEvaluator
+  : public Thyra::StateFuncModelEvaluatorBase<Scalar> {
+ public:
+  typedef Thyra::VectorBase<Scalar> Vector;
+  typedef Thyra::MultiVectorBase<Scalar> MultiVector;
 
   //! Constructor
   AuxiliaryIntegralModelEvaluator(
-    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> > & model,
-    const int g_index);
+      const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> > &model,
+      const int g_index);
 
   //! Get the underlying model 'f'
   Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> > getModel() const
-  { return model_; }
+  {
+    return model_;
+  }
 
   //! Set solution history from forward evaluation
   void setForwardSolutionHistory(
-    const Teuchos::RCP<const Tempus::SolutionHistory<Scalar> >& sh);
+      const Teuchos::RCP<const Tempus::SolutionHistory<Scalar> > &sh);
 
   /** \name Public functions overridden from ModelEvaulator. */
   //@{
@@ -66,14 +69,12 @@ public:
 
   //@}
 
-private:
-
+ private:
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
   void evalModelImpl(
-    const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
-    const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs) const;
-
+      const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
+      const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs) const;
 
   Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
@@ -87,6 +88,6 @@ private:
   mutable Scalar t_interp_;
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
 #endif

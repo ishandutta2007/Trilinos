@@ -36,6 +36,13 @@ endif()
 list(APPEND CTEST_CONFIGURE_COMMAND_ARGS
     "-C \"${package_enables_file}\""
     "-G \"${CTEST_CMAKE_GENERATOR}\""
+)
+
+if(EXTRA_CONFIGURE_ARGS)
+    list(APPEND CTEST_CONFIGURE_COMMAND_ARGS ${EXTRA_CONFIGURE_ARGS})
+endif()
+
+list(APPEND CTEST_CONFIGURE_COMMAND_ARGS
     "${CTEST_SOURCE_DIRECTORY}"
 )
 
@@ -58,14 +65,14 @@ endif()
 
 # Optionally upload the config files
 # TODO: Note how this works / what it's doing in CMake-land.
-message(">>> Write `configure_command_file`:")
+message(">>> Write `configure_command_file` and `genconfig_build_name_file`:")
 if(skip_upload_config_files)
     message(">>> - SKIPPED")
 else()
     message(">>> - WRITTEN")
-    #message(">>> - configure_command_file : ${configure_command_file}")
-    #message(">>> - CTEST_CONFIGURE_COMMAND: ${CTEST_CONFIGURE_COMMAND}")
     file(WRITE ${configure_command_file} ${CTEST_CONFIGURE_COMMAND})
+    file(WRITE ${genconfig_build_name_file} $ENV{GENCONFIG_BUILD_NAME})
+
 endif()
 message(">>>")
 
@@ -113,9 +120,18 @@ string(SUBSTRING ${build_stamp_tmp} 1 1024 build_stamp)
 generate_build_url1(build_url1 ${CTEST_DROP_SITE} ${URL_location} ${CTEST_PROJECT_NAME} ${CTEST_BUILD_NAME} ${build_stamp} ${machine_name})
 generate_build_url2(build_url2 ${CTEST_DROP_SITE} ${URL_location} ${CTEST_PROJECT_NAME} ${CTEST_BUILD_NAME} ${build_stamp})
 generate_build_url3(build_url3 ${CTEST_DROP_SITE} ${URL_location} ${CTEST_PROJECT_NAME} ${CTEST_BUILD_NAME} ${build_stamp})
+generate_build_url4(build_url4 ${CTEST_DROP_SITE} ${URL_location} ${CTEST_PROJECT_NAME} ${PULLREQUESTNUM})
 message(">>> CDash URL1 = ${build_url1}")
 message(">>> CDash URL2 = ${build_url2}")
 message(">>> CDash URL3 = ${build_url3}")
+message(">>> CDash URL4 = ${build_url4}")
+
+if (EXISTS /home/runner/)
+    # Write the URL into the filesystem so AT2 can read it later
+    message(">>> Writing URLs to /home/runner/AT2_URL.txt and AT2_ALL_BUILDS.txt")
+    file(WRITE /home/runner/AT2_URL.txt ${build_url3})
+    file(WRITE /home/runner/AT2_ALL_BUILDS.txt ${build_url4})
+endif()
 
 # -----------------------------------------------------------
 # -- Optionally update the repository

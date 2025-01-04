@@ -56,7 +56,7 @@
 namespace ngp_field_perf_test
 {
 
-class NgpFieldAccess : public stk::unit_test_util::simple_fields::MeshFixture
+class NgpFieldAccess : public stk::unit_test_util::MeshFixture
 {
 public:
   NgpFieldAccess()
@@ -86,7 +86,7 @@ protected:
   void setup_multi_block_mesh(unsigned numElemsPerDim, unsigned numBlocks)
   {
     stk::performance_tests::setup_multiple_blocks(get_meta(), numBlocks);
-    stk::io::fill_mesh(stk::unit_test_util::simple_fields::get_mesh_spec(numElemsPerDim), get_bulk());
+    stk::io::fill_mesh(stk::unit_test_util::get_mesh_spec(numElemsPerDim), get_bulk());
     stk::performance_tests::move_elements_to_other_blocks(get_bulk(), numElemsPerDim);
   }
 
@@ -124,7 +124,7 @@ protected:
 
 TEST_F(NgpFieldAccess, Centroid)
 {
-  if (get_parallel_size() != 1) return;
+  if (get_parallel_size() != 1) { GTEST_SKIP(); }
 
   const unsigned NUM_RUNS = 5;
   const int NUM_ITERS = 100;
@@ -134,7 +134,7 @@ TEST_F(NgpFieldAccess, Centroid)
 
   setup_empty_mesh(stk::mesh::BulkData::NO_AUTO_AURA);
   declare_centroid_field();
-  stk::io::fill_mesh(stk::unit_test_util::simple_fields::get_mesh_spec(ELEMS_PER_DIM), get_bulk());
+  stk::io::fill_mesh(stk::unit_test_util::get_mesh_spec(ELEMS_PER_DIM), get_bulk());
 
   for (unsigned j = 0; j < NUM_RUNS; j++) {
     batchTimer.start_batch_timer();
@@ -149,7 +149,7 @@ TEST_F(NgpFieldAccess, Centroid)
 
 TEST_F(NgpFieldAccess, HostCentroid)
 {
-  if (get_parallel_size() != 1) return;
+  if (get_parallel_size() != 1) { GTEST_SKIP(); }
 
   const unsigned NUM_RUNS = 5;
   const int NUM_ITERS = 100;
@@ -159,7 +159,7 @@ TEST_F(NgpFieldAccess, HostCentroid)
 
   setup_empty_mesh(stk::mesh::BulkData::NO_AUTO_AURA);
   declare_centroid_field();
-  stk::io::fill_mesh(stk::unit_test_util::simple_fields::get_mesh_spec(ELEMS_PER_DIM), get_bulk());
+  stk::io::fill_mesh(stk::unit_test_util::get_mesh_spec(ELEMS_PER_DIM), get_bulk());
 
   for (unsigned j = 0; j < NUM_RUNS; j++) {
     batchTimer.start_batch_timer();
@@ -215,7 +215,7 @@ TEST_F(NgpFieldAccess, CentroidPartialBlock)
   const int NUM_ITERS = 250;
   const int ELEMS_PER_DIM = 100;
   const int NUM_BLOCKS = 100;
-  int BLOCKS = stk::unit_test_util::simple_fields::get_command_line_option<int>("-n", 50);
+  int BLOCKS = stk::unit_test_util::get_command_line_option<int>("-n", 50);
   BLOCKS = std::max(BLOCKS, 1);
   BLOCKS = std::min(BLOCKS, NUM_BLOCKS);
 

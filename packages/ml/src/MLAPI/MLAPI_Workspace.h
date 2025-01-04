@@ -1,6 +1,12 @@
 #ifndef MLAPI_WORKSPACE_H
 #define MLAPI_WORKSPACE_H
 
+#if defined(ML_SHOW_DEPRECATED_WARNINGS)
+#ifdef __GNUC__
+#warning "The ML package is deprecated"
+#endif
+#endif
+
 /*!
 \file MLAPI_Workspace.h
 
@@ -60,7 +66,7 @@ int GetPrintLevel();
 void SetPrintLevel(int Level);
 
 //! Initialize the MLAPI workspace.
-void Init();
+void Init(USR_COMM comm = USR_COMM_WORLD);
 
 //! Destroys the MLAPI workspace.
 void Finalize();

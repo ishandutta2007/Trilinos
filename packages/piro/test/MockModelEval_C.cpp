@@ -1,43 +1,10 @@
 // @HEADER
-// ************************************************************************
-// 
+// *****************************************************************************
 //        Piro: Strategy package for embedded analysis capabilitites
-//                  Copyright (2010) Sandia Corporation
-// 
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Andy Salinger (agsalin@sandia.gov), Sandia
-// National Laboratories.
-// 
-// ************************************************************************
+// Copyright 2010 NTESS and the Piro contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "MockModelEval_C.hpp"
@@ -45,10 +12,6 @@
 
 #include "Epetra_LocalMap.h"
 #include "Epetra_CrsMatrix.h"
-
-#ifdef HAVE_PIRO_STOKHOS
-#include "Stokhos_Epetra.hpp"
-#endif
 
 using Teuchos::RCP;
 using Teuchos::rcp;
@@ -179,15 +142,6 @@ MockModelEval_C::createInArgs() const
   inArgs.set_Np(1);
   inArgs.setSupports(IN_ARG_x, true);
 
-#ifdef HAVE_PIRO_STOKHOS
-  inArgs.setSupports(IN_ARG_x_sg, true);
-  inArgs.setSupports(IN_ARG_x_dot_sg, true);
-  inArgs.setSupports(IN_ARG_p_sg, 0, true); // 1 SG parameter vector
-  inArgs.setSupports(IN_ARG_sg_basis, true);
-  inArgs.setSupports(IN_ARG_sg_quadrature, true);
-  inArgs.setSupports(IN_ARG_sg_expansion, true);
-#endif
-
   return inArgs;
 }
 
@@ -205,15 +159,6 @@ MockModelEval_C::createOutArgs() const
   outArgs.setSupports(OUT_ARG_DfDp, 0, DERIV_MV_BY_COL);
   outArgs.setSupports(OUT_ARG_DgDx, 0, DERIV_TRANS_MV_BY_ROW);
   outArgs.setSupports(OUT_ARG_DgDp, 0, 0, DERIV_MV_BY_COL);
-
-#ifdef HAVE_PIRO_STOKHOS
-  outArgs.setSupports(OUT_ARG_f_sg, true);
-  outArgs.setSupports(OUT_ARG_W_sg, true);
-  outArgs.setSupports(OUT_ARG_g_sg, 0, true);
-  outArgs.setSupports(OUT_ARG_DfDp_sg, 0, DERIV_MV_BY_COL);
-  outArgs.setSupports(OUT_ARG_DgDx_sg, 0, DERIV_TRANS_MV_BY_ROW);
-  outArgs.setSupports(OUT_ARG_DgDp_sg, 0, 0, DERIV_MV_BY_COL);
-#endif
 
   return outArgs;
 }
@@ -286,86 +231,4 @@ MockModelEval_C::evalModel(const InArgs& inArgs, const OutArgs& outArgs) const
       (*dgdp)[0][0] = p;
     }
   }
-
-  // 
-  // Stochastic calculation
-  //
-
-#ifdef HAVE_PIRO_STOKHOS
-  // Parse InArgs
-  RCP<const Stokhos::OrthogPolyBasis<int,double> > basis = 
-    inArgs.get_sg_basis();
-  RCP<Stokhos::OrthogPolyExpansion<int,double> > expn = 
-    inArgs.get_sg_expansion();
-  InArgs::sg_const_vector_t x_sg = inArgs.get_x_sg();
-  InArgs::sg_const_vector_t p_sg = inArgs.get_p_sg(0);
-
-  Stokhos::OrthogPolyApprox<int,double> x(basis), x2(basis);
-  if (x_sg != Teuchos::null && proc == 0) {
-    for (int i=0; i<basis->size(); i++) {
-      x[i] = (*x_sg)[i][0];
-    }
-    expn->times(x2, x, x);
-  }
-
-  Stokhos::OrthogPolyApprox<int,double> p(basis), p2(basis);
-  if (p_sg != Teuchos::null) {
-    for (int i=0; i<basis->size(); i++) {
-      p[i] = (*p_sg)[i][0];
-    }
-    expn->times(p2, p, p);
-  }
-
-  // Parse OutArgs
-  OutArgs::sg_vector_t f_sg = outArgs.get_f_sg();
-  if (f_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<f_sg->size(); block++) {
-      (*f_sg)[block][0] = 0.5*(x2[block] - p2[block]);
-    }
-  }
-
-  OutArgs::sg_operator_t W_sg = outArgs.get_W_sg();
-  if (W_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<W_sg->size(); block++) {
-      Teuchos::RCP<Epetra_CrsMatrix> W = 
-	Teuchos::rcp_dynamic_cast<Epetra_CrsMatrix>(W_sg->getCoeffPtr(block), 
-						    true);
-      int i = 0;
-      int ret = W->ReplaceMyValues(i, 1, &x[block], &i);
-      if (ret != 0)
-	std::cout << "ReplaceMyValues returned " << ret << "!" << std::endl;
-    }
-  }
-
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dfdp_sg = 
-    outArgs.get_DfDp_sg(0).getMultiVector();
-  if (dfdp_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<dfdp_sg->size(); block++) {
-      (*dfdp_sg)[block][0][0] = -p[block];
-    }
-  }
-
-  OutArgs::sg_vector_t g_sg = outArgs.get_g_sg(0); 
-  if (g_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<g_sg->size(); block++) {
-      (*g_sg)[block][0] = 0.5*(x2[block] + p2[block]);
-    }
-  }
-
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dgdx_sg = 
-    outArgs.get_DgDx_sg(0).getMultiVector();
-  if (dgdx_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<dgdx_sg->size(); block++) {
-      (*dgdx_sg)[block][0][0] = x[block];
-    }
-  }
-
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dgdp_sg = 
-    outArgs.get_DgDp_sg(0,0).getMultiVector();
-  if (dgdp_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<dgdp_sg->size(); block++) {
-      (*dgdp_sg)[block][0][0] = p[block];
-    }
-  }
-#endif
 } 

@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_TimeDerivative_hpp
 #define Tempus_TimeDerivative_hpp
@@ -30,20 +31,17 @@ namespace Tempus {
  *  those derivatives and/or state.
  */
 template <typename Scalar>
-class TimeDerivative
-{
-public:
-
+class TimeDerivative {
+ public:
   /// Set the underlying application ModelEvaluator
   virtual void compute(
-    Teuchos::RCP<const Thyra::VectorBase<Scalar> > x,
-    Teuchos::RCP<      Thyra::VectorBase<Scalar> > xDot,
-    Teuchos::RCP<      Thyra::VectorBase<Scalar> > xDotDot = Teuchos::null) = 0;
+      Teuchos::RCP<const Thyra::VectorBase<Scalar> > x,
+      Teuchos::RCP<Thyra::VectorBase<Scalar> > xDot,
+      Teuchos::RCP<Thyra::VectorBase<Scalar> > xDotDot = Teuchos::null) = 0;
 
   // Derived classes may need an initialize, but the argument lists will vary.
   // virtual void initialize(Scalar dt, ... ) = 0;
 };
 
-
-} // namespace Tempus
-#endif // Tempus_TimeDerivative_hpp
+}  // namespace Tempus
+#endif  // Tempus_TimeDerivative_hpp

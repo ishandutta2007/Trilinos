@@ -21,8 +21,7 @@ class Region;
 
 class Simulation {
 public:
-  static Simulation & build(const std::string & in_name);
-  Simulation(const std::string & in_name); // public to allow make_unique, but should be created using build()
+  Simulation(const std::string & in_name);
   ~Simulation();
 
   void commit();
@@ -34,6 +33,7 @@ public:
   const std::string & get_name() const { return my_name; }
   bool is_transient() const { return my_is_transient; }
   double get_time_step() const { return my_time_step_size; }
+  double get_old_time() const { return my_old_time; }
   double get_current_time() const { return my_current_time; }
   double get_stop_time() const { return my_stop_time; }
   int get_time_step_count() const { return my_step_count; }
@@ -45,18 +45,13 @@ public:
   stk::diag::Timer & get_timer() const { return my_timer; }
   void print_performance_info() const;
 
-  static Simulation & get();
-  static void reset() { the_simulation.reset(); }
-
-private:
-  static std::unique_ptr<Simulation> the_simulation;
-
 private:
   std::string my_name;
   mutable stk::diag::Timer my_timer;
   bool my_is_transient;
   double my_stop_time;
   unsigned my_step_count;
+  double my_old_time;
   double my_current_time;
   double my_time_step_size;
   std::vector<std::unique_ptr<Region>> my_regions;

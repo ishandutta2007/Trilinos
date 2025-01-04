@@ -66,14 +66,15 @@ void MeshSetup::create_input_meshes(MPI_Comm comm1, MPI_Comm comm2)
 ConservativeTransferTests::ConservativeTransferTests(std::shared_ptr<stk::middle_mesh::mesh::Mesh> mesh1,
     std::shared_ptr<stk::middle_mesh::mesh::Mesh> mesh2,
     std::shared_ptr<ConservativeTransferUser> transferCallback1_,
-    std::shared_ptr<ConservativeTransferUser> transferCallback2_)
+    std::shared_ptr<ConservativeTransferUser> transferCallback2_,
+    stk::middle_mesh::ApplicationInterfaceType type)
     : inputMesh1(std::move(mesh1)),
       inputMesh2(std::move(mesh2)),
       transferCallback1(std::move(transferCallback1_)),
       transferCallback2(std::move(transferCallback2_))
 {
   conservativeTransfer = std::make_shared<stk::transfer::ConservativeTransfer>(MPI_COMM_WORLD, inputMesh1, inputMesh2,
-                                                                                transferCallback1, transferCallback2);
+                                                                                transferCallback1, transferCallback2, type);
 }
 
 void ConservativeTransferTests::test_exactness(std::function<double(const utils::Point&)> func)
@@ -228,7 +229,7 @@ void ConservativeTransferTests::test_conservation_bidirectional(std::function<do
   assert(!(inputMesh1 && inputMesh2));
 
   mesh::FieldPtr<double> sendFieldPtr, recvFieldPtr;
-  double sendIntegral, recvIntegral;
+  double sendIntegral = 0.0, recvIntegral = 0.0;
   if (inputMesh1)
   {
     sendFieldPtr = mesh::create_field<double>(inputMesh1, mesh::FieldShape(1, 0, 0), 1);

@@ -72,14 +72,14 @@ void change_mesh_decomposition(stk::mesh::BulkData& mesh)
   int myProc = mesh.parallel_rank();
   int otherProc = 1-myProc;
 
-  stk::mesh::for_each_entity_run(mesh, stk::topology::ELEM_RANK,
-                                 mesh.mesh_meta_data().locally_owned_part(),
-                                 [&entityProcPairs, &otherProc](const stk::mesh::BulkData& bulkData, const stk::mesh::Entity& elem)
+  stk::mesh::for_each_entity_run_no_threads(mesh, stk::topology::ELEM_RANK,
+                                            mesh.mesh_meta_data().locally_owned_part(),
+                                            [&entityProcPairs, &otherProc](const stk::mesh::BulkData& bulkData, const stk::mesh::Entity& elem)
   {
     entityProcPairs.emplace_back(elem, otherProc);
   });
 
-  stk::mesh::for_each_entity_run(mesh, stk::topology::NODE_RANK,
+  stk::mesh::for_each_entity_run_no_threads(mesh, stk::topology::NODE_RANK,
                                  mesh.mesh_meta_data().locally_owned_part(),
                                  [&entityProcPairs, &otherProc](const stk::mesh::BulkData& bulkData, const stk::mesh::Entity& node)
   {
@@ -96,23 +96,21 @@ TEST(StkTransferHowTo, useCopyTransfer)
   if (stk::parallel_machine_size(communicator) > 2) { GTEST_SKIP(); }
 
   const std::string meshSpec("generated:3x3x4");
-  double init_vals = std::numeric_limits<double>::max();
+  double initVals = std::numeric_limits<double>::max();
   const unsigned spatialDim = 3;
 
   stk::mesh::MeshBuilder builder(communicator);
   builder.set_spatial_dimension(spatialDim);
   std::shared_ptr<stk::mesh::BulkData> meshA = builder.create();
   stk::mesh::MetaData& metaA = meshA->mesh_meta_data();
-  metaA.use_simple_fields();
   DoubleField & scalarFieldNodeA = metaA.declare_field<double>(stk::topology::NODE_RANK, "Node Scalar Field");
-  stk::mesh::put_field_on_mesh(scalarFieldNodeA, metaA.universal_part(), &init_vals);
+  stk::mesh::put_field_on_mesh(scalarFieldNodeA, metaA.universal_part(), &initVals);
   stk::io::fill_mesh(meshSpec, *meshA);
 
   std::shared_ptr<stk::mesh::BulkData> meshB = builder.create();
   stk::mesh::MetaData& metaB = meshB->mesh_meta_data();
-  metaB.use_simple_fields();
   DoubleField & scalarFieldNodeB = metaB.declare_field<double>(stk::topology::NODE_RANK, "Node Scalar Field");
-  stk::mesh::put_field_on_mesh(scalarFieldNodeB, metaB.universal_part(), &init_vals);
+  stk::mesh::put_field_on_mesh(scalarFieldNodeB, metaB.universal_part(), &initVals);
   stk::io::fill_mesh(meshSpec, *meshB);
 
   change_mesh_decomposition(*meshB);
@@ -138,13 +136,13 @@ TEST(StkTransferHowTo, useCopyTransfer)
 
   // Verify nodal fields on meshB are correct
   stk::mesh::Selector owned = metaB.locally_owned_part();
-  stk::mesh::for_each_entity_run(*meshB, stk::topology::NODE_RANK, owned,
-                                 [&scalarFieldNodeB](const stk::mesh::BulkData& mesh, const stk::mesh::Entity& node)
-  {
+  auto check_nodal_fields = [&scalarFieldNodeB](const stk::mesh::BulkData& mesh, const stk::mesh::Entity& node)
+  { 
     const double tolerance = 1.0e-8;
     double * scalar = stk::mesh::field_data(scalarFieldNodeB, node);
     EXPECT_NEAR( static_cast<double>(mesh.identifier(node)), *scalar, tolerance);
-  });
+  };
+  stk::mesh::for_each_entity_run(*meshB, stk::topology::NODE_RANK, owned, check_nodal_fields);
 }
 //END
 

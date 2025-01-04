@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperSubcyclingObserverBase_hpp
 #define Tempus_StepperSubcyclingObserverBase_hpp
@@ -12,7 +13,6 @@
 #include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
 #include "Tempus_StepperSubcyclingAppAction.hpp"
-
 
 namespace Tempus {
 
@@ -31,12 +31,10 @@ namespace Tempus {
  *  (StepperSubcyclingAppAction::ACTION_LOCATION) are shown in the
  *  algorithm documentation of the StepperSubcycling.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperSubcyclingObserverBase
-  : virtual public Tempus::StepperSubcyclingAppAction<Scalar>
-{
-private:
-
+  : virtual public Tempus::StepperSubcyclingAppAction<Scalar> {
+ private:
   /* \brief Adaptor execute function
    *
    *  This is an adaptor function to bridge between the AppAction
@@ -48,21 +46,22 @@ private:
    *  to the arguments.
    */
   void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperSubcycling<Scalar> > stepper,
-    const typename StepperSubcyclingAppAction<Scalar>::ACTION_LOCATION actLoc)
-  { this->observe(sh, stepper, actLoc); }
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperSubcycling<Scalar> > stepper,
+      const typename StepperSubcyclingAppAction<Scalar>::ACTION_LOCATION actLoc)
+  {
+    this->observe(sh, stepper, actLoc);
+  }
 
-public:
-
+ public:
   /// Observe Subcycling Stepper.
   virtual void observe(
-    Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<const StepperSubcycling<Scalar> > /* stepper */,
-    const typename StepperSubcyclingAppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
-
+      Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<const StepperSubcycling<Scalar> > /* stepper */,
+      const typename StepperSubcyclingAppAction<Scalar>::ACTION_LOCATION
+          actLoc) = 0;
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperSubcyclingObserverBase_hpp
+#endif  // Tempus_StepperSubcyclingObserverBase_hpp

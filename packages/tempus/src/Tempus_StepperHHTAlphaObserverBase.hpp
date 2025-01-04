@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperHHTAlphaObserverBase_hpp
 #define Tempus_StepperHHTAlphaObserverBase_hpp
@@ -12,7 +13,6 @@
 #include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
 #include "Tempus_StepperHHTAlphaAppAction.hpp"
-
 
 namespace Tempus {
 
@@ -27,12 +27,10 @@ namespace Tempus {
  *  wishes to modify the solution and/or stepper data during the
  *  Stepper::takeStep, they should use the Modifier class (with care!).
  */
-template<class Scalar>
+template <class Scalar>
 class StepperHHTAlphaObserverBase
-  : virtual public Tempus::StepperHHTAlphaAppAction<Scalar>
-{
-private:
-
+  : virtual public Tempus::StepperHHTAlphaAppAction<Scalar> {
+ private:
   /* \brief Adaptor execute function
    *
    *  This is an adaptor function to bridge between the AppAction
@@ -44,21 +42,22 @@ private:
    *  to the arguments.
    */
   void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperHHTAlpha<Scalar> > stepper,
-    const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc)
-  { this->observe(sh, stepper, actLoc); }
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperHHTAlpha<Scalar> > stepper,
+      const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc)
+  {
+    this->observe(sh, stepper, actLoc);
+  }
 
-public:
-
+ public:
   /// Observe HHTAlpha Stepper.
   virtual void observe(
-    Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<const StepperHHTAlpha<Scalar> > /* stepper */,
-    const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
-
+      Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<const StepperHHTAlpha<Scalar> > /* stepper */,
+      const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION
+          actLoc) = 0;
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperHHTAlphaObserverBase_hpp
+#endif  // Tempus_StepperHHTAlphaObserverBase_hpp

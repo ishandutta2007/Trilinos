@@ -1,40 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //                    Teuchos: Common Tools Package
-//                 Copyright (2004) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// ***********************************************************************
+// Copyright 2004 NTESS and the Teuchos contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef TEUCHOS_STACKED_TIMER_HPP
@@ -58,7 +28,7 @@
 
 #if defined(HAVE_TEUCHOS_KOKKOS_PROFILING) && defined(HAVE_TEUCHOSCORE_KOKKOS)
 namespace Kokkos {
-namespace Profiling {
+namespace Tools {
 extern void pushRegion (const std::string&);
 extern void popRegion ();
 } // namespace Profiling
@@ -72,7 +42,7 @@ namespace Teuchos {
 TEUCHOSCOMM_LIB_DLL_EXPORT void error_out(const std::string& msg, const bool fail_all = false);
 
 /**
- * \brief the basic timer used elsewhere, uses MPI_Wtime for time
+ * \brief The basic timer used internally, uses std::chrono::high_resolution_clock.
  *
  * This class hold  a time and number of times this timer is called, and a
  * count of how many "updates" this timer has services.  Example if you have a
@@ -455,12 +425,7 @@ protected:
       */
     BaseTimer::TimeInfo findTimer(const std::string &name,bool& found);
 
-  protected:
-
-
   }; // LevelTimer
-
-
 
 
 public:
@@ -471,6 +436,7 @@ public:
     */
   explicit StackedTimer(const char *name, const bool start_base_timer = true)
     : timer_(0,name,nullptr,false),
+      global_mpi_aggregation_called_(false),
       enable_verbose_(false),
       verbose_timestamp_levels_(0), // 0 disables
       verbose_ostream_(Teuchos::rcpFromRef(std::cout)),
@@ -496,7 +462,7 @@ public:
   void startBaseTimer() {
     timer_.BaseTimer::start();
 #if defined(HAVE_TEUCHOS_KOKKOS_PROFILING) && defined(HAVE_TEUCHOSCORE_KOKKOS)
-    ::Kokkos::Profiling::pushRegion(timer_.get_full_name());
+    ::Kokkos::Tools::pushRegion(timer_.get_full_name());
 #endif
   }
 
@@ -506,7 +472,7 @@ public:
   void stopBaseTimer() {
     timer_.BaseTimer::stop();
 #if defined(HAVE_TEUCHOS_KOKKOS_PROFILING) && defined(HAVE_TEUCHOSCORE_KOKKOS)
-    ::Kokkos::Profiling::popRegion();
+    ::Kokkos::Tools::popRegion();
 #endif
   }
 
@@ -524,7 +490,7 @@ public:
         top_ = top_->start(name.c_str());
 #if defined(HAVE_TEUCHOS_KOKKOS_PROFILING) && defined(HAVE_TEUCHOSCORE_KOKKOS)
       if (push_kokkos_profiling_region) {
-        ::Kokkos::Profiling::pushRegion(name);
+        ::Kokkos::Tools::pushRegion(name);
       }
 #endif
     }
@@ -563,7 +529,7 @@ public:
         timer_.BaseTimer::stop();
 #if defined(HAVE_TEUCHOS_KOKKOS_PROFILING) && defined(HAVE_TEUCHOSCORE_KOKKOS)
       if (pop_kokkos_profiling_region) {
-        ::Kokkos::Profiling::popRegion();
+        ::Kokkos::Tools::popRegion();
       }
 #endif
     }
@@ -696,6 +662,7 @@ public:
    * Dump all the data from all the MPI ranks to an ostream
    * @param [in,out] os - Output stream
    * @param [in] comm - Teuchos comm pointer
+   * @param [in] options - Options on what data to output and how to format the data
    */
   void report(std::ostream &os, Teuchos::RCP<const Teuchos::Comm<int> > comm, OutputOptions options = OutputOptions());
 
@@ -760,12 +727,50 @@ public:
   /// restart timers after a call to disableTimers().
   void enableTimers();
 
+  /**
+   * Aggregate timer data from all MPI processes to rank 0 of the comm.
+   * @param [in] comm - Teuchos comm pointer.
+   * @param [in] options - Determines what data the user wants aggregated.
+   */
+  void aggregateMpiData(Teuchos::RCP<const Teuchos::Comm<int> > comm, OutputOptions options = OutputOptions());
+
+  /**
+   * Returns the total time for the timer averaged across all MPI
+   * processes (inlcudes only the MPI processes where the timer
+   * exists).
+   *
+   * @param[in] flat_timer_name Timer name that is flattened to include parent names in the string.
+   * @return Total timer averaged across all MPI processes.
+   */
+  double getMpiAverageTime(const std::string& flat_timer_name);
+
+  /**
+   * Returns the number of times this timer was started, averaged
+   * across all MPI processes (inlcudes only the MPI processes where
+   * the timer exists).
+   *
+   * @param[in] flat_timer_name Timer name that is flattened to include parent names in the string.
+   * @return Total number of times the timer was started, averaged across all MPI processes.
+   */
+  double getMpiAverageCount(const std::string& flat_timer_name);
+
+  /**
+   * Returns true if the timer name exists in the stacked timer. This
+   * can only be called after aggregateMpiData() is called so that the
+   * flattened names are generated.
+   *
+   * @param[in] flat_timer_name Timer name that is flattened to include parent names in the string.
+   * @return true if the timer exists.
+   */
+  bool isTimer(const std::string& flat_timer_name);
+
 protected:
   /// Current level running
   LevelTimer *top_;
   /// Base timer
   LevelTimer timer_;
 
+  // Global MPI aggregation arrays
   Array<std::string> flat_names_;
   Array<double> min_;
   Array<double> max_;
@@ -777,6 +782,7 @@ protected:
   Array<unsigned long> count_;
   Array<unsigned long long> updates_;
   Array<int> active_;
+  bool global_mpi_aggregation_called_;
 
   /// Stores the column widths for output alignment
   struct AlignmentWidths {
@@ -831,6 +837,11 @@ protected:
     * Migrate all the timer data to rank=0 if parallel
     */
    void collectRemoteData(Teuchos::RCP<const Teuchos::Comm<int> > comm, const OutputOptions &options );
+
+   /**
+    * Returns the index into the mpi aggregated timers for a timer name
+    */
+   int getFlatNameIndex(const std::string& flat_timer_name);
 
   /**
    * Compute the column widths to align the output from report() in

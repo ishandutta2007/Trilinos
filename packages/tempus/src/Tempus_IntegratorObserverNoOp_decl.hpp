@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_IntegratorObserverNoOp_decl_hpp
 #define Tempus_IntegratorObserverNoOp_decl_hpp
@@ -20,12 +21,10 @@ namespace Tempus {
  *  This basic class has simple no-op functions, as all basic
  *  functionality should be handled through other methods.
  */
-template<class Scalar>
+template <class Scalar>
 class IntegratorObserverNoOp
-  : virtual public Tempus::IntegratorObserver<Scalar>
-{
-public:
-
+  : virtual public Tempus::IntegratorObserver<Scalar> {
+ public:
   /// Constructor
   IntegratorObserverNoOp();
 
@@ -34,31 +33,39 @@ public:
 
   /// \name Basic IntegratorObserver methods
   //@{
-    /// Observe the beginning of the time integrator.
-    virtual void observeStartIntegrator(const Integrator<Scalar>& integrator) override;
+  /// Observe the beginning of the time integrator.
+  virtual void observeStartIntegrator(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe the beginning of the time step loop.
-    virtual void observeStartTimeStep(const Integrator<Scalar>& integrator) override;
+  /// Observe the beginning of the time step loop.
+  virtual void observeStartTimeStep(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe after the next time step size is selected.
-    virtual void observeNextTimeStep(const Integrator<Scalar>& integrator) override;
+  /// Observe after the next time step size is selected.
+  virtual void observeNextTimeStep(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe before Stepper takes step.
-    virtual void observeBeforeTakeStep(const Integrator<Scalar>& integrator) override;
+  /// Observe before Stepper takes step.
+  virtual void observeBeforeTakeStep(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe after Stepper takes step.
-    virtual void observeAfterTakeStep(const Integrator<Scalar>& integrator) override;
+  /// Observe after Stepper takes step.
+  virtual void observeAfterTakeStep(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe after checking time step.  Observer can still fail the time step here.
-    virtual void observeAfterCheckTimeStep(const Integrator<Scalar>& integrator) override;
+  /// Observe after checking time step.  Observer can still fail the time step
+  /// here.
+  virtual void observeAfterCheckTimeStep(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe the end of the time step loop.
-    virtual void observeEndTimeStep(const Integrator<Scalar>& integrator) override;
+  /// Observe the end of the time step loop.
+  virtual void observeEndTimeStep(
+      const Integrator<Scalar>& integrator) override;
 
-    /// Observe the end of the time integrator.
-    virtual void observeEndIntegrator(const Integrator<Scalar>& integrator) override;
+  /// Observe the end of the time integrator.
+  virtual void observeEndIntegrator(
+      const Integrator<Scalar>& integrator) override;
   //@}
-
 };
-} // namespace Tempus
-#endif // Tempus_IntegratorObserverNoOp_decl_hpp
+}  // namespace Tempus
+#endif  // Tempus_IntegratorObserverNoOp_decl_hpp

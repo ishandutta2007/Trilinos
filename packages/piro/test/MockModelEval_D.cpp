@@ -1,43 +1,10 @@
 // @HEADER
-// ************************************************************************
-// 
+// *****************************************************************************
 //        Piro: Strategy package for embedded analysis capabilitites
-//                  Copyright (2010) Sandia Corporation
-// 
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Andy Salinger (agsalin@sandia.gov), Sandia
-// National Laboratories.
-// 
-// ************************************************************************
+// Copyright 2010 NTESS and the Piro contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "MockModelEval_D.hpp"
@@ -45,10 +12,6 @@
 
 #include "Epetra_LocalMap.h"
 #include "Epetra_CrsMatrix.h"
-
-#ifdef HAVE_PIRO_STOKHOS
-#include "Stokhos_Epetra.hpp"
-#endif
 
 using Teuchos::RCP;
 using Teuchos::rcp;
@@ -190,15 +153,6 @@ createInArgs() const
   inArgs.set_Np(2);
   inArgs.setSupports(IN_ARG_x, true);
 
-#ifdef HAVE_PIRO_STOKHOS
-  inArgs.setSupports(IN_ARG_x_sg, true);
-  inArgs.setSupports(IN_ARG_p_sg, 0, true);
-  inArgs.setSupports(IN_ARG_p_sg, 1, true);
-  inArgs.setSupports(IN_ARG_sg_basis, true);
-  inArgs.setSupports(IN_ARG_sg_quadrature, true);
-  inArgs.setSupports(IN_ARG_sg_expansion, true);
-#endif
-
   return inArgs;
 }
 
@@ -219,17 +173,6 @@ createOutArgs() const
   outArgs.setSupports(OUT_ARG_DgDx, 0, DERIV_TRANS_MV_BY_ROW);
   outArgs.setSupports(OUT_ARG_DgDp, 0, 0, DERIV_MV_BY_COL);
   outArgs.setSupports(OUT_ARG_DgDp, 0, 1, DERIV_MV_BY_COL);
-
-#ifdef HAVE_PIRO_STOKHOS
-  outArgs.setSupports(OUT_ARG_f_sg, true);
-  outArgs.setSupports(OUT_ARG_W_sg, true);
-  outArgs.setSupports(OUT_ARG_g_sg, 0, true);
-  outArgs.setSupports(OUT_ARG_DfDp_sg, 0, DERIV_MV_BY_COL);
-  outArgs.setSupports(OUT_ARG_DfDp_sg, 1, DERIV_MV_BY_COL);
-  outArgs.setSupports(OUT_ARG_DgDx_sg, 0, DERIV_TRANS_MV_BY_ROW);
-  outArgs.setSupports(OUT_ARG_DgDp_sg, 0, 0, DERIV_MV_BY_COL);
-  outArgs.setSupports(OUT_ARG_DgDp_sg, 0, 1, DERIV_MV_BY_COL);
-#endif
 
   return outArgs;
 }
@@ -315,96 +258,4 @@ evalModel(const InArgs& inArgs, const OutArgs& outArgs) const
       (*dgdp2)[0][0] = 0.0;
     }
   }
-
-  // 
-  // Stochastic calculation
-  //
-
-#ifdef HAVE_PIRO_STOKHOS
-  // Parse InArgs
-  RCP<const Stokhos::OrthogPolyBasis<int,double> > basis = 
-    inArgs.get_sg_basis();
-  RCP<Stokhos::OrthogPolyExpansion<int,double> > expn = 
-    inArgs.get_sg_expansion();
-  InArgs::sg_const_vector_t x_sg = inArgs.get_x_sg();
-  InArgs::sg_const_vector_t p1_sg = inArgs.get_p_sg(0);
-  InArgs::sg_const_vector_t p2_sg = inArgs.get_p_sg(1);
-
-  // Parse OutArgs
-  OutArgs::sg_vector_t f_sg = outArgs.get_f_sg();
-  if (f_sg != Teuchos::null && proc == 0) {
-    for (int block=0; block<f_sg->size(); block++) {
-      (*f_sg)[block][0] = 
-	(*x_sg)[block][0] - (*p1_sg)[block][0] + (*p2_sg)[block][0];
-    }
-  }
-
-  OutArgs::sg_operator_t W_sg = outArgs.get_W_sg();
-  if (W_sg != Teuchos::null) {
-    W_sg->init(0.0);
-    Teuchos::RCP<Epetra_CrsMatrix> W = 
-      Teuchos::rcp_dynamic_cast<Epetra_CrsMatrix>(W_sg->getCoeffPtr(0), 
-						  true);
-    if (proc == 0) {
-      int i = 0;
-      double val = 1.0;
-      W->ReplaceMyValues(i, 1, &val, &i);
-    }
-  }
-
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dfdp1_sg = 
-    outArgs.get_DfDp_sg(0).getMultiVector();
-  if (dfdp1_sg != Teuchos::null) {
-    dfdp1_sg->init(0.0);
-    if (proc == 0) {
-      (*dfdp1_sg)[0][0][0] = -1.0;
-    }
-  }
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dfdp2_sg = 
-    outArgs.get_DfDp_sg(1).getMultiVector();
-  if (dfdp2_sg != Teuchos::null) {
-    dfdp2_sg->init(0.0);
-    if (proc == 0) {
-      (*dfdp2_sg)[0][0][0] = 1.0;
-    }
-  }
-
-  Stokhos::OrthogPolyApprox<int,double> x(basis);
-  if (x_sg != Teuchos::null && proc == 0) {
-    for (int i=0; i<basis->size(); i++) {
-      x[i] = (*x_sg)[i][0];
-    }   
-  }
-
-  OutArgs::sg_vector_t g_sg = outArgs.get_g_sg(0); 
-  if (g_sg != Teuchos::null && proc == 0) {
-    Stokhos::OrthogPolyApprox<int,double> xinv(basis);
-    expn->divide(xinv, 1.0, x);
-    for (int block=0; block<g_sg->size(); block++) {
-      (*g_sg)[block][0] = xinv[block];
-    }
-  }
-
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dgdx_sg = 
-    outArgs.get_DgDx_sg(0).getMultiVector();
-  if (dgdx_sg != Teuchos::null && proc == 0) {
-    Stokhos::OrthogPolyApprox<int,double> x2(basis), x2inv(basis);
-    expn->times(x2, x, x);
-    expn->divide(x2inv, -1.0, x2);
-    for (int block=0; block<dgdx_sg->size(); block++) {
-      (*dgdx_sg)[block][0][0] = x2inv[block];
-    }
-  }
-
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dgdp1_sg = 
-    outArgs.get_DgDp_sg(0,0).getMultiVector();
-  if (dgdp1_sg != Teuchos::null) {
-    dgdp1_sg->init(0.0);
-  }
-  RCP<Stokhos::EpetraMultiVectorOrthogPoly> dgdp2_sg = 
-    outArgs.get_DgDp_sg(0,1).getMultiVector();
-  if (dgdp2_sg != Teuchos::null) {
-    dgdp2_sg->init(0.0);
-  }
-#endif
 } 

@@ -36,13 +36,13 @@
 #define stk_mesh_base_FieldBase_hpp
 
 #include <any>
-#include <stddef.h>                     // for NULL
+#include <stddef.h>                     // for size_t
 #include <iosfwd>                       // for ostream
 #include <stk_mesh/base/Bucket.hpp>     // for Bucket
 #include <stk_mesh/base/BulkData.hpp>   // for BulkData
 #include <stk_mesh/base/FieldRestriction.hpp>  // for FieldRestriction, etc
 #include <stk_mesh/base/FieldState.hpp>  // for FieldState
-#include <stk_mesh/base/Types.hpp>      // for FieldTraits, EntityRank, etc
+#include <stk_mesh/base/Types.hpp>      // for EntityRank, etc
 #include <stk_mesh/base/NgpFieldBase.hpp>
 #include <stk_mesh/base/FieldSyncDebugging.hpp>
 #include <stk_mesh/base/StkFieldSyncDebugger.hpp>
@@ -55,8 +55,6 @@
 #include <stk_util/util/CSet.hpp>
 #include <type_traits>
 
-namespace shards { class ArrayDimTag; }
-
 namespace stk::mesh 
 {
 
@@ -64,7 +62,7 @@ class BulkData;
 class MetaData;
 class UnitTestFieldImpl;
 class FieldBase;
-template<typename T, template <typename> class NgpDebugger> class DeviceField;
+template<typename T, typename NgpMemSpace, template <typename, typename> class NgpDebugger> class DeviceField;
 
 namespace impl {
 class FieldRepository;
@@ -94,6 +92,8 @@ typedef std::vector<FieldMetaData> FieldMetaDataVector;
 class FieldBase
 {
 public:
+  using value_type = void;
+
   FieldBase() = delete;
   FieldBase(const FieldBase &) = delete;
   FieldBase & operator=(const FieldBase &) = delete;
@@ -128,23 +128,13 @@ public:
   /** \brief  FieldState of this field */
   FieldState state() const { return m_this_state; }
 
-  /** \brief  Multi-dimensional array rank of this field,
-   *          which is zero for a scalar field.
-   */
-  unsigned field_array_rank() const;
-
   EntityRank entity_rank() const { return m_entity_rank; }
-
-  /** \brief  Multi-dimensional
-   *          \ref shards::ArrayDimTag "array dimension tags"
-   *          of this field.
-   */
-  const shards::ArrayDimTag * const * dimension_tags() const;
 
   /** \brief  Maximum field data allocation size declared for this
    *          field for the given entity rank.
    */
   unsigned max_size() const;
+  unsigned max_extent(unsigned dimension) const;
 
   //----------------------------------------
 
@@ -268,7 +258,7 @@ public:
     return std::any_cast<StkDebugger&>(m_stkFieldSyncDebugger);
   }
 
-  void rotate_multistate_data();
+  void rotate_multistate_data(bool rotateNgpFieldViews = false);
 
  private:
   stk::ngp::ExecSpace& get_execution_space() const {
@@ -325,11 +315,17 @@ public:
 
   void set_initial_value(const void* new_initial_value, unsigned num_scalars, unsigned num_bytes);
 
-  void insert_restriction( const char       * arg_method ,
-                         const Selector   & arg_selector ,
-                         const unsigned     arg_num_scalars_per_entity ,
-                         const unsigned     arg_first_dimension ,
-                         const void*        arg_init_value = NULL);
+  void insert_restriction(const char     * arg_method ,
+                          const Part       & arg_part ,
+                          const unsigned     arg_num_scalars_per_entity ,
+                          const unsigned     arg_first_dimension ,
+                          const void*        arg_init_value = nullptr);
+
+  void insert_restriction(const char     * arg_method ,
+                          const Selector   & arg_selector ,
+                          const unsigned     arg_num_scalars_per_entity ,
+                          const unsigned     arg_first_dimension ,
+                          const void*        arg_init_value = nullptr);
 
   void verify_and_clean_restrictions( const Part& superset, const Part& subset );
 
@@ -344,9 +340,9 @@ public:
   friend NgpFieldBase* impl::get_ngp_field(const FieldBase & stkField);
   friend void impl::set_ngp_field(const FieldBase & stkField, NgpFieldBase * ngpField);
 
-  template <typename T, template <typename> class NgpDebugger> friend class HostField;
-  template <typename T, template <typename> class NgpDebugger> friend class DeviceField;
-  template <typename Scalar, class Tag1, class Tag2, class Tag3, class Tag4, class Tag5, class Tag6, class Tag7> friend class Field;
+  template <typename T, typename NgpMemSpace, template <typename, typename> class NgpDebugger> friend class HostField;
+  template <typename T, typename NgpMemSpace, template <typename, typename> class NgpDebugger> friend class DeviceField;
+  template <typename Scalar> friend class Field;
 
 protected:
   FieldBase(MetaData                   * arg_mesh_meta_data,
@@ -354,15 +350,12 @@ protected:
             unsigned                     arg_ordinal,
             const std::string          & arg_name,
             const DataTraits           & arg_traits,
-            unsigned                     arg_rank,
-            const shards::ArrayDimTag  * const * arg_dim_tags,
             unsigned                     arg_number_of_states,
             FieldState                   arg_this_state)
     : m_mesh(nullptr),
       m_entity_rank(arg_entity_rank),
       m_name(arg_name),
       m_num_states(arg_number_of_states),
-      m_field_rank( arg_rank ),
       m_restrictions(),
       m_initial_value(nullptr),
       m_initial_value_num_bytes(0),
@@ -378,13 +371,7 @@ protected:
       m_execSpace(Kokkos::DefaultExecutionSpace())
   {
     FieldBase * const pzero = nullptr ;
-    const shards::ArrayDimTag * const dzero = nullptr ;
     Copy<MaximumFieldStates>(    m_field_states , pzero );
-    Copy<MaximumFieldDimension>( m_dim_tags ,     dzero );
-
-    for ( unsigned i = 0 ; i < arg_rank ; ++i ) {
-      m_dim_tags[i] = arg_dim_tags[i];
-    }
   }
 
 private:
@@ -394,17 +381,15 @@ private:
   EntityRank m_entity_rank;
   const std::string m_name;
   const unsigned m_num_states;
-  unsigned m_field_rank;
   FieldBase                  * m_field_states[ MaximumFieldStates ];
-  const shards::ArrayDimTag  * m_dim_tags[ MaximumFieldDimension ];
-  FieldRestrictionVector m_restrictions;
+  FieldRestrictionVector       m_restrictions;
   void*                        m_initial_value;
   unsigned                     m_initial_value_num_bytes;
   CSet                         m_attribute;
-  const DataTraits           & m_data_traits ;
-  MetaData             * const m_meta_data ;
-  const unsigned               m_ordinal ;
-  const FieldState             m_this_state ;
+  const DataTraits           & m_data_traits;
+  MetaData             * const m_meta_data;
+  const unsigned               m_ordinal;
+  const FieldState             m_this_state;
   mutable NgpFieldBase       * m_ngpField;
   mutable size_t               m_numSyncsToHost;
   mutable size_t               m_numSyncsToDevice;
@@ -665,47 +650,48 @@ void debug_stale_access_bucket_check(const FieldBase& stkField, const unsigned& 
 
 template<class FieldType, typename StkDebugger = DefaultStkFieldSyncDebugger>
 inline
-typename FieldTraits<FieldType>::data_type*
+typename FieldType::value_type*
 field_data(const FieldType & f, const unsigned bucket_id, unsigned bucket_ord, const int knownSize,
            DummyOverload dummyArg = DummyOverload(), const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
   STK_ThrowAssertMsg(f.get_meta_data_for_field()[bucket_id].m_bytesPerEntity >= knownSize,
                  "field name= " << f.name() << "knownSize= " << knownSize << ", m_bytesPerEntity= "
                  << f.get_meta_data_for_field()[bucket_id].m_bytesPerEntity);
-  STK_ThrowAssert(f.get_meta_data_for_field()[bucket_id].m_data != NULL);
+  STK_ThrowAssert(f.get_meta_data_for_field()[bucket_id].m_data != nullptr);
 
   debug_stale_access_entity_check<StkDebugger>(static_cast<const FieldBase&>(f), bucket_id, bucket_ord, fileName, lineNumber);
 
-  return reinterpret_cast<typename FieldTraits<FieldType>::data_type*>(f.get_meta_data_for_field()[bucket_id].m_data +
-                                                                       knownSize * bucket_ord);
+  return reinterpret_cast<typename FieldType::value_type*>(f.get_meta_data_for_field()[bucket_id].m_data +
+                                                           knownSize * bucket_ord);
 }
 
 template<class FieldType, typename StkDebugger = DefaultStkFieldSyncDebugger>
 inline
-typename FieldTraits<FieldType>::data_type*
+typename FieldType::value_type*
 field_data(const FieldType & f, const unsigned bucket_id,
            DummyOverload dummyArg = DummyOverload(), const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
   debug_stale_access_bucket_check<StkDebugger>(static_cast<const FieldBase&>(f), bucket_id, fileName, lineNumber);
 
-  return reinterpret_cast<typename FieldTraits<FieldType>::data_type*>(f.get_meta_data_for_field()[bucket_id].m_data);
+  return reinterpret_cast<typename FieldType::value_type*>(f.get_meta_data_for_field()[bucket_id].m_data);
 }
 
 template<class FieldType, typename StkDebugger = DefaultStkFieldSyncDebugger>
 inline
-typename FieldTraits<FieldType>::data_type*
+typename FieldType::value_type*
 field_data(const FieldType & f, const unsigned bucket_id, unsigned bucket_ord,
            DummyOverload dummyArg = DummyOverload(), const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
   debug_stale_access_entity_check<StkDebugger>(static_cast<const FieldBase&>(f), bucket_id, bucket_ord, fileName, lineNumber);
 
   const FieldMetaData& field_meta_data = f.get_meta_data_for_field()[bucket_id];
-  return reinterpret_cast<typename FieldTraits<FieldType>::data_type*>(field_meta_data.m_data + field_meta_data.m_bytesPerEntity * bucket_ord);
+  return reinterpret_cast<typename FieldType::value_type*>(field_meta_data.m_data +
+                                                           field_meta_data.m_bytesPerEntity * bucket_ord);
 }
 
 template<class FieldType, typename StkDebugger = DefaultStkFieldSyncDebugger>
 inline
-typename FieldTraits<FieldType>::data_type*
+typename FieldType::value_type*
 field_data(const FieldType & f, const Bucket& b, unsigned bucket_ord,
            DummyOverload dummyArg = DummyOverload(), const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
@@ -715,13 +701,13 @@ field_data(const FieldType & f, const Bucket& b, unsigned bucket_ord,
   debug_stale_access_entity_check<StkDebugger>(static_cast<const FieldBase&>(f), b[bucket_ord], fileName, lineNumber);
 
   const FieldMetaData& field_meta_data = f.get_meta_data_for_field()[b.bucket_id()];
-  return reinterpret_cast<typename FieldTraits<FieldType>::data_type*>(field_meta_data.m_data +
-                                                                       field_meta_data.m_bytesPerEntity * bucket_ord);
+  return reinterpret_cast<typename FieldType::value_type*>(field_meta_data.m_data +
+                                                           field_meta_data.m_bytesPerEntity * bucket_ord);
 }
 
 template<class FieldType, typename StkDebugger = DefaultStkFieldSyncDebugger>
 inline
-typename FieldTraits<FieldType>::data_type*
+typename FieldType::value_type*
 field_data(const FieldType & f, const Bucket& b,
            DummyOverload dummyArg = DummyOverload(), const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
@@ -731,12 +717,12 @@ field_data(const FieldType & f, const Bucket& b,
   debug_stale_access_bucket_check<StkDebugger>(static_cast<const FieldBase&>(f), b, fileName, lineNumber);
 
   const FieldMetaData& field_meta_data = f.get_meta_data_for_field()[b.bucket_id()];
-  return reinterpret_cast<typename FieldTraits<FieldType>::data_type*>(field_meta_data.m_data);
+  return reinterpret_cast<typename FieldType::value_type*>(field_meta_data.m_data);
 }
 
 template<class FieldType, typename StkDebugger = DefaultStkFieldSyncDebugger>
 inline
-typename FieldTraits<FieldType>::data_type*
+typename FieldType::value_type*
 field_data(const FieldType & f, Entity e,
            DummyOverload dummyArg = DummyOverload(), const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
@@ -749,8 +735,8 @@ field_data(const FieldType & f, Entity e,
   debug_stale_access_entity_check<StkDebugger>(static_cast<const FieldBase&>(f), e, fileName, lineNumber);
 
   const FieldMetaData& field_meta_data = f.get_meta_data_for_field()[mi.bucket->bucket_id()];
-  return reinterpret_cast<typename FieldTraits<FieldType>::data_type*>(field_meta_data.m_data +
-                                                                       field_meta_data.m_bytesPerEntity * mi.bucket_ordinal);
+  return reinterpret_cast<typename FieldType::value_type*>(field_meta_data.m_data +
+                                                           field_meta_data.m_bytesPerEntity * mi.bucket_ordinal);
 }
 
 } //namespace stk::mesh

@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperRKModifierBase_hpp
 #define Tempus_StepperRKModifierBase_hpp
@@ -13,11 +14,11 @@
 #include "Tempus_SolutionHistory.hpp"
 #include "Tempus_StepperRKAppAction.hpp"
 
-
 namespace Tempus {
 
 // Forward Declaration
-template<class Scalar> class StepperRKBase;
+template <class Scalar>
+class StepperRKBase;
 
 /** \brief Base modifier for StepperRK.
  *
@@ -36,12 +37,10 @@ template<class Scalar> class StepperRKBase;
  *  in takeStep are documented in each of the RK Algorithm sections:
  *  StepperExplicitRK, StepperDIRK and StepperIMEX_RK.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperRKModifierBase
-  : virtual public Tempus::StepperRKAppAction<Scalar>
-{
-private:
-
+  : virtual public Tempus::StepperRKAppAction<Scalar> {
+ private:
   /* \brief Adaptor execute function
    *
    *  This is an adaptor function to bridge between the AppAction
@@ -52,21 +51,21 @@ private:
    *  For the Modifier interface, this adaptor is a "simple pass through".
    */
   void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperRKBase<Scalar> > stepper,
-    const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc)
-  { this->modify(sh, stepper, actLoc); }
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperRKBase<Scalar> > stepper,
+      const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc)
+  {
+    this->modify(sh, stepper, actLoc);
+  }
 
-public:
-
+ public:
   /// Modify RK Stepper.
   virtual void modify(
-    Teuchos::RCP<SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<StepperRKBase<Scalar> > /* stepper */,
-    const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
-
+      Teuchos::RCP<SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<StepperRKBase<Scalar> > /* stepper */,
+      const typename StepperRKAppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperRKModifierBase_hpp
+#endif  // Tempus_StepperRKModifierBase_hpp

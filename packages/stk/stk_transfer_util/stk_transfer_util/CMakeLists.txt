@@ -32,41 +32,41 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
 
-#
-# A) Package-specific configuration options
-#
-
-#
-# B) Define the header and source files (and directories)
-#
-
-#
-# src
-#
-
 SET(HEADERS "")
 SET(SOURCES "")
 
-#
-# Core headers
-#
-
-TRIBITS_INCLUDE_DIRECTORIES(${${PACKAGE_NAME}_SOURCE_DIR})
-
 FILE(GLOB HEADERS *.hpp)
-
 FILE(GLOB SOURCES *.cpp)
 
-#
-# C) Define the targets for package's library(s)
-#
+if(HAVE_STK_Trilinos)
+  TRIBITS_INCLUDE_DIRECTORIES(${${PACKAGE_NAME}_SOURCE_DIR})
 
-TRIBITS_ADD_LIBRARY(
-  stk_transfer_util
-  NOINSTALLHEADERS ${HEADERS}
-  SOURCES ${SOURCES}
+  TRIBITS_ADD_LIBRARY(stk_transfer_util
+    NOINSTALLHEADERS ${HEADERS}
+    SOURCES ${SOURCES}
   )
+else()
+  add_library(stk_transfer_util ${SOURCES})
+  target_link_libraries(stk_transfer_util PUBLIC stk_transfer)
+  target_link_libraries(stk_transfer_util PUBLIC stk_search_util)
+  target_link_libraries(stk_transfer_util PUBLIC stk_util_env)
+
+  if(STK_BUILT_FOR_SIERRA)
+    find_package(SierraLapack REQUIRED)
+    target_link_libraries(stk_util_util PUBLIC SierraLapack::sierra_blas_lapack)
+  else()
+    find_package(BLAS REQUIRED)
+    target_link_libraries(stk_util_util PUBLIC BLAS::BLAS)
+  endif()
+
+  target_include_directories(stk_transfer_util PUBLIC
+   $<BUILD_INTERFACE:${STK_TOPLEVEL_SOURCE_DIR}/stk_transfer_util>
+   $<INSTALL_INTERFACE:include>
+  )
+  INSTALL(TARGETS stk_transfer_util EXPORT stkTargets DESTINATION ${STK_INSTALL_LIBDIR})
+endif()
 
 INSTALL(FILES ${HEADERS} DESTINATION
     ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_transfer_util)
-    
+
+

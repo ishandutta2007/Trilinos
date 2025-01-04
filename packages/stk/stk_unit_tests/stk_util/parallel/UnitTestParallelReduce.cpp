@@ -62,14 +62,14 @@ TEST(ParallelComm, AllReduceLoc)
       locations[n] = limit_32bit_integer + myProcId*numProcs*numProcs+n; //Want to test when outside 32-bit range for index.
     }
 
-    stk::all_reduce_maxloc(comm, &values[0], &locations[0], &globalValues[0], &globalLocations[0], nvalues);
+    stk::all_reduce_maxloc(comm, values.data(), locations.data(), globalValues.data(), globalLocations.data(), nvalues);
 
     for(int n = 0; n < nvalues; n++) {
       EXPECT_EQ((numProcs-1)*numProcs+n, globalValues[n]);
       EXPECT_EQ(limit_32bit_integer + (numProcs-1)*numProcs*numProcs+n, globalLocations[n]);
     }
 
-    stk::all_reduce_minloc(comm, &values[0], &locations[0], &globalValues[0], &globalLocations[0], nvalues);
+    stk::all_reduce_minloc(comm, values.data(), locations.data(), globalValues.data(), globalLocations.data(), nvalues);
 
     for(int n = 0; n < nvalues; n++) {
       EXPECT_EQ(n, globalValues[n]);
@@ -93,12 +93,12 @@ TEST(ParallelComm, AllReduce)
       values[n] = myProcId*numProcs+n;
     }
 
-    stk::all_reduce_max(comm, &values[0], &globalValues[0], nvalues);
+    stk::all_reduce_max(comm, values.data(), globalValues.data(), nvalues);
     for(int n = 0; n < nvalues; n++) {
       EXPECT_EQ((numProcs-1)*numProcs+n, globalValues[n]);
     }
 
-    stk::all_reduce_min(comm, &values[0], &globalValues[0], nvalues);
+    stk::all_reduce_min(comm, values.data(), globalValues.data(), nvalues);
     for(int n = 0; n < nvalues; n++) {
       EXPECT_EQ(n, globalValues[n]);
     }
@@ -108,7 +108,7 @@ TEST(ParallelComm, AllReduce)
       alpha += n*numProcs;
     }
 
-    stk::all_reduce_sum(comm, &values[0], &globalValues[0], nvalues);
+    stk::all_reduce_sum(comm, values.data(), globalValues.data(), nvalues);
     for(int n = 0; n < nvalues; n++) {
       EXPECT_EQ(n*numProcs + alpha, globalValues[n]);
     }
@@ -136,6 +136,23 @@ TEST(ParallelComm, GetGlobal)
 
     double globalSum = stk::get_global_sum(comm, localValue);
     EXPECT_EQ(globalSum, expectedSum);
+}
+
+TEST(ParallelComm, uint64_reduce_min)
+{
+  // Test coverage of openmpi-4.1.4 bug with unsigned integer min reduction
+  stk::ParallelMachine comm = MPI_COMM_WORLD;
+
+  int myProcId = stk::parallel_machine_rank(comm);
+
+  const uint64_t goldValue = 10;
+
+  uint64_t id = (myProcId == 0) ? goldValue : std::numeric_limits<uint64_t>::max();
+  uint64_t gid;
+
+  stk::all_reduce_min(comm, &id, &gid, 1u);
+
+  EXPECT_EQ(goldValue, gid);
 }
 
 #endif

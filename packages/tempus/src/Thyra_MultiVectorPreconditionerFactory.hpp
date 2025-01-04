@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Thyra_MultiVectorPreconditionerFactory_hpp
 #define Thyra_MultiVectorPreconditionerFactory_hpp
@@ -20,12 +21,10 @@ namespace Thyra {
 /** \brief Concrete <tt>PreconditionerFactoryBase</tt> subclass that
  * wraps a preconditioner in MultiVectorPreconditioner.
  */
-template<class Scalar>
+template <class Scalar>
 class MultiVectorPreconditionerFactory
-  : virtual public PreconditionerFactoryBase<Scalar>
-{
-public:
-
+  : virtual public PreconditionerFactoryBase<Scalar> {
+ public:
   /** @name Constructors/initializers/accessors */
   //@{
 
@@ -33,35 +32,44 @@ public:
   MultiVectorPreconditionerFactory() {}
 
   void nonconstInitialize(
-    const RCP<PreconditionerFactoryBase<Scalar> > &prec_fac,
-    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecRange,
-    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecDomain
-    ) {
-    validateInitialize(prec_fac,multiVecRange,multiVecDomain);
-    prec_fac_ = prec_fac;
-    multiVecRange_ = multiVecRange;
+      const RCP<PreconditionerFactoryBase<Scalar> > &prec_fac,
+      const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+          &multiVecRange,
+      const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+          &multiVecDomain)
+  {
+    validateInitialize(prec_fac, multiVecRange, multiVecDomain);
+    prec_fac_       = prec_fac;
+    multiVecRange_  = multiVecRange;
     multiVecDomain_ = multiVecDomain;
   }
 
-  void initialize(
-    const RCP<const PreconditionerFactoryBase<Scalar> > &prec_fac,
-    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecRange,
-    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecDomain) {
-    validateInitialize(prec_fac,multiVecRange,multiVecDomain);
-    prec_fac_ = prec_fac;
-    multiVecRange_ = multiVecRange;
+  void initialize(const RCP<const PreconditionerFactoryBase<Scalar> > &prec_fac,
+                  const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+                      &multiVecRange,
+                  const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+                      &multiVecDomain)
+  {
+    validateInitialize(prec_fac, multiVecRange, multiVecDomain);
+    prec_fac_       = prec_fac;
+    multiVecRange_  = multiVecRange;
     multiVecDomain_ = multiVecDomain;
   }
 
-  RCP<PreconditionerFactoryBase<Scalar> >
-  getNonconstPreconditionerFactory() { return prec_fac_.getNonconstObj(); }
+  RCP<PreconditionerFactoryBase<Scalar> > getNonconstPreconditionerFactory()
+  {
+    return prec_fac_.getNonconstObj();
+  }
 
-  RCP<const PreconditionerFactoryBase<Scalar> >
-  getPreconditionerFactory() const { return prec_fac_.getConstObj(); }
+  RCP<const PreconditionerFactoryBase<Scalar> > getPreconditionerFactory() const
+  {
+    return prec_fac_.getConstObj();
+  }
 
-  void uninitialize() {
+  void uninitialize()
+  {
     prec_fac_.uninitialize();
-    multiVecRange_ = Teuchos::null;
+    multiVecRange_  = Teuchos::null;
     multiVecDomain_ = Teuchos::null;
   }
 
@@ -71,8 +79,7 @@ public:
   std::string description() const
   {
     std::ostringstream oss;
-    oss << this->Teuchos::Describable::description()
-        << "{"
+    oss << this->Teuchos::Describable::description() << "{"
         << "prec_fac=";
     if (!is_null(prec_fac_.getConstObj()))
       oss << prec_fac_.getConstObj()->description();
@@ -84,10 +91,11 @@ public:
 
   //@}
 
-  /** @name Overridden from ParameterListAcceptor (simple forwarding functions) */
+  /** @name Overridden from ParameterListAcceptor (simple forwarding functions)
+   */
   //@{
 
-  void setParameterList(RCP<ParameterList> const& paramList)
+  void setParameterList(RCP<ParameterList> const &paramList)
   {
     prec_fac_.getNonconstObj()->setParameterList(paramList);
   }
@@ -120,19 +128,20 @@ public:
   //@{
 
   bool isCompatible(const LinearOpSourceBase<Scalar> &fwdOpSrc) const
-  { return prec_fac_.getConstObj()->isCompatible(fwdOpSrc); }
+  {
+    return prec_fac_.getConstObj()->isCompatible(fwdOpSrc);
+  }
 
-   RCP<PreconditionerBase<Scalar> > createPrec() const
-  { return nonconstMultiVectorPreconditioner(
-      prec_fac_.getConstObj()->createPrec(),
-      multiVecRange_,
-      multiVecDomain_); }
+  RCP<PreconditionerBase<Scalar> > createPrec() const
+  {
+    return nonconstMultiVectorPreconditioner(
+        prec_fac_.getConstObj()->createPrec(), multiVecRange_, multiVecDomain_);
+  }
 
   void initializePrec(
-    const RCP<const LinearOpSourceBase<Scalar> > &fwdOpSrc,
-    PreconditionerBase<Scalar> *precOp,
-    const ESupportSolveUse supportSolveUse = SUPPORT_SOLVE_UNSPECIFIED
-    ) const
+      const RCP<const LinearOpSourceBase<Scalar> > &fwdOpSrc,
+      PreconditionerBase<Scalar> *precOp,
+      const ESupportSolveUse supportSolveUse = SUPPORT_SOLVE_UNSPECIFIED) const
   {
     using Teuchos::dyn_cast;
     using Teuchos::rcp_dynamic_cast;
@@ -140,47 +149,42 @@ public:
     typedef MultiVectorLinearOp<Scalar> MVLO;
     typedef MultiVectorPreconditioner<Scalar> MVP;
     const RCP<const MVLO> mvlo =
-      rcp_dynamic_cast<const MVLO>(fwdOpSrc->getOp().assert_not_null());
+        rcp_dynamic_cast<const MVLO>(fwdOpSrc->getOp().assert_not_null());
     MVP &mvp = dyn_cast<MVP>(*precOp);
     prec_fac_.getConstObj()->initializePrec(
-      defaultLinearOpSource<Scalar>(mvlo->getLinearOp()),
-      mvp.getNonconstPreconditioner().get(),
-      supportSolveUse);
+        defaultLinearOpSource<Scalar>(mvlo->getLinearOp()),
+        mvp.getNonconstPreconditioner().get(), supportSolveUse);
   }
 
-  void uninitializePrec(
-    PreconditionerBase<Scalar> *precOp,
-    RCP<const LinearOpSourceBase<Scalar> > *fwdOpSrc = NULL,
-    ESupportSolveUse *supportSolveUse = NULL
-    ) const
+  void uninitializePrec(PreconditionerBase<Scalar> *precOp,
+                        RCP<const LinearOpSourceBase<Scalar> > *fwdOpSrc = NULL,
+                        ESupportSolveUse *supportSolveUse                = NULL) const
   {
     using Teuchos::dyn_cast;
 
 #ifdef TEUCHOS_DEBUG
-    TEUCHOS_TEST_FOR_EXCEPT(0==precOp);
+    TEUCHOS_TEST_FOR_EXCEPT(0 == precOp);
 #endif
     typedef MultiVectorPreconditioner<Scalar> MVP;
     MVP &mvp = dyn_cast<MVP>(*precOp);
     RCP<const LinearOpSourceBase<Scalar> > inner_fwdOpSrc;
     prec_fac_.getConstObj()->uninitializePrec(
-      mvp.getNonconstPreconditioner().get(),
-      fwdOpSrc ? &inner_fwdOpSrc : NULL,
-      supportSolveUse);
+        mvp.getNonconstPreconditioner().get(),
+        fwdOpSrc ? &inner_fwdOpSrc : NULL, supportSolveUse);
     if (fwdOpSrc)
-      *fwdOpSrc =
-        defaultLinearOpSource<Scalar>(multiVectorLinearOp(inner_fwdOpSrc->getOp(),
-                                                          multiVecRange_,
-                                                          multiVecDomain_));
+      *fwdOpSrc = defaultLinearOpSource<Scalar>(multiVectorLinearOp(
+          inner_fwdOpSrc->getOp(), multiVecRange_, multiVecDomain_));
   }
 
   //@}
 
-private:
-
+ private:
   // //////////////////////////////
   // Private types
 
-  typedef Teuchos::ConstNonconstObjectContainer<PreconditionerFactoryBase<Scalar> > CNPFB;
+  typedef Teuchos::ConstNonconstObjectContainer<
+      PreconditionerFactoryBase<Scalar> >
+      CNPFB;
 
   // //////////////////////////////
   // Private data members
@@ -193,29 +197,31 @@ private:
   // Private member functions
 
   static void validateInitialize(
-    const RCP<const PreconditionerFactoryBase<Scalar> > &prec_fac,
-    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecRange,
-    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecDomain
-    ) {
+      const RCP<const PreconditionerFactoryBase<Scalar> > &prec_fac,
+      const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+          &multiVecRange,
+      const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+          &multiVecDomain)
+  {
 #ifdef TEUCHOS_DEBUG
     TEUCHOS_TEST_FOR_EXCEPT(is_null(prec_fac));
     TEUCHOS_TEST_FOR_EXCEPT(is_null(multiVecRange));
     TEUCHOS_TEST_FOR_EXCEPT(is_null(multiVecDomain));
-    TEUCHOS_TEST_FOR_EXCEPT( multiVecRange->numBlocks() != multiVecDomain->numBlocks() );
+    TEUCHOS_TEST_FOR_EXCEPT(multiVecRange->numBlocks() !=
+                            multiVecDomain->numBlocks());
 #else
     (void)prec_fac;
     (void)multiVecRange;
     (void)multiVecDomain;
 #endif
   }
-
 };
 
 /** \brief Nonmember constructor function.
  *
  * \relates MultiVectorPreconditionerFactory
  */
-template<class Scalar>
+template <class Scalar>
 RCP<MultiVectorPreconditionerFactory<Scalar> >
 multiVectorPreconditionerFactory()
 {
@@ -226,17 +232,18 @@ multiVectorPreconditionerFactory()
  *
  * \relates MultiVectorPreconditionerFactory
  */
-template<class Scalar>
+template <class Scalar>
 RCP<MultiVectorPreconditionerFactory<Scalar> >
 nonconstMultiVectorPreconditionerFactory(
-  const RCP<PreconditionerFactoryBase<Scalar> > &prec_fac,
-  const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecRange,
-  const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecDomain
-  )
+    const RCP<PreconditionerFactoryBase<Scalar> > &prec_fac,
+    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+        &multiVecRange,
+    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+        &multiVecDomain)
 {
-  RCP<MultiVectorPreconditionerFactory<Scalar> >
-    mvfac = Teuchos::rcp(new MultiVectorPreconditionerFactory<Scalar>());
-  mvfac->nonconstInitialize(prec_fac,multiVecRange,multiVecDomain);
+  RCP<MultiVectorPreconditionerFactory<Scalar> > mvfac =
+      Teuchos::rcp(new MultiVectorPreconditionerFactory<Scalar>());
+  mvfac->nonconstInitialize(prec_fac, multiVecRange, multiVecDomain);
   return mvfac;
 }
 
@@ -244,20 +251,20 @@ nonconstMultiVectorPreconditionerFactory(
  *
  * \relates MultiVectorPreconditionerFactory
  */
-template<class Scalar>
-RCP<MultiVectorPreconditionerFactory<Scalar> >
-multiVectorPreconditionerFactory(
-  const RCP<const PreconditionerFactoryBase<Scalar> > &prec_fac,
-  const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecRange,
-  const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> > &multiVecDomain
-  )
+template <class Scalar>
+RCP<MultiVectorPreconditionerFactory<Scalar> > multiVectorPreconditionerFactory(
+    const RCP<const PreconditionerFactoryBase<Scalar> > &prec_fac,
+    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+        &multiVecRange,
+    const RCP<const DefaultMultiVectorProductVectorSpace<Scalar> >
+        &multiVecDomain)
 {
-  RCP<MultiVectorPreconditionerFactory<Scalar> >
-    mvfac = Teuchos::rcp(new MultiVectorPreconditionerFactory<Scalar>());
-  mvfac->initialize(prec_fac,multiVecRange,multiVecDomain);
+  RCP<MultiVectorPreconditionerFactory<Scalar> > mvfac =
+      Teuchos::rcp(new MultiVectorPreconditionerFactory<Scalar>());
+  mvfac->initialize(prec_fac, multiVecRange, multiVecDomain);
   return mvfac;
 }
 
-}       // end namespace Thyra
+}  // end namespace Thyra
 
 #endif

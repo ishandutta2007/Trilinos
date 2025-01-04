@@ -1,4 +1,11 @@
 // @HEADER
+// *****************************************************************************
+//           Panzer: A partial differential equation assembly
+//       engine for strongly coupled complex multiphysics systems
+//
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef PANZER_L2_PROJECTION_HPP
@@ -28,6 +35,7 @@ namespace panzer {
   class DOFManager;
   class GlobalIndexer;
   class WorksetContainer;
+  template<typename T> class BasisValues2;
 
   /** \brief Unified set of tools for building objects for lumped and
       consistent L2 projects between bases.
@@ -42,6 +50,8 @@ namespace panzer {
     mutable Teuchos::RCP<panzer::WorksetContainer> worksetContainer_;
     bool setupCalled_;
     Teuchos::RCP<panzer::DOFManager> targetGlobalIndexer_;
+    bool useUserSuppliedBasisValues_;
+    std::map<std::string,Teuchos::RCP<panzer::BasisValues2<double>>> basisValues_;
 
   public:
 
@@ -64,6 +74,16 @@ namespace panzer {
                const std::vector<std::string>& elementBlockNames,
                const Teuchos::RCP<panzer::WorksetContainer> worksetContainer = Teuchos::null);
 
+    /** \brief Override using the panzer::WorksetContainer and instead use the registered BasisValues object.
+
+        \param[in] bv BasisValues object setup in lazy evalaution mode with registered orientations if required.
+
+        The intention of this function is to minimize memory use and
+        redundant evaluations by avoiding workset construction and
+        enforcing lazy evaluation in basis values.
+     */
+    void useBasisValues(const std::map<std::string,Teuchos::RCP<panzer::BasisValues2<double>>>& map_eblock_to_bv);
+
     /// Returns the target global indexer. Will be null if setup() has not been called.
     Teuchos::RCP<panzer::GlobalIndexer> getTargetGlobalIndexer() const;
 
@@ -71,7 +91,7 @@ namespace panzer {
         projection onto a target basis.
 
         \param use_lumping (optional) If set to true, the returned mass matrix is a lumped diagonal mass matrix following Hinton, et al. 1976.
-        \param elementBlockMultipliers (optional) If non-null, a multiplier will be used for each element block. The elements should be ordered corresponding to commManger block ordering. 
+        \param elementBlockMultipliers (optional) If non-null, a multiplier will be used for each element block. The elements should be ordered corresponding to commManger block ordering.
         \returns Filled mass matrix in a Tpetra::CrsMatrix
     */
     Teuchos::RCP<Tpetra::CrsMatrix<double,panzer::LocalOrdinal,panzer::GlobalOrdinal,Tpetra::KokkosCompat::KokkosDeviceWrapperNode<PHX::Device>>>
@@ -79,7 +99,7 @@ namespace panzer {
                       const std::unordered_map<std::string,double>* elementBlockMultipliers = nullptr);
 
     /** \brief Allocates, fills and returns a Tpetra::MultiVector
-        containing the inverse lumped mass matrix values as computed via Hinton 1976. 
+        containing the inverse lumped mass matrix values as computed via Hinton 1976.
 
         References:
 

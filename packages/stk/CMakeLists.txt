@@ -32,21 +32,30 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
 
-cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.23 FATAL_ERROR)
+
+message("Starting STK cmake configuration, CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
+
+option(STK_BUILT_FOR_SIERRA "Enable SIERRA capability" OFF)
+set(SIERRA_MIGRATION ${STK_BUILT_FOR_SIERRA} CACHE BOOL "Enable SIERRA capability")
+
+if(STK_BUILT_FOR_SIERRA)
+set(STK_ENABLE_16BIT_UPWARDCONN_INDEX_TYPE ON)
+endif()
 
 IF(COMMAND TRIBITS_PACKAGE_DECL)
   SET(HAVE_STK_Trilinos ON)
   TRIBITS_PACKAGE_DECL(STK)
-  MESSAGE("*** Building STK as a Trilinos package. ***")
+  message("*** Building STK as a Trilinos package. ***")
 ELSE()
   SET(HAVE_STK_Trilinos OFF)
-  project(STK CXX)
+  project(STK CXX Fortran)
 
   SET(PACKAGE_NAME "STK")
 
-  MESSAGE("*** Building STK as a stand-alone cmake package. ***")
+  message("*** Building STK as a stand-alone cmake package. ***")
 ENDIF()
-
+  
 SET(STK_TOPLEVEL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 SET(STK_TOPLEVEL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -78,9 +87,9 @@ endif()
 
 STK_ADD_DEBUG_AND_DEPRECATED_OPTIONS()
 
-MESSAGE("\nPROJECT_NAME: '${PROJECT_NAME}'")
-MESSAGE("PACKAGE_NAME: '${PACKAGE_NAME}'")
-MESSAGE("${PACKAGE_NAME}_SOURCE_DIR: '${${PACKAGE_NAME}_SOURCE_DIR}'\n")
+message("\nPROJECT_NAME: '${PROJECT_NAME}'")
+message("PACKAGE_NAME: '${PACKAGE_NAME}'")
+message("${PACKAGE_NAME}_SOURCE_DIR: '${${PACKAGE_NAME}_SOURCE_DIR}'\n")
 
 IF (HAVE_STK_Trilinos)
   SET(STK_HAVE_KOKKOS ON)
@@ -101,12 +110,12 @@ ELSE()
 
   IF(DEFINED STK_ENABLE_MPI)
     IF(STK_ENABLE_MPI)
-      MESSAGE("MPI requested via STK_ENABLE_MPI=ON")
+      message("MPI requested via STK_ENABLE_MPI=ON")
     ELSE()
-      MESSAGE("MPI disabled via STK_ENABLE_MPI=OFF")
+      message("MPI disabled via STK_ENABLE_MPI=OFF")
     ENDIF()
   ELSE()
-    MESSAGE("MPI defaulting to off. (STK_ENABLE_MPI not defined)")
+    message("MPI defaulting to off. (STK_ENABLE_MPI not defined)")
   ENDIF()
 
   IF(STK_ENABLE_MPI)
@@ -116,15 +125,68 @@ ELSE()
       include_directories(SYSTEM ${MPI_INCLUDE_PATH})
       message("MPI_INCLUDE_PATH: ${MPI_INCLUDE_PATH}")
     ELSE()
-      MESSAGE(FATAL_ERROR "MPI enabled by '-DSTK_ENABLE_MPI' but not found.")
+      message(FATAL_ERROR "MPI enabled by '-DSTK_ENABLE_MPI' but not found.")
     ENDIF()
   ELSE()
-    MESSAGE("Building serial without MPI. (To enable MPI, use '-DSTK_ENABLE_MPI:BOOL=ON')")
+    message("Building serial without MPI. (To enable MPI, use '-DSTK_ENABLE_MPI:BOOL=ON')")
   ENDIF()
 ENDIF()
 
+IF (STK_ENABLE_ARBORX OR (NOT HAVE_STK_Trilinos))
+  if (HAVE_STK_Trilinos)
+    message("Caution: when building in Trilinos with ArborX enabled, Kokkos versions need to be consistent.")
+  endif()
+  find_package(ArborX QUIET)
+  if(TARGET ArborX::ArborX)
+    message("Found ArborX, making it available for stk search")
+    SET(STK_HAS_ARBORX ON)
+  else()
+    message("Optional search library ArborX is not enabled.")
+  endif()
+else()
+  message("Optional search library ArborX is not enabled.")
+endif()
+
+stk_check_fp_handling()
+
+if(NOT HAVE_STK_Trilinos)
+  find_package(SEACAS QUIET)
+endif()
+
+if(SEACAS_ENABLE_SEACASIoss)
+  message("Enabling stk usage of SEACASIoss")
+  SET(STK_HAS_SEACAS_IOSS ON)
+else()
+  message("Optional SEACASIoss usage not enabled")
+endif()
+if(SEACAS_ENABLE_SEACASExodus)
+  message("Enabling stk usage of SEACASExodus")
+  SET(STK_HAS_SEACAS_EXODUS ON)
+else()
+  message("Optional SEACASExodus usage not enabled")
+endif()
+if(SEACAS_ENABLE_SEACASNemesis)
+  message("Enabling stk usage of SEACASNemesis")
+  SET(STK_HAS_SEACAS_NEMESIS ON)
+else()
+  message("Optional SEACASNemesis usage not enabled")
+endif()
+
+if (Trilinos_ENABLE_Intrepid2)
+  message("Intrepid2 is enabled, setting STK_HAVE_INTREPID2")
+  SET(STK_HAVE_INTREPID2 ON)
+endif()
+
 if(NOT HAVE_STK_Trilinos)
   stk_process_enables()
+endif()
+
+if(STK_ENABLE_16BIT_UPWARDCONN_INDEX_TYPE)
+  set(STK_16BIT_UPWARDCONN_INDEX_TYPE ON)
+  message("STK_ENABLE_16BIT_UPWARDCONN_INDEX_TYPE is ON, upward-connectivity tables limited to ~65K entries per bucket.")
+else()
+  set(STK_16BIT_UPWARDCONN_INDEX_TYPE OFF)
+  message("STK_ENABLE_16BIT_UPWARDCONN_INDEX_TYPE is OFF, upward-connectivity tables using 32bit indexing, (allows ~4B entries per bucket).")
 endif()
 
 IF (TPL_ENABLE_Boost)
@@ -159,14 +221,11 @@ ELSEIF("${FC_FN_UNDERSCORE}" STREQUAL "UNDER")
 ELSEIF("${FC_FN_UNDERSCORE}" STREQUAL "SECOND_UNDER")
   SET(FORTRAN_TWO_UNDERSCORES ON)
 ELSE()
-  MESSAGE("Could not determine the Fortran mangling; defaulting to one underscore.")
+  message("Could not determine the Fortran mangling; defaulting to one underscore.")
   SET(FORTRAN_ONE_UNDERSCORE ON)
 ENDIF()
 
-MESSAGE("\nCMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
-MESSAGE("${PROJECT_NAME}_INSTALL_INCLUDE_DIR: ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}")
-MESSAGE("${PROJECT_NAME}_INSTALL_LIBDIR: ${${PROJECT_NAME}_INSTALL_LIBDIR}")
-MESSAGE("${PROJECT_NAME}_INSTALL_BINDIR: ${${PROJECT_NAME}_INSTALL_BINDIR}\n")
+message("\nCMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
 
 STK_CONFIGURE_FILE(STK_Trilinos_config.h)
 
@@ -177,3 +236,41 @@ STK_SUBPACKAGES()
 
 STK_PACKAGE_POSTPROCESS()
 
+IF (NOT HAVE_STK_Trilinos)
+  include(CMakePackageConfigHelpers)
+  
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/stkConfigVersion.cmake"
+    VERSION VOTD
+    COMPATIBILITY ExactVersion
+  )
+
+  install(EXPORT stkTargets
+    FILE stkTargets.cmake
+    NAMESPACE stk::
+    DESTINATION share/cmake/stk
+  )
+
+  install(
+    FILES
+      cmake/stkConfig.cmake
+      "${CMAKE_CURRENT_BINARY_DIR}/stkConfigVersion.cmake"
+    DESTINATION share/cmake/stk
+    COMPONENT Devel
+  )
+  if(STK_BUILT_FOR_SIERRA)
+    install(
+      FILES cmake/stkLapackSierra.cmake
+      DESTINATION share/cmake/stk
+      RENAME stkLapack.cmake
+      COMPONENT Devel
+    )
+  else()
+    install(
+      FILES cmake/stkLapackGeneric.cmake
+      DESTINATION share/cmake/stk
+      RENAME stkLapack.cmake
+      COMPONENT Devel
+    )
+  endif()
+ENDIF()

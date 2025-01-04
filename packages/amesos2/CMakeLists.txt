@@ -26,6 +26,13 @@ IF (Amesos2_ENABLE_UMFPACK)
   ENDIF()
 ENDIF()
 
+IF (Amesos2_ENABLE_CSS_MKL)
+  IF (NOT ${PACKAGE_NAME}_ENABLE_PARDISO_MKL OR NOT TPL_ENABLE_MPI)
+    MESSAGE(WARNING "*****Amesos2_ENABLE_CSS_MKL requires PARDISO_MKL and MPI. Turning off CSS_MKL. *****")
+    SET(Amesos2_ENABLE_CSS_MKL OFF)
+    SET(HAVE_AMESOS2_CSS_MKL OFF)
+  ENDIF()
+ENDIF()
 
 # if using SuperLU_5.0, must use the proper API
 IF(${PACKAGE_NAME}_ENABLE_SuperLU)
@@ -66,10 +73,6 @@ TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_KLU2
   "Enable KLU2 in Amesos2"
   ON
 )
-
-IF (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
-  tribits_disable_optional_dependency(ShyLU_NodeTacho "NOTE: Disabling ${PACKAGE_NAME}_ENABLE_ShyLU_NodeTacho because CUDA or HIP is enabled in Kokkos")
-ENDIF()
 
 TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Basker
    HAVE_AMESOS2_BASKER

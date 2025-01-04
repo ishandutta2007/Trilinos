@@ -1,20 +1,12 @@
 // clang-format off
-/* =====================================================================================
-Copyright 2022 National Technology & Engineering Solutions of Sandia, LLC (NTESS).
-Under the terms of Contract DE-NA0003525 with NTESS, the U.S. Government retains
-certain rights in this software.
-
-SCR#:2790.0
-
-This file is part of Tacho. Tacho is open source software: you can redistribute it
-and/or modify it under the terms of BSD 2-Clause License
-(https://opensource.org/licenses/BSD-2-Clause). A copy of the licese is also
-provided under the main directory
-
-Questions? Kyungjoo Kim at <kyukim@sandia.gov,https://github.com/kyungjoo-kim>
-
-Sandia National Laboratories, Albuquerque, NM, USA
-===================================================================================== */
+// @HEADER
+// *****************************************************************************
+//                            Tacho package
+//
+// Copyright 2022 NTESS and the Tacho contributors.
+// SPDX-License-Identifier: BSD-2-Clause
+// *****************************************************************************
+// @HEADER
 // clang-format on
 #include "Kokkos_Random.hpp"
 
@@ -33,8 +25,11 @@ template <typename value_type> int driver(int argc, char *argv[]) {
   std::string file = "test.mtx";
   std::string graph_file = "";
   std::string weight_file = "";
+  int dofs_per_node = 1;
+  bool perturbPivot = false;
   int nrhs = 1;
   bool randomRHS = true;
+  bool onesRHS = false;
   std::string method_name = "chol";
   int method = 1; // 1 - Chol, 2 - LDL, 3 - SymLU
   int small_problem_thres = 1024;
@@ -42,6 +37,7 @@ template <typename value_type> int driver(int argc, char *argv[]) {
   int device_solve_thres = 128;
   int variant = 0;
   int nstreams = 8;
+  bool no_warmup = false;
   int nfacts = 2;
   int nsolves = 10;
 
@@ -54,6 +50,8 @@ template <typename value_type> int driver(int argc, char *argv[]) {
   opts.set_option<std::string>("file", "Input file (MatrixMarket SPD matrix)", &file);
   opts.set_option<std::string>("graph", "Input condensed graph", &graph_file);
   opts.set_option<std::string>("weight", "Input condensed graph weight", &weight_file);
+  opts.set_option<int>("dofs-per-node", "# DoFs per node", &dofs_per_node);
+  opts.set_option<bool>("perturb", "Flag to perturb tiny pivots", &perturbPivot);
   opts.set_option<int>("nrhs", "Number of RHS vectors", &nrhs);
   opts.set_option<std::string>("method", "Solution method: chol, ldl, lu", &method_name);
   opts.set_option<int>("small-problem-thres", "LAPACK is used smaller than this thres", &small_problem_thres);
@@ -62,6 +60,8 @@ template <typename value_type> int driver(int argc, char *argv[]) {
   opts.set_option<int>("device-solve-thres", "Device function is used above this subproblem size", &device_solve_thres);
   opts.set_option<int>("variant", "algorithm variant in levelset scheduling; 0, 1 and 2", &variant);
   opts.set_option<int>("nstreams", "# of streams used in CUDA; on host, it is ignored", &nstreams);
+  opts.set_option<bool>("one-rhs", "Set RHS to be ones", &onesRHS);
+  opts.set_option<bool>("no-warmup", "Flag to turn off warmup", &no_warmup);
   opts.set_option<int>("nfacts", "# of factorizations to perform", &nfacts);
   opts.set_option<int>("nsolves", "# of solves to perform", &nsolves);
 
@@ -92,7 +92,8 @@ template <typename value_type> int driver(int argc, char *argv[]) {
   Tacho::printExecSpaceConfiguration<typename host_device_type::execution_space>("HostSpace", detail);
   std::cout << "     Method Name:: " << method_name << std::endl;
   std::cout << "     Solver Type:: " << variant << std::endl;
-  std::cout << "       # Streams:: " << nstreams;
+  std::cout << "       # Streams:: " << nstreams << std::endl;
+  std::cout << "          # RHSs:: " << nrhs;
   std::cout << std::endl << "    --------------------- " << std::endl << std::endl;
 
   int r_val = 0;
@@ -130,6 +131,8 @@ template <typename value_type> int driver(int argc, char *argv[]) {
           if (!in.good()) {
             std::cout << "Failed in open the file: " << graph_file << std::endl;
             return -1;
+          } else if (verbose) {
+            std::cout << " > Condensed graph file: " << graph_file << std::endl;
           }
           in >> m_graph;
 
@@ -140,8 +143,10 @@ template <typename value_type> int driver(int argc, char *argv[]) {
           aj_graph = ordinal_type_array_host("aj", ap_graph(m_graph));
           for (ordinal_type i = 0; i < m_graph; ++i) {
             const ordinal_type jbeg = ap_graph(i), jend = ap_graph(i + 1);
-            for (ordinal_type j = jbeg; j < jend; ++j)
+            for (ordinal_type j = jbeg; j < jend; ++j) {
               in >> aj_graph(j);
+              aj_graph(j) --; // base-one
+            }
           }
         }
 
@@ -151,6 +156,8 @@ template <typename value_type> int driver(int argc, char *argv[]) {
           if (!in.good()) {
             std::cout << "Failed in open the file: " << weight_file << std::endl;
             return -1;
+          } else if (verbose) {
+            std::cout << " > Weight file for condensed graph: " << weight_file << std::endl;
           }
           ordinal_type m(0);
           in >> m;
@@ -165,17 +172,21 @@ template <typename value_type> int driver(int argc, char *argv[]) {
     Tacho::Driver<value_type, device_type> solver;
 
     /// common options
-    solver.setSolutionMethod(method);
-    solver.setSmallProblemThresholdsize(small_problem_thres);
     solver.setVerbose(verbose);
+    solver.setSolutionMethod(method);
+    solver.setLevelSetOptionAlgorithmVariant(variant);
+    solver.setLevelSetOptionNumStreams(nstreams);
 
     /// graph options
     solver.setOrderConnectedGraphSeparately();
 
     /// levelset options
+    solver.setSmallProblemThresholdsize(small_problem_thres);
     solver.setLevelSetOptionDeviceFunctionThreshold(device_factor_thres, device_solve_thres);
-    solver.setLevelSetOptionAlgorithmVariant(variant);
-    solver.setLevelSetOptionNumStreams(nstreams);
+    if (perturbPivot) {
+      if (verbose) std::cout << " > perturb tiny pivots" << std::endl;
+      solver.useDefaultPivotTolerance();
+    }
 
     auto values_on_device = Kokkos::create_mirror_view(typename device_type::memory_space(), A.Values());
     Kokkos::deep_copy(values_on_device, A.Values());
@@ -183,7 +194,10 @@ template <typename value_type> int driver(int argc, char *argv[]) {
     /// inputs are used for graph reordering and analysis
     if (m_graph > 0 && m_graph < A.NumRows())
       solver.analyze(A.NumRows(), A.RowPtr(), A.Cols(), m_graph, ap_graph, aj_graph, aw_graph);
-    else
+    else if (dofs_per_node > 1) {
+      if (verbose) std::cout << " > DoFs / node = " << dofs_per_node << std::endl;
+      solver.analyze(A.NumRows(), dofs_per_node, A.RowPtr(), A.Cols());
+    } else
       solver.analyze(A.NumRows(), A.RowPtr(), A.Cols());
 
     /// create numeric tools and levelset tools
@@ -192,6 +206,10 @@ template <typename value_type> int driver(int argc, char *argv[]) {
     double initi_time = timer.seconds();
 
     /// symbolic structure can be reused
+    if (!no_warmup) {
+      // warm-up
+      solver.factorize(values_on_device);
+    }
     timer.reset();
     for (int i = 0; i < nfacts; ++i) {
       solver.factorize(values_on_device);
@@ -203,7 +221,10 @@ template <typename value_type> int driver(int argc, char *argv[]) {
         t("t", A.NumRows(), nrhs);                  // temp workspace (store permuted rhs)
 
     {
-      if (randomRHS) {
+      if (onesRHS) {
+        const value_type one(1.0);
+        Kokkos::deep_copy (b, one);
+      } else if (randomRHS) {
         Kokkos::Random_XorShift64_Pool<typename device_type::execution_space> random(13718);
         Kokkos::fill_random(b, random, value_type(1));
       } else {
@@ -213,8 +234,18 @@ template <typename value_type> int driver(int argc, char *argv[]) {
       }
     }
 
-    std::cout << std::endl;
     double solve_time = 0.0;
+    if (!no_warmup) {
+      // warm-up
+      timer.reset();
+      solver.solve(x, b, t);
+      solve_time = timer.seconds();
+      const double res = solver.computeRelativeResidual(values_on_device, x, b);
+      std::cout << "TachoSolver (warm-up): residual = " << res << " time " << solve_time << "\n";
+    }
+    std::cout << std::endl;
+
+    solve_time = 0.0;
     for (int i = 0; i < nsolves; ++i) {
       timer.reset();
       solver.solve(x, b, t);
@@ -223,13 +254,14 @@ template <typename value_type> int driver(int argc, char *argv[]) {
       std::cout << "TachoSolver: residual = " << res << "\n";
     }
     std::cout << std::endl;
-    solver.release();
 
     std::cout << std::endl;
     std::cout << " Initi Time " << initi_time << std::endl;
+    std::cout << " > nnz = " << solver.getNumNonZerosU() << std::endl;
     std::cout << " Facto Time " << facto_time / (double)nfacts << std::endl;
     std::cout << " Solve Time " << solve_time / (double)nsolves << std::endl;
     std::cout << std::endl;
+    solver.release();
   } catch (const std::exception &e) {
     std::cerr << "Error: exception is caught: \n" << e.what() << "\n";
   }

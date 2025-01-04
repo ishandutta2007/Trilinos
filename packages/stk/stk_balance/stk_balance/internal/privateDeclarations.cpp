@@ -38,6 +38,7 @@
 #include <stk_mesh/base/SkinMeshUtil.hpp>
 #include <stk_util/environment/Env.hpp>
 #include <stk_util/parallel/ParallelReduce.hpp>
+#include <stk_util/parallel/OutputStreams.hpp>
 #include <stk_util/util/SortAndUnique.hpp>
 #include <algorithm>
 #include <tuple>
@@ -401,6 +402,9 @@ std::vector<SideInfo> getElementExposedFaceInfo(const stk::mesh::BulkData & bulk
   std::vector<SideInfo> sideInfoVec;
 
   for (unsigned ord : sideOrdinals) {
+    // FIXME SHELL_SIDE_TOPO
+    if (elemTopology.is_shell_side_ordinal(ord)) { continue; }
+
     const stk::topology sideTopology = elemTopology.side_topology(ord);
     stk::mesh::get_subcell_nodes(bulk, element, bulk.mesh_meta_data().side_rank(), ord, sideNodes);
     const double tol = balanceSettings.getToleranceForFaceSearch(bulk, coords,
@@ -789,7 +793,7 @@ void fill_output_subdomain_field(const stk::mesh::BulkData & bulk, const Balance
 
 void logMessage(MPI_Comm communicator, const std::string &message)
 {
-  stk::log_with_time_and_memory(communicator, message);
+  stk::log_with_time_and_memory(communicator, message, stk::outputP0());
 }
 
 void fill_zoltan2_graph(const BalanceSettings& balanceSettings,

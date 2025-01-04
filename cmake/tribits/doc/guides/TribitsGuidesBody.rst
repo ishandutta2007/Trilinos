@@ -1107,7 +1107,7 @@ can be used in the logic in these files.  Some of the variables that should
 already be defined (in addition to all of the basic user TriBITS cache
 variables set in ``tribits_define_global_options_and_define_extra_repos()``)
 include ``CMAKE_HOST_SYSTEM_NAME``, ``${PROJECT_NAME}_HOSTNAME``, and
-``PYTHON_EXECUTABLE`` (see `Python Support`_).  The types of commands and
+``Python3_EXECUTABLE`` (see `Python Support`_).  The types of commands and
 logic to put in this file include:
 
 * Setting additional user cache variable options that are used by multiple
@@ -1589,13 +1589,13 @@ are defined before a Package's ``CMakeLists.txt`` file is processed:
     imply that all of the required subpackages will be enabled, only that the
     parent package will be processed).
 
-  .. _${PACKAGE_NAME}_ENABLE_${OPTIONAL_DEP_PACKAGE_NAME}:
+  .. _${PACKAGE_NAME}_ENABLE_${UPSTREAM_PACKAGE_NAME}:
 
-  ``${PACKAGE_NAME}_ENABLE_${OPTIONAL_DEP_PACKAGE_NAME}``
+  ``${PACKAGE_NAME}_ENABLE_${UPSTREAM_PACKAGE_NAME}``
 
     Set to ``ON`` if support for the optional `upstream`_ dependent package
-    ``${OPTIONAL_DEP_PACKAGE_NAME}`` is enabled in package
-    ``${PACKAGE_NAME}``.  Here ``${OPTIONAL_DEP_PACKAGE_NAME}`` corresponds to
+    ``${UPSTREAM_PACKAGE_NAME}`` is enabled in package
+    ``${PACKAGE_NAME}``.  Here ``${UPSTREAM_PACKAGE_NAME}`` corresponds to
     each optional upstream package listed in the ``LIB_OPTIONAL_PACKAGES``
     and ``TEST_OPTIONAL_PACKAGES`` arguments to the
     `tribits_package_define_dependencies()`_ macro.
@@ -1603,11 +1603,11 @@ are defined before a Package's ``CMakeLists.txt`` file is processed:
     **NOTE:** It is important that the CMake code in the package's
     ``CMakeLists.txt`` files key off of this variable and **not** the
     project-level variable
-    ``${PROJECT_NAME}_ENABLE_${OPTIONAL_DEP_PACKAGE_NAME}`` because the
+    ``${PROJECT_NAME}_ENABLE_${UPSTREAM_PACKAGE_NAME}`` because the
     package-level variable
-    ``${PACKAGE_NAME}_ENABLE_${OPTIONAL_DEP_PACKAGE_NAME}`` can be explicitly
+    ``${PACKAGE_NAME}_ENABLE_${UPSTREAM_PACKAGE_NAME}`` can be explicitly
     turned off by the user even through the packages ``${PACKAGE_NAME}`` and
-    ``${OPTIONAL_DEP_PACKAGE_NAME}`` are both enabled at the project level!
+    ``${UPSTREAM_PACKAGE_NAME}`` are both enabled at the project level!
     See `Support for optional package can be explicitly disabled`_.
 
     **NOTE:** This variable will also be set for required dependencies as well
@@ -1648,12 +1648,12 @@ are defined in the top-level project scope before a Package's
   ``HAVE_<PACKAGE_NAME_UC>_<UPSTREAM_PACKAGE_NAME_UC>``
 
     Set to ``ON`` if support for optional upstream package
-    ``${OPTIONAL_DEP_PACKAGE}`` is enabled in downstream package
+    ``${UPSTREAM_PACKAGE_NAME`` is enabled in downstream package
     ``${PACKAGE_NAME}``
-    (i.e. `${PACKAGE_NAME}_ENABLE_${OPTIONAL_DEP_PACKAGE_NAME}`_ = ``ON``) and
-    is set to ``FALSE`` otherwise.  Here, ``<PACKAGE_NAME_UC>`` and
+    (i.e. `${PACKAGE_NAME}_ENABLE_${UPSTREAM_PACKAGE_NAME}`_ = ``ON``) and is
+    set to ``FALSE`` otherwise.  Here, ``<PACKAGE_NAME_UC>`` and
     ``<UPSTREAM_PACKAGE_NAME_UC>`` are the upper-case names for the packages
-    ``${PACKAGE_NAME}`` and ``${OPTIONAL_DEP_PACKAGE_NAME}``, respectively.
+    ``${PACKAGE_NAME}`` and ``${UPSTREAM_PACKAGE_NAME}``, respectively.
     For example, if optional support for upstream package ``Triutils`` is
     enabled in downstream package ``EpetraExt`` in `ReducedMockTrilinos`_,
     then ``EpetraExt_ENABLE_TriUtils=ON`` and ``HAVE_EPETRAEXT_TRIUTILS=ON``.
@@ -1668,7 +1668,7 @@ are defined in the top-level project scope before a Package's
       #cmakedefine HAVE_EPETRAEXT_TRIUTILS
 
     NOTE: TriBITS automatically sets this variable depending on the value of
-    `${PACKAGE_NAME}_ENABLE_${OPTIONAL_DEP_PACKAGE_NAME}`_ during the step
+    `${PACKAGE_NAME}_ENABLE_${UPSTREAM_PACKAGE_NAME}`_ during the step
     "Adjust package and TPLs enables and disables" in `Full Processing of
     TriBITS Project Files`_.  And tweaking this variable after that must be
     done carefully as described in `How to tweak downstream TriBITS "ENABLE"
@@ -2228,7 +2228,7 @@ proceeds through the call to `tribits_project()`_.
 |   3)  Set variables ``CMAKE_HOST_SYSTEM_NAME`` and ``${PROJECT_NAME}_HOSTNAME``
 |       (both of these can be overridden in the cache by the user)
 |   4)  Find some optional command-line tools:
-|       a)  Find Python (sets ``PYTHON_EXECUTABLE``, see `Python Support`_)
+|       a)  Find Python (sets ``Python3_EXECUTABLE``, see `Python Support`_)
 |       b)  Find Git (sets ``GIT_EXECUTABLE`` and ``GIT_VERSION_STRING``)
 |   5)  ``include(`` `<projectDir>/Version.cmake`_ ``)``
 |   6)  Define primary TriBITS options and read in the list of extra repositories
@@ -2666,6 +2666,9 @@ If a TriBITS package provides any CTest tests/examples, then it must also
 satisfy the following requirements:
 
 * Test names must be prefixed with the package name ``<Package>_``.
+
+* The package name ``<Package>`` must be appended to the ``LABELS`` test
+  property list.
 
 * Tests should only be added if the variable ``<Package>_ENABLE_TESTS`` is
   true.
@@ -4230,7 +4233,8 @@ repositories if specified).  There are several python tools under
 ``tribits/ci_support/`` that read in this file and use the created
 data-structure for various tasks.  This file and these tools are used by
 `checkin-test.py`_ and `tribits_ctest_driver()`_.  But these tools can also be
-used to construct other workflows and tools.
+used to construct other workflows and tools.  These tools require a Python3
+installation and for the `python3` executable to be installed.
 
 .. _TribitsDumpDepsXmlScript.cmake:
 
@@ -7000,17 +7004,16 @@ Python Support
 
 TriBITS Core does not require anything other than raw CMake.  However, Python
 Utils, TriBITS CI Support, and other extended TriBITS components require
-Python.  These extra TriBITS tools only require Python 2.7+ (and 3.x).  By
-default, when a TriBITS project starts to configure using CMake, it will try
-to find Python 2.7+ on the system (see `Full Processing of TriBITS Project
-Files`_).  If Python is found, it will set the global cache variable
-``PYTHON_EXECUTABLE``.  If it is not found, then it will print a warning and
-``PYTHON_EXECUTABLE`` will be empty.  With this default behavior, if Python is
-found, then the TriBITS project can use it.  Otherwise, it can do without it.
+Python.  These extra TriBITS tools only require Python 3.6+.  By default, when
+a TriBITS project starts to configure using CMake, it will try to find Python
+3.6+ on the system (see `Full Processing of TriBITS Project Files`_).  If
+Python is found, it will set the global cache variable ``Python3_EXECUTABLE``.
+If it is not found, then it will print a warning and ``Python3_EXECUTABLE``
+will be empty.  With this default behavior, if Python is found, then the
+TriBITS project can use it.  Otherwise, it can do without it.
 
 While the default behavior for finding Python described above is useful for
-many TriBITS project (such as Trilinos), some TriBITS projects need different
-behavior such as:
+many TriBITS projects, some TriBITS projects need different behavior such as:
 
 1. The TriBITS project may not ever use Python so there is no need to look for
    it at all.  In this case, the TriBITS project would set
@@ -7020,11 +7023,12 @@ behavior such as:
    can't be found.  In this case, the TriBITS project would set
    `${PROJECT_NAME}_REQUIRES_PYTHON`_ to ``TRUE``.
 
-3. Some TriBITS projects may require a version of Python more recent than 2.7.
-   In this case, the TriBITS project would set `PythonInterp_FIND_VERSION`_ to
-   some value higher than ``2.7``.  For example, may newer systems have only
-   Python 3.5.2 or higher versions installed by default and projects developed
-   on such a system typically requires this version or higher.
+3. Some TriBITS projects may require a version of Python more recent than 3.6.
+   In this case, the TriBITS project would set
+   `${PROJECT_NAME}_Python3_FIND_VERSION`_ to some value higher than ``3.6``.
+   For example, may newer systems have higher versions of Python installed by
+   default, and projects developed on such a system typically require this
+   version or higher.
 
 
 Project-Specific Build Reference

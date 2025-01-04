@@ -52,8 +52,8 @@
 #include "stk_search/BoundingBox.hpp"                    // for add_to_box, etc
 #include "stk_search/Box.hpp"                            // for Box
 #include "stk_search/CommonSearchUtil.hpp"
-#include "stk_search/KDTree.hpp"
-#include "stk_search/KDTree_BoundingBox.hpp"
+#include "stk_search/kdtree/KDTree.hpp"
+#include "stk_search/kdtree/KDTree_BoundingBox.hpp"
 #include "stk_util/parallel/CommSparse.hpp"              // for CommSparse
 #include "stk_util/parallel/ParallelComm.hpp"            // for CommBuffer, etc
 namespace stk { class CommBufferV; }
@@ -248,7 +248,6 @@ void findGhostingRegionResidentsDDEfficient(const SuperTile3D &tilingPattern, MP
 
   stk::CommSparse commsparse(comm);
 
-  int sendCount = 0;
   for(int phase = 0; phase < 2; ++phase) {
     for (const BoxedTilingIndices &tileId : tilesOccupied) {
       int proc = getGhostingRegionRank(tileId, tilingPattern, mpiSize);
@@ -261,10 +260,6 @@ void findGhostingRegionResidentsDDEfficient(const SuperTile3D &tilingPattern, MP
         msg.pRank = mpiRank;
         msg.box = tileId.box;
         procBuff.pack<BoxedTilingIndicesMsg>(msg);
-
-        if (phase != 0) {
-          ++sendCount;
-        }
       }
       else if (phase == 1){
         residencyMap[tileId].push_back(OwnedBox3D{mpiRank,tileId.box});
@@ -277,9 +272,6 @@ void findGhostingRegionResidentsDDEfficient(const SuperTile3D &tilingPattern, MP
       commsparse.communicate();
     }
   }
-  // std::cout  << "p_" << mpiRank << ": (domain) sent " << sendCount << " boxes" << std::endl;
-
-  int recvCount = 0;
   for(int proc=0; proc < mpiSize; ++proc) {
     if (proc == mpiRank) {
       continue;
@@ -292,10 +284,8 @@ void findGhostingRegionResidentsDDEfficient(const SuperTile3D &tilingPattern, MP
       TilingIndices tileId{msg.xIdx, msg.yIdx, msg.zIdx};
       residencyMap[tileId].push_back(OwnedBox3D{msg.pRank, msg.box});
 
-      ++recvCount;
     }
   }
-  // std::cout  << "p_" << mpiRank << ": (ghosting region) received " << recvCount << " boxes" << std::endl;
 }
 
 
@@ -911,11 +901,11 @@ void GhostingSearcher<DomainIdentifier, RangeIdentifier, DomainObjType, RangeBox
   //  Do a global communication to communicate all processor boxA bounding boxes
   //  to all processors in the group
   //
-  stk::search::AllGatherHelper(boxA_proc, boxA_proc_box_array, mpiComm);
+  stk::search::all_gather_helper(boxA_proc, boxA_proc_box_array, mpiComm);
   for(int iproc = 0; iproc < pSize; ++iproc) {
     boxA_proc_box_array[iproc].set_object_number(iproc);
   }
-  stk::search::AllGatherHelper(boxB_proc, boxB_proc_box_array, mpiComm);
+  stk::search::all_gather_helper(boxB_proc, boxB_proc_box_array, mpiComm);
   for(int iproc = 0; iproc < pSize; ++iproc) {
     boxB_proc_box_array[iproc].set_object_number(iproc);
   }

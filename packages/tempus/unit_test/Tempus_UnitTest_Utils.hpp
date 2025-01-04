@@ -1,14 +1,14 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_UnitTest_Utils_hpp
 #define Tempus_UnitTest_Utils_hpp
-
 
 #include "Tempus_config.hpp"
 
@@ -25,14 +25,13 @@
 
 #include "../TestModels/SinCosModel.hpp"
 
-
 namespace Tempus_Unit_Test {
 
+using Teuchos::ParameterList;
 using Teuchos::RCP;
 using Teuchos::rcp;
 using Teuchos::rcp_const_cast;
 using Teuchos::rcp_dynamic_cast;
-using Teuchos::ParameterList;
 
 using Thyra::get_ele;
 
@@ -40,8 +39,9 @@ using Tempus::StepperFactory;
 
 /** \brief Unit test utility for Stepper construction through StepperFactory.
  */
-void testFactoryConstruction(std::string stepperType,
-  const Teuchos::RCP<const Thyra::ModelEvaluator<double> >& model)
+void testFactoryConstruction(
+    std::string stepperType,
+    const Teuchos::RCP<const Thyra::ModelEvaluator<double> >& model)
 {
   RCP<StepperFactory<double> > sf = Teuchos::rcp(new StepperFactory<double>());
 
@@ -58,7 +58,7 @@ void testFactoryConstruction(std::string stepperType,
   // Test using ParameterList.
   // Passing in model.
   auto stepperPL = rcp_const_cast<ParameterList>(stepper->getValidParameters());
-  stepper = sf->createStepper(stepperPL, model);
+  stepper        = sf->createStepper(stepperPL, model);
   TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   // With setting model.
   stepper = sf->createStepper(stepperPL);
@@ -67,6 +67,5 @@ void testFactoryConstruction(std::string stepperType,
   TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
 }
 
-
-} // namespace Tempus_Unit_Test
-#endif // Tempus_UnitTest_Utils_hpp
+}  // namespace Tempus_Unit_Test
+#endif  // Tempus_UnitTest_Utils_hpp

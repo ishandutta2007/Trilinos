@@ -1,30 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //                           Sacado Package
-//                 Copyright (2006) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// This library is free software; you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as
-// published by the Free Software Foundation; either version 2.1 of the
-// License, or (at your option) any later version.
-//
-// This library is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-// USA
-// Questions? Contact David M. Gay (dmgay@sandia.gov) or Eric T. Phipps
-// (etphipp@sandia.gov).
-//
-// ***********************************************************************
+// Copyright 2006 NTESS and the Sacado contributors.
+// SPDX-License-Identifier: LGPL-2.1-or-later
+// *****************************************************************************
 // @HEADER
 
 #ifndef SACADO_FAD_EXP_ATOMIC_HPP
@@ -339,6 +319,27 @@ namespace Sacado {
         }
       }
 
+#elif defined(KOKKOS_ENABLE_SYCL)
+
+      // Our implementation of Kokkos::atomic_oper_fetch() and
+      // Kokkos::atomic_fetch_oper() for Sacado types on device
+      template <typename Oper, typename DestPtrT, typename ValT, typename T>
+      typename Sacado::BaseExprType< Expr<T> >::type
+      atomic_oper_fetch_device(const Oper& op, DestPtrT dest, ValT* dest_val,
+                               const Expr<T>& x)
+      {
+        Kokkos::abort("Not implemented!");
+        return {};
+      }
+
+      template <typename Oper, typename DestPtrT, typename ValT, typename T>
+      typename Sacado::BaseExprType< Expr<T> >::type
+      atomic_fetch_oper_device(const Oper& op, DestPtrT dest, ValT* dest_val,
+                               const Expr<T>& x)
+      {
+        Kokkos::abort("Not implemented!");
+        return {};
+      }
 #endif
 
       // Overloads of Kokkos::atomic_oper_fetch/Kokkos::atomic_fetch_oper

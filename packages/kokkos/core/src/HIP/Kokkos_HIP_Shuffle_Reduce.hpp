@@ -40,7 +40,7 @@ __device__ inline void hip_intra_warp_shuffle_reduction(
   unsigned int shift = 1;
 
   // Reduce over values from threads with different threadIdx.y
-  unsigned int constexpr warp_size = HIPTraits::WarpSize;
+  constexpr unsigned int warp_size = HIPTraits::WarpSize;
   while (blockDim.x * shift < warp_size) {
     ValueType const tmp = shfl_down(result, blockDim.x * shift, warp_size);
     // Only join if upper thread is active (this allows non power of two for
@@ -59,8 +59,8 @@ template <typename ValueType, typename ReducerType>
 __device__ inline void hip_inter_warp_shuffle_reduction(
     ValueType& value, const ReducerType& reducer,
     const int max_active_thread = blockDim.y) {
-  unsigned int constexpr warp_size = HIPTraits::WarpSize;
-  int constexpr step_width         = 8;
+  constexpr unsigned int warp_size = HIPTraits::WarpSize;
+  constexpr int step_width         = 8;
   // Depending on the ValueType __shared__ memory must be aligned up to 8 byte
   // boundaries. The reason not to use ValueType directly is that for types with
   // constructors it could lead to race conditions.
@@ -100,7 +100,7 @@ template <class FunctorType>
 __device__ inline bool hip_inter_block_shuffle_reduction(
     typename FunctorType::reference_type value,
     typename FunctorType::reference_type neutral, FunctorType const& reducer,
-    HIP::size_type* const m_scratch_space,
+    typename FunctorType::pointer_type const m_scratch_space,
     typename FunctorType::pointer_type const /*result*/,
     HIP::size_type* const m_scratch_flags,
     int const max_active_thread = blockDim.y) {
@@ -115,16 +115,16 @@ __device__ inline bool hip_inter_block_shuffle_reduction(
 
   // One thread in the block writes block result to global scratch_memory
   if (id == 0) {
-    pointer_type global =
-        reinterpret_cast<pointer_type>(m_scratch_space) + blockIdx.x;
-    *global = value;
+    pointer_type global = m_scratch_space + blockIdx.x;
+    *global             = value;
+    __threadfence();
   }
 
   // One warp of last block performs inter block reduction through loading the
   // block values from global scratch_memory
   bool last_block = false;
   __syncthreads();
-  int constexpr warp_size = HIPTraits::WarpSize;
+  constexpr int warp_size = HIPTraits::WarpSize;
   if (id < warp_size) {
     HIP::size_type count;
 
@@ -139,8 +139,7 @@ __device__ inline bool hip_inter_block_shuffle_reduction(
       last_block = true;
       value      = neutral;
 
-      pointer_type const global =
-          reinterpret_cast<pointer_type>(m_scratch_space);
+      pointer_type const global = m_scratch_space;
 
       // Reduce all global values with splitting work over threads in one warp
       const int step_size = blockDim.x * blockDim.y < warp_size

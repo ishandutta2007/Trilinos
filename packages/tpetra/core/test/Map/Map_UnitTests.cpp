@@ -1,45 +1,11 @@
-/*
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //          Tpetra: Templated Linear Algebra Services Package
-//                 Copyright (2008) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2008 NTESS and the Tpetra contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
-*/
 
 #include "Tpetra_Map.hpp"
 #include "Tpetra_TestingUtilities.hpp"
@@ -464,6 +430,138 @@ namespace {
 		   "no less than that of the default local_ordinal_type.");
   }
 
+
+  TEUCHOS_UNIT_TEST_TEMPLATE_2_DECL( Map, KokkosViewConstructor, LO, GO )
+ {
+   typedef Tpetra::Map<LO,GO> M;
+   using Teuchos::ArrayView;
+   GO INVALID = Teuchos::OrdinalTraits<GO>::invalid();
+   using MemSpace = typename Tpetra::KokkosClassic::DefaultNode::DefaultNodeType::memory_space;
+
+   out << "Test: Map, KokkosViewConstructor" << std::endl;
+
+   // create a comm                                                                                                                                                                                                                                                          
+   auto comm = Tpetra::getDefaultComm();
+   const int rank = comm->getRank();
+
+   // Create a dummy map to force Kokkos to initialize
+   {
+     M dummy(10,0,comm);
+   }
+
+
+   // View in default space
+   int N = 10;
+   Kokkos::View<GO*,MemSpace> myview("DeviceView",N);
+   auto myview_h = Kokkos::create_mirror_view(myview);
+
+   int RANK_BASE = rank*100;
+   // Contiguous part
+   int nstop = 5;
+   for(int i=0; i<nstop; i++)
+     myview_h(i) = RANK_BASE + i;
+
+   // Noncontiguous goop
+   myview_h(nstop) = RANK_BASE + 5000;
+   
+   // The rest, is contiguous, except for the last guy
+   for(int i=nstop+1; i<N-1; i++)
+     myview_h(i) = RANK_BASE + i;
+   
+   // The last guy
+   myview_h(N-1) = RANK_BASE + 5001;
+   Kokkos::deep_copy(myview,myview_h);
+
+   // Now do an Arrayview
+   Teuchos::ArrayView<GO> myview_av(myview_h.data(),myview_h.extent(0));
+
+   // Create maps
+   M map_kokkos(INVALID,myview,0,comm);
+   M map_teuchos(INVALID,myview_av,0,comm);
+
+   // Compare the easy stuff
+   TEST_EQUALITY(map_kokkos.getGlobalNumElements(), map_teuchos.getGlobalNumElements());
+   TEST_EQUALITY(map_kokkos.getLocalNumElements(), map_teuchos.getLocalNumElements());
+   TEST_EQUALITY(map_kokkos.getIndexBase(), map_teuchos.getIndexBase());
+   TEST_EQUALITY(map_kokkos.getMinLocalIndex(), map_teuchos.getMinLocalIndex());
+   TEST_EQUALITY(map_kokkos.getMaxLocalIndex(), map_teuchos.getMaxLocalIndex());
+   TEST_EQUALITY(map_kokkos.getMaxGlobalIndex(), map_teuchos.getMaxGlobalIndex());
+   TEST_EQUALITY(map_kokkos.getMinGlobalIndex(), map_teuchos.getMinGlobalIndex());
+   TEST_EQUALITY(map_kokkos.getMaxAllGlobalIndex(), map_teuchos.getMaxAllGlobalIndex());
+   TEST_EQUALITY(map_kokkos.getMinAllGlobalIndex(), map_teuchos.getMinAllGlobalIndex());
+
+   ArrayView<const GO> glist_kokkos = map_kokkos.getLocalElementList();
+   ArrayView<const GO> glist_teuchos = map_teuchos.getLocalElementList();
+   TEST_COMPARE_ARRAYS( glist_kokkos, glist_teuchos);
+
+   // Compare the harder stuff by tickling the FHT  
+   for(LO i=0; i<N; i++) {
+     LO lo_k = map_kokkos.getLocalElement(map_kokkos.getGlobalElement(i));
+     LO lo_t = map_teuchos.getLocalElement(map_teuchos.getGlobalElement(i));
+     TEST_EQUALITY(lo_k,lo_t);
+   }     
+
+ }
+ TEUCHOS_UNIT_TEST_TEMPLATE_2_DECL( Map, KokkosViewConstructor2, LO, GO )
+ {
+   typedef Tpetra::Map<LO,GO> M;
+   using Teuchos::ArrayView;
+   GO INVALID = Teuchos::OrdinalTraits<GO>::invalid();
+   using MemSpace = typename Tpetra::KokkosClassic::DefaultNode::DefaultNodeType::memory_space;
+
+   out << "Test: Map, KokkosViewConstructor2" << std::endl;
+
+   // create a comm
+   auto comm = Tpetra::getDefaultComm();
+
+   // Create a dummy map to force Kokkos to initialize
+   {
+     M dummy(10,0,comm);
+   }
+
+   // View in default space.  Here we make sure we have a value *below* the 
+   // value in entry zero.  
+   int N = 3;
+   Kokkos::View<GO*,MemSpace> myview("DeviceView",N);
+   auto myview_h = Kokkos::create_mirror_view(myview);
+   myview_h(0) = 101;
+   myview_h(1) = 99;
+   myview_h(2) = 100;
+   Kokkos::deep_copy(myview,myview_h);
+
+   // Now do an Arrayview
+   Teuchos::ArrayView<GO> myview_av(myview_h.data(),myview_h.extent(0));
+
+   // Create maps
+   M map_kokkos(INVALID,myview,0,comm);
+   M map_teuchos(INVALID,myview_av,0,comm);
+
+   // Compare the easy stuff
+   TEST_EQUALITY(map_kokkos.getGlobalNumElements(), map_teuchos.getGlobalNumElements());
+   TEST_EQUALITY(map_kokkos.getLocalNumElements(), map_teuchos.getLocalNumElements());
+   TEST_EQUALITY(map_kokkos.getIndexBase(), map_teuchos.getIndexBase());
+   TEST_EQUALITY(map_kokkos.getMinLocalIndex(), map_teuchos.getMinLocalIndex());
+   TEST_EQUALITY(map_kokkos.getMaxLocalIndex(), map_teuchos.getMaxLocalIndex());
+   TEST_EQUALITY(map_kokkos.getMaxGlobalIndex(), map_teuchos.getMaxGlobalIndex());
+   TEST_EQUALITY(map_kokkos.getMinGlobalIndex(), map_teuchos.getMinGlobalIndex());
+   TEST_EQUALITY(map_kokkos.getMaxAllGlobalIndex(), map_teuchos.getMaxAllGlobalIndex());
+   TEST_EQUALITY(map_kokkos.getMinAllGlobalIndex(), map_teuchos.getMinAllGlobalIndex());
+
+   ArrayView<const GO> glist_kokkos = map_kokkos.getLocalElementList();
+   ArrayView<const GO> glist_teuchos = map_teuchos.getLocalElementList();
+   TEST_COMPARE_ARRAYS( glist_kokkos, glist_teuchos);
+
+   // Compare the harder stuff by tickling the FHT  
+   for(LO i=0; i<N; i++) {
+     LO lo_k = map_kokkos.getLocalElement(map_kokkos.getGlobalElement(i));
+     LO lo_t = map_teuchos.getLocalElement(map_teuchos.getGlobalElement(i));
+     TEST_EQUALITY(lo_k,lo_t);
+   }     
+
+ }
+
+
+
   //
   // INSTANTIATIONS
   //
@@ -476,7 +574,9 @@ namespace {
     TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, nonTrivialIndexBase, LO, GO ) \
     TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, indexBaseAndAllMin, LO, GO ) \
     TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, ContigUniformMap, LO, GO ) \
-    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, ZeroLocalElements, LO, GO )
+    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, ZeroLocalElements, LO, GO ) \
+    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, KokkosViewConstructor, LO, GO ) \
+    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, KokkosViewConstructor2, LO, GO )
 #else
   // all ordinals, default node
 #  define UNIT_TEST_GROUP( LO, GO ) \
@@ -485,7 +585,9 @@ namespace {
     TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, nonTrivialIndexBase, LO, GO ) \
     TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, indexBaseAndAllMin, LO, GO ) \
     TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, ContigUniformMap, LO, GO ) \
-    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, ZeroLocalElements, LO, GO )
+    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, ZeroLocalElements, LO, GO ) \
+    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, KokkosViewConstructor, LO, GO ) \
+    TEUCHOS_UNIT_TEST_TEMPLATE_2_INSTANT( Map, KokkosViewConstructor2, LO, GO )
 #endif // HAVE_TPETRA_DEBUG
 
   TPETRA_ETI_MANGLING_TYPEDEFS()

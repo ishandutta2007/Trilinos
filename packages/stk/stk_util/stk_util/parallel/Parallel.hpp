@@ -35,8 +35,8 @@
 #ifndef stk_util_parallel_Parallel_hpp
 #define stk_util_parallel_Parallel_hpp
 
-// stk_config.h resides in the build directory and contains the
-// complete set of #define macros for build-dependent features.
+// stk_config.h contains the #define macros that define
+// which build-dependent features are enabled, such as 'STK_HAS_MPI'.
 
 #include "stk_util/stk_config.h"
 
@@ -76,7 +76,7 @@ inline ParallelMachine parallel_machine_null() { return MPI_COMM_NULL ; }
 inline ParallelMachine parallel_machine_init( int * argc , char *** argv )
 {
   MPI_Init( argc , argv );
-  return MPI_COMM_WORLD ;
+  return MPI_COMM_WORLD ; // CHECK: ALLOW MPI_COMM_WORLD
 }
 
 /**
@@ -96,10 +96,10 @@ inline void parallel_machine_finalize()
 // Other parallel communication machines go here
 // as '#elif defined( STK_HAS_<name> )'
 
-//----------------------------------------
-// Stub for non-parallel
-
 #else
+
+//----------------------------------------
+// Stub for non-parallel, no MPI
 
 // Some needed stubs
 #define MPI_Comm int
@@ -128,6 +128,11 @@ inline void parallel_machine_finalize()
 // Common parallel machine needs.
 
 namespace stk {
+
+inline ParallelMachine parallel_machine_world()
+{
+  return MPI_COMM_WORLD; // CHECK: ALLOW MPI_COMM_WORLD
+}
 
 /**
  * @brief Member function <b>parallel_machine_size</b> ...

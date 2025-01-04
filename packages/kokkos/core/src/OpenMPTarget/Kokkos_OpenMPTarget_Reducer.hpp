@@ -18,7 +18,6 @@
 #define KOKKOS_OPENMPTARGETREDUCER_HPP
 
 #include <impl/Kokkos_Traits.hpp>
-#include <impl/Kokkos_Spinwait.hpp>
 
 #include <Kokkos_Atomic.hpp>
 #include "Kokkos_OpenMPTarget_Abort.hpp"
@@ -36,9 +35,6 @@ struct OpenMPTargetReducerWrapper {
   static void join(value_type&, const value_type&) = delete;
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type&, const volatile value_type&) = delete;
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type&) = delete;
 };
 
@@ -51,11 +47,6 @@ struct OpenMPTargetReducerWrapper<Sum<Scalar, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) { dest += src; }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    dest += src;
-  }
 
   KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
@@ -74,11 +65,6 @@ struct OpenMPTargetReducerWrapper<Prod<Scalar, Space>> {
   static void join(value_type& dest, const value_type& src) { dest *= src; }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    dest *= src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val = reduction_identity<value_type>::prod();
   }
@@ -93,11 +79,6 @@ struct OpenMPTargetReducerWrapper<Min<Scalar, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    if (src < dest) dest = src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     if (src < dest) dest = src;
   }
 
@@ -119,11 +100,6 @@ struct OpenMPTargetReducerWrapper<Max<Scalar, Space>> {
     if (src > dest) dest = src;
   }
 
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    if (src > dest) dest = src;
-  }
-
   // Required
   KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
@@ -139,11 +115,6 @@ struct OpenMPTargetReducerWrapper<LAnd<Scalar, Space>> {
 
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    dest = dest && src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     dest = dest && src;
   }
 
@@ -168,11 +139,6 @@ struct OpenMPTargetReducerWrapper<LOr<Scalar, Space>> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    dest = dest || src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val = reduction_identity<value_type>::lor();
   }
@@ -187,11 +153,6 @@ struct OpenMPTargetReducerWrapper<BAnd<Scalar, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    dest = dest & src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     dest = dest & src;
   }
 
@@ -214,11 +175,6 @@ struct OpenMPTargetReducerWrapper<BOr<Scalar, Space>> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    dest = dest | src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val = reduction_identity<value_type>::bor();
   }
@@ -237,12 +193,12 @@ struct OpenMPTargetReducerWrapper<MinLoc<Scalar, Index, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    if (src.val < dest.val) dest = src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    if (src.val < dest.val) dest = src;
+    if (src.val < dest.val)
+      dest = src;
+    else if (src.val == dest.val &&
+             dest.loc == reduction_identity<index_type>::min()) {
+      dest.loc = src.loc;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -264,12 +220,12 @@ struct OpenMPTargetReducerWrapper<MaxLoc<Scalar, Index, Space>> {
 
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    if (src.val > dest.val) dest = src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    if (src.val > dest.val) dest = src;
+    if (src.val > dest.val)
+      dest = src;
+    else if (src.val == dest.val &&
+             dest.loc == reduction_identity<index_type>::min()) {
+      dest.loc = src.loc;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -291,16 +247,6 @@ struct OpenMPTargetReducerWrapper<MinMax<Scalar, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    if (src.min_val < dest.min_val) {
-      dest.min_val = src.min_val;
-    }
-    if (src.max_val > dest.max_val) {
-      dest.max_val = src.max_val;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     if (src.min_val < dest.min_val) {
       dest.min_val = src.min_val;
     }
@@ -332,21 +278,15 @@ struct OpenMPTargetReducerWrapper<MinMaxLoc<Scalar, Index, Space>> {
     if (src.min_val < dest.min_val) {
       dest.min_val = src.min_val;
       dest.min_loc = src.min_loc;
-    }
-    if (src.max_val > dest.max_val) {
-      dest.max_val = src.max_val;
-      dest.max_loc = src.max_loc;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    if (src.min_val < dest.min_val) {
-      dest.min_val = src.min_val;
+    } else if (dest.min_val == src.min_val &&
+               dest.min_loc == reduction_identity<index_type>::min()) {
       dest.min_loc = src.min_loc;
     }
     if (src.max_val > dest.max_val) {
       dest.max_val = src.max_val;
+      dest.max_loc = src.max_loc;
+    } else if (dest.max_val == src.max_val &&
+               dest.max_loc == reduction_identity<index_type>::min()) {
       dest.max_loc = src.max_loc;
     }
   }
@@ -387,15 +327,6 @@ struct OpenMPTargetReducerWrapper<MaxFirstLoc<Scalar, Index, Space>> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    if (dest.val < src.val) {
-      dest = src;
-    } else if (!(src.val < dest.val)) {
-      dest.loc = (src.loc < dest.loc) ? src.loc : dest.loc;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val.val = reduction_identity<scalar_type>::max();
     val.loc = reduction_identity<index_type>::min();
@@ -422,15 +353,6 @@ struct OpenMPTargetReducerWrapper<MinFirstLoc<Scalar, Index, Space>> {
 #pragma omp declare target
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    if (src.val < dest.val) {
-      dest = src;
-    } else if (!(dest.val < src.val)) {
-      dest.loc = (src.loc < dest.loc) ? src.loc : dest.loc;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     if (src.val < dest.val) {
       dest = src;
     } else if (!(dest.val < src.val)) {
@@ -482,23 +404,6 @@ struct OpenMPTargetReducerWrapper<MinMaxFirstLastLoc<Scalar, Index, Space>> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    if (src.min_val < dest.min_val) {
-      dest.min_val = src.min_val;
-      dest.min_loc = src.min_loc;
-    } else if (!(dest.min_val < src.min_val)) {
-      dest.min_loc = (src.min_loc < dest.min_loc) ? src.min_loc : dest.min_loc;
-    }
-
-    if (dest.max_val < src.max_val) {
-      dest.max_val = src.max_val;
-      dest.max_loc = src.max_loc;
-    } else if (!(src.max_val < dest.max_val)) {
-      dest.max_loc = (src.max_loc > dest.max_loc) ? src.max_loc : dest.max_loc;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val.max_val = reduction_identity<scalar_type>::max();
     val.min_val = reduction_identity<scalar_type>::min();
@@ -533,13 +438,6 @@ struct OpenMPTargetReducerWrapper<FirstLoc<Index, Space>> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    dest.min_loc_true = (src.min_loc_true < dest.min_loc_true)
-                            ? src.min_loc_true
-                            : dest.min_loc_true;
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val.min_loc_true = reduction_identity<index_type>::min();
   }
@@ -565,13 +463,6 @@ struct OpenMPTargetReducerWrapper<LastLoc<Index, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    dest.max_loc_true = (src.max_loc_true > dest.max_loc_true)
-                            ? src.max_loc_true
-                            : dest.max_loc_true;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     dest.max_loc_true = (src.max_loc_true > dest.max_loc_true)
                             ? src.max_loc_true
                             : dest.max_loc_true;
@@ -613,17 +504,6 @@ struct OpenMPTargetReducerWrapper<StdIsPartitioned<Index, Space>> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
-    dest.max_loc_true = (dest.max_loc_true < src.max_loc_true)
-                            ? src.max_loc_true
-                            : dest.max_loc_true;
-
-    dest.min_loc_false = (dest.min_loc_false < src.min_loc_false)
-                             ? dest.min_loc_false
-                             : src.min_loc_false;
-  }
-
-  KOKKOS_INLINE_FUNCTION
   static void init(value_type& val) {
     val.max_loc_true  = ::Kokkos::reduction_identity<index_type>::max();
     val.min_loc_false = ::Kokkos::reduction_identity<index_type>::min();
@@ -650,13 +530,6 @@ struct OpenMPTargetReducerWrapper<StdPartitionPoint<Index, Space>> {
   // Required
   KOKKOS_INLINE_FUNCTION
   static void join(value_type& dest, const value_type& src) {
-    dest.min_loc_false = (dest.min_loc_false < src.min_loc_false)
-                             ? dest.min_loc_false
-                             : src.min_loc_false;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  static void join(volatile value_type& dest, const volatile value_type& src) {
     dest.min_loc_false = (dest.min_loc_false < src.min_loc_false)
                              ? dest.min_loc_false
                              : src.min_loc_false;

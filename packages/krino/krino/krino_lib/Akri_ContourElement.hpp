@@ -74,7 +74,7 @@ public:
   void dump_subelement_structure( void ) const;
   void dump_subelement_details( void ) const;
 
-  void build_subelement_facets( Faceted_Surface & facets );
+  void build_subelement_facets( FacetedSurfaceBase & facets );
 
   int gather_intg_pts( const int intg_pt_sign,
 		       sierra::ArrayContainer<double,DIM,NINT> & intg_pt_locations,
@@ -119,7 +119,6 @@ public:
 
   double volume() const;
   double elem_size() const;
-  double average_edge_length() const;
 
   void compute_subelement_decomposition(const double length_scale, const double edge_linear_tolerance = 1.e-4, const double edge_nonlinear_tolerance = 1.0e-2);
 

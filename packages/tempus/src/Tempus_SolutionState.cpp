@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #include "Tempus_ExplicitTemplateInstantiation.hpp"
 
@@ -14,29 +15,26 @@
 
 namespace Tempus {
 
-  TEMPUS_INSTANTIATE_TEMPLATE_CLASS(SolutionState)
+TEMPUS_INSTANTIATE_TEMPLATE_CLASS(SolutionState)
 
-  // Nonmember constructor from non-const solution vectors, x.
-  template Teuchos::RCP<SolutionState<double> >
-  createSolutionStateX(
+// Nonmember constructor from non-const solution vectors, x.
+template Teuchos::RCP<SolutionState<double> > createSolutionStateX(
     const Teuchos::RCP<Thyra::VectorBase<double> >& x,
     const Teuchos::RCP<Thyra::VectorBase<double> >& xdot,
     const Teuchos::RCP<Thyra::VectorBase<double> >& xdotdot);
 
-  // Nonmember constructor from const solution vectors, x.
-  template Teuchos::RCP<SolutionState<double> >
-  createSolutionStateX(
+// Nonmember constructor from const solution vectors, x.
+template Teuchos::RCP<SolutionState<double> > createSolutionStateX(
     const Teuchos::RCP<const Thyra::VectorBase<double> >& x,
     const Teuchos::RCP<const Thyra::VectorBase<double> >& xdot,
     const Teuchos::RCP<const Thyra::VectorBase<double> >& xdotdot);
 
-  // Nonmember constructor from const solution vectors, x.
-  template Teuchos::RCP<SolutionState<double> >
-  createSolutionStateME(
+// Nonmember constructor from const solution vectors, x.
+template Teuchos::RCP<SolutionState<double> > createSolutionStateME(
     const Teuchos::RCP<const Thyra::ModelEvaluator<double> >& model,
     const Teuchos::RCP<StepperState<double> >& stepperState,
     const Teuchos::RCP<PhysicsState<double> >& physicsState);
 
-}
+}  // namespace Tempus
 
 #endif

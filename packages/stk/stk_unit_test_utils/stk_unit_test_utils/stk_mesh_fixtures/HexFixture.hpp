@@ -70,8 +70,9 @@ namespace fixtures {
 class HexFixture
 {
 public:
-  typedef double                   Scalar;
-  typedef Field<Scalar, Cartesian> CoordFieldType;
+  static std::string name() { return "HexFixture"; }
+  typedef double        Scalar;
+  typedef Field<Scalar> CoordFieldType;
 
   /**
    * Set up meta data to support this fixture. Meta data is left uncommitted
@@ -83,7 +84,8 @@ public:
              size_t ny,
              size_t nz,
              size_t nid_start,
-             size_t eid_start);
+             size_t eid_start,
+             const std::string& elemPartAlias = std::string(""));
 
   HexFixture(stk::ParallelMachine pm,
              size_t nx,
@@ -101,6 +103,12 @@ public:
              size_t ny,
              size_t nz,
              bool auraOn);
+
+  static void fill_mesh(size_t nx,
+                        size_t ny,
+                        size_t nz,
+                        BulkData& bulk,
+                        const std::string& elemPartAlias = std::string(""));
 
   const int                     m_spatial_dimension;
   const size_t                  m_nx;
@@ -124,7 +132,7 @@ public:
   BulkData&                     m_bulk_data;
   PartVector                    m_elem_parts;
   PartVector                    m_node_parts;
-  CoordFieldType &              m_coord_field ;
+  CoordFieldType *              m_coord_field ;
   bool owns_mesh = true;
   stk::topology     m_elem_topology = stk::topology::HEX_8;
   stk::topology     m_face_topology = stk::topology::QUAD_4;
@@ -205,7 +213,6 @@ public:
   //}
 
  private:
-
   NodeToProcsMMap m_nodes_to_procs;
 
   HexFixture();
@@ -232,6 +239,7 @@ public:
    * Set up meta data to support this fixture. Meta data is left uncommitted
    * to allow additional modifications by the client.
    */
+  STK_DEPRECATED_MSG("Please use the non-simple_fields-namespaced version of this class instead")
   HexFixture(MetaData& meta,
              BulkData& bulk,
              size_t nx,
@@ -240,17 +248,20 @@ public:
              size_t nid_start,
              size_t eid_start);
 
+  STK_DEPRECATED_MSG("Please use the non-simple_fields-namespaced version of this class instead")
   HexFixture(stk::ParallelMachine pm,
              size_t nx,
              size_t ny,
              size_t nz);
 
+  STK_DEPRECATED_MSG("Please use the non-simple_fields-namespaced version of this class instead")
   HexFixture(stk::ParallelMachine pm,
              size_t nx,
              size_t ny,
              size_t nz,
              const std::string& coordinate_name);
 
+  STK_DEPRECATED_MSG("Please use the non-simple_fields-namespaced version of this class instead")
   HexFixture(stk::ParallelMachine pm,
              size_t nx,
              size_t ny,

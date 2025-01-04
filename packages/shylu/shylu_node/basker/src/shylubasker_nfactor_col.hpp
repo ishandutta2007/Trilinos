@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_NFACTOR_COL_HPP
 #define SHYLUBASKER_NFACTOR_COL_HPP
 
@@ -64,7 +73,7 @@ namespace BaskerNS
     {
       #ifdef BASKER_KOKKOS
       //Int kid = (Int)(thread.league_rank()*thread.team_size()+
-      //	      thread.team_rank());
+      //              thread.team_rank());
       Int kid = basker->t_get_kid(thread);
 
       //team leader is not using
@@ -188,10 +197,10 @@ namespace BaskerNS
          b_size = pow(2,l);
 
          //printf("t_upper barrier, kid: %d b_size: %d \n",
-         //	   kid, b_size);
+         //           kid, b_size);
 
          //printf("Barrier0. kid: %d lkid: %d bsize: %d l: %d\n",
-         //	   kid, my_leader, b_size, l);
+         //           kid, my_leader, b_size, l);
 
          //t_basker_barrier(thread,my_leader,l,0,b_size);
          t_basker_barrier(thread, kid, my_leader, b_size, 0, k, l);
@@ -237,7 +246,7 @@ namespace BaskerNS
         //Debug
 
         //printf("Barrier1, kid: %d lkid: %d bsize: %d l: %d \n",
-        //	   kid, my_leader, b_size, l);
+        //           kid, my_leader, b_size, l);
         //t_basker_barrier(thread, my_leader, l, 1, b_size);
         t_basker_barrier(thread, kid, my_leader, b_size, 1, k, l);
 
@@ -262,7 +271,7 @@ namespace BaskerNS
           //if((kid==0)||(kid==1)||(kid==2)||(kid==3))
 
           //t_blk_col_copy_atomic(kid, team_leader, lvl, 
-          //		      l, k);
+          //                      l, k);
 
           t_dense_blk_col_copy_atomic(kid, team_leader, lvl, l, k);
 
@@ -282,7 +291,7 @@ namespace BaskerNS
         thread.team_barrier();
         #else
         //printf("Barrier2, kid: %d lkid: %d bsize: %d l: %d\n",
-        //	   kid, my_leader, b_size, l);
+        //           kid, my_leader, b_size, l);
         //t_basker_barrier(thread, my_leader, l, 2,b_size);
         t_basker_barrier(thread, kid, my_leader, b_size, 2, k,l);
 
@@ -371,7 +380,7 @@ namespace BaskerNS
           //need a barrier to make sure upper_lower done
           //printf("Barrier: lower_diag off-diag \n");
           //t_basker_barrier(thread, my_leader, l, 3,
-          //		     b_size);
+          //                     b_size);
 
           #ifdef BASKER_DEBUG_TIME
           barrier_time += timer.seconds();
@@ -402,7 +411,7 @@ namespace BaskerNS
         //my_leader = 0;
         //b_size = num_threads;
         //printf("Barrier4, kid: %d lkid: %d bsize: %d l: %d\n",
-        //	   kid, my_leader, b_size, l);
+        //           kid, my_leader, b_size, l);
         //t_basker_barrier(thread, my_leader, l,4, b_size);
         t_basker_barrier(thread, kid, my_leader, b_size, 4, k, l);
 
@@ -419,15 +428,15 @@ namespace BaskerNS
 
     #ifdef BASKER_DEBUG_TIME
     printf("COL-TIME KID: %d  UPPER: %f UPPER-DIAG: %f LOWER: %f LOWER_DIAG: %f REDUCE: %f COPY: %f BARRIER: %f \n", 
-	   kid, upper_time, upper_diag_time, lower_time, lower_diag_time, reduce_time, copy_time, barrier_time);
+           kid, upper_time, upper_diag_time, lower_time, lower_diag_time, reduce_time, copy_time, barrier_time);
     #endif
 
     #ifdef BASKER_OPS_COUNT
     for(Int l = 0; l < lvl; l++)
     {
       printf("OPS.   KID : %d  LVL: %d OPS : %d \n",
-          kid, l, thread_array[kid].ops_counts[l][0]);
-      thread_array[kid].ops_count[1][0] = 0;
+          kid, l, thread_array(kid).ops_counts[l][0]);
+      thread_array(kid).ops_count[1][0] = 0;
     }
     #endif
 
@@ -471,7 +480,7 @@ namespace BaskerNS
     #endif
     //end get needed variables//
 
-    BASKER_MATRIX  &U = LU(U_col)(U_row); 
+    BASKER_MATRIX  &U = LU(U_col)(U_row);
     
     //Ask C++ guru if this is ok
     BASKER_MATRIX        *Bp;
@@ -484,14 +493,14 @@ namespace BaskerNS
     }
     else
     {
-      Bp = &(thread_array[kid].C);
+      Bp = &(thread_array(kid).C);
       //printf("Using temp matrix, kid: %d\n", kid);
       //Bp->print();
     }
     BASKER_MATRIX    &B = *Bp;
     //B.print();
     //printf("POINT TEST, kid: %d X: %d %d \n",
-    //	   kid, X_col, X_row);
+    //           kid, X_col, X_row);
 
 
     INT_1DARRAY ws     = LL(X_col)(X_row).iws;
@@ -529,7 +538,7 @@ namespace BaskerNS
 
     #ifdef BASKER_DEBUG_NFACTOR_COL
     printf("---------Checking Workspace, kid: %d-------\n", kid);
-    ASSERT(top == ws_size);
+    BASKER_ASSERT(top == ws_size);
     for(Int i = 0 ; i < ws_size; i++)
     {
       if(ws[i] != 0)
@@ -538,7 +547,7 @@ namespace BaskerNS
         BASKER_MATRIX  &L = LL(L_col)(L_row); //NDE - warning: unused L
         printf("kid: %d k: %d i: %d ws[i]=%d L.scol: %d \n",
                kid, k, i, ws[i], L.scol);
-        ASSERT(ws[i] == 0);
+        BASKER_ASSERT(ws[i] == 0);
       }
     }
     #endif
@@ -551,9 +560,9 @@ namespace BaskerNS
       k_offset = k;
     }
 
+    int info = BASKER_SUCCESS;
     for(Int i = B.col_ptr(k-k_offset); i < B.col_ptr(k-k_offset+1); ++i)
     {
-
       j = B.row_idx(i);
 
       //if (B.val(i) != zero) 
@@ -604,7 +613,7 @@ namespace BaskerNS
 
     //Count ops to show imbalance
     #ifdef BASKER_COUNT_OPS
-    thread_array[kid].ops_counts[0][l] += xnnz;
+    thread_array(kid).ops_counts[0][l] += xnnz;
     #endif
 
     //WE SHOUD DO A UNNZ COUNT
@@ -667,13 +676,13 @@ namespace BaskerNS
     t_back_solve(kid, l, l, k, top, xnnz);
     #else
     t_back_solve_atomic(kid, team_leader,
-	         lvl, l,k , top,
-	         xnnz);
+                 lvl, l,k , top,
+                 xnnz);
     #endif
     #endif //BASKER_INC_LVL
 
     //move over nnz to U 
-    for(Int i = top; i < ws_size; ++i)
+    for(Int i = top; i < ws_size && info == BASKER_SUCCESS; ++i)
     {
       j = pattern[i];
       t = gperm(j+brow_g);
@@ -732,7 +741,12 @@ namespace BaskerNS
           std::cout << "----Error--- kid = " << kid << ": extra L[" << j << "]="
                     << X[j] << " with gperm( " << brow_g << " + " << j << " ) = " << t
                     << std::endl;
-          BASKER_ASSERT(t != BASKER_MAX_IDX, "lower entry in U");
+          thread_array(kid).error_type = BASKER_ERROR_OTHER;
+          thread_array(kid).error_blk    = lvl;
+          thread_array(kid).error_subblk = l;
+          thread_array(kid).error_info = k;
+          info = BASKER_ERROR;
+          //BASKER_ASSERT(t != BASKER_MAX_IDX, "lower entry in U");
           #endif
         }//lower
       }//end not 0
@@ -743,7 +757,7 @@ namespace BaskerNS
 
     //DEBUG
     //printf("TEST SIZE: %d %d \n", 
-    //	    U.col_ptr(k), U.col_ptr(k+1));
+    //            U.col_ptr(k), U.col_ptr(k+1));
 
     #ifdef BASKER_2DL
   
@@ -784,7 +798,7 @@ namespace BaskerNS
           kid, 
           U.col_ptr[k-bcol+1]-U.col_ptr[k-bcol]);
           */
-       /*	
+       /*        
           t_back_solve_offdiag(kid,
           L_col, L_row,
           X_col, X_row,
@@ -819,7 +833,7 @@ namespace BaskerNS
      //Bgood(removed)
      //B.flip_base();
      
-     return BASKER_SUCCESS;
+     return info;
   }//end t_upper_col_factor()
 
 
@@ -835,7 +849,7 @@ namespace BaskerNS
   )
   {
     //printf("t_upper_col_factor_offdiag called kid: %d \n", 
-    //	   kid);
+    //           kid);
    
     //Note: We can remove this and pass it
     //Might be faster
@@ -864,9 +878,9 @@ namespace BaskerNS
     #endif
 
     #ifdef BASKER_2DL
-    INT_1DARRAY ws     = LL[X_col][X_row].iws;
-    const Int ws_size  = LL[X_col][X_row].iws_size;
-    ENTRY_1DARRAY X    = LL[X_col][X_row].ews;
+    INT_1DARRAY ws     = LL(X_col)(X_row).iws;
+    const Int ws_size  = LL(X_col)(X_row).iws_size;
+    ENTRY_1DARRAY X    = LL(X_col)(X_row).ews;
     #else
     BASKER_ASSERT(0==1, "t_upper_col_factor_offdiag, only works with 2D layout");
     #endif
@@ -874,7 +888,7 @@ namespace BaskerNS
 
     #ifdef BASKER_DEBUG_NFACTOR_COL
     printf("Upper_fact_offdiag, kid: %d leader: %d l: %d lvl: %d ltsize: %d works_size: %d X: %d %d L_row: %d %d \n",
-	   kid, my_leader, l, lvl,lteam_size, LL_size[X_col], X_col, X_row, L_col, L_row);
+           kid, my_leader, l, lvl,lteam_size, LL_size[X_col], X_col, X_row, L_col, L_row);
     #endif
 
      //----------------------Update offdiag-----------------//
@@ -926,7 +940,7 @@ namespace BaskerNS
 
     }//end for over all offdiag     
 
-    return 0;
+    return BASKER_SUCCESS;
   }//end t_upper_col_factor_offdiag()
 
 
@@ -945,17 +959,17 @@ namespace BaskerNS
   )
   {
 
-    Int            b = S[l][kid];
-    BASKER_MATRIX &L = LL[b][0];
-    INT_1DARRAY   ws = thread_array[kid].iws;
-    ENTRY_1DARRAY  X = thread_array[team_leader].ews;
-    Int      ws_size = thread_array[kid].iws_size;
-    Int     ews_size = thread_array[team_leader].ews_size;
+    Int            b = S(l)(kid);
+    BASKER_MATRIX &L = LL(b)(0);
+    INT_1DARRAY   ws = thread_array(kid).iws;
+    ENTRY_1DARRAY  X = thread_array(team_leader).ews;
+    Int      ws_size = thread_array(kid).iws_size;
+    Int     ews_size = thread_array(team_leader).ews_size;
   
     #ifdef BASKER_DEBUG_NFACTOR_COL
     if(kid>3)
     printf("Back solve, kid: %d b: %d lvl: %d l: %d\n",
-	   kid, b, lvl,l);
+           kid, b, lvl,l);
     #endif
 
     Int *color    = &(ws[0]);
@@ -1062,7 +1076,7 @@ namespace BaskerNS
     #ifdef BASKER_DEBUG_NFACTOR_COL
     printf("LOWER_COL_FACTOR kid: %d \n", kid);
     printf("kid %d using L (%d %d),  U (%d %d),  and X (%d) \n",
-	   kid, L_col, L_row, U_col, U_row, X_col);
+           kid, L_col, L_row, U_col, U_row, X_col);
     #endif
     //end get needed variables
 
@@ -1118,14 +1132,14 @@ namespace BaskerNS
     #ifdef BASKER_DEBUG_NFACTOR_COL
     printf("-------------lower_col_factor-------\n");
     printf("JB ecol: %d L.nnz: %d U.nnz: %d brow: %d ws_size: %d  kid: %d\n",
-	   U.scol+U.ncol, llnnz, uunnz, brow, ws_size, kid);
+           U.scol+U.ncol, llnnz, uunnz, brow, ws_size, kid);
     #endif
 
     #ifdef MY_DEBUG_BASKER
     printf("\n----------------- t_lower_col_factor(K = %d, L = LL(%d,%d) with mnnz=%d, U = LU(%d,%d) with mnnz=%d) --------------\n", 
-	   k+U.scol,L_col,L_row,llnnz, U_col,U_row,uunnz);
+           k+U.scol,L_col,L_row,llnnz, U_col,U_row,uunnz);
     #endif
-    	  
+              
     value = zero;
     pivot = zero;
 
@@ -1134,7 +1148,7 @@ namespace BaskerNS
     ucnt = 0;
     
     #ifdef BASKER_DEBUG_NFACTOR_COL
-    ASSERT(top == ws_size);
+    BASKER_ASSERT(top == ws_size);
     for(i = 0 ; i < ws_size; i++){
       if(X(i) !=0)
       {
@@ -1148,7 +1162,7 @@ namespace BaskerNS
 
     #ifdef MY_DEBUG_BASKER
     printf(" k=%d: B.col(k): %d  B.col(k+1): %d \n", 
- 	   k,(int)B.col_ptr(0), (int)B.col_ptr(1));
+            k,(int)B.col_ptr(0), (int)B.col_ptr(1));
     #endif
 
     //printf( "\n >> t_lower_col_factor (%d) <<\n",k );
@@ -1223,7 +1237,7 @@ namespace BaskerNS
     #endif
 
     #ifdef BASKER_OPS_COUNT
-    thread_array[kid].ops_counts[0][l] += xnnz;
+    thread_array(kid).ops_counts[0][l] += xnnz;
     #endif
    
     t_back_solve(kid, lvl,l+1, k, top, xnnz); // note: l not lvl given
@@ -1481,7 +1495,7 @@ namespace BaskerNS
            if(kid>=0)
            {
              // printf("inserting %f at %d into %d \n", 
-             //	  X[j-brow]/pivot, j, lnnz );
+             //          X[j-brow]/pivot, j, lnnz );
              printf("inserting %f at %d into %d \n", 
                  X[j]/pivot, j, lnnz );
            }
@@ -1489,7 +1503,7 @@ namespace BaskerNS
            if(kid>=0)
            {
              //printf("inserting %f at %d into %d \n", 
-             //	  X[j]/pivot, j, lnnz );
+             //          X[j]/pivot, j, lnnz );
              printf("inserting %f at %d into %d \n", 
                  X[j]/pivot, j, lnnz );
            }
@@ -1532,7 +1546,7 @@ namespace BaskerNS
    
     #ifdef BASKER_DEBUG_NFACTOR_COL
     printf("setting col: k=%d, cu_ltop=%d, lnnz=%d\n",
- 	   k, cu_ltop, lnnz);
+            k, cu_ltop, lnnz);
     #endif
     L.col_ptr(k) = cu_ltop;
     L.col_ptr(k+1) = lnnz;
@@ -1648,8 +1662,8 @@ namespace BaskerNS
     //printf("\n\n\n");
     printf(" t_lower_col_factor_offdiag( LL(%d)(%d) and LU(%d)(%d)) \n",L_col,L_row, U_col,U_row );
     //printf("lower_off, kid: %d leader_id: %d lsize: %d X: %d %d U %d %d L: %d %d \n",
-    //	   kid, leader_id, lteam_size, 
-    //	   X_col, X_row, U_col, U_row, L_col, L_row);
+    //           kid, leader_id, lteam_size, 
+    //           X_col, X_row, U_col, U_row, L_col, L_row);
     //printf("\n\n\n");
 
     L_row += (kid-leader_id)+1;
@@ -1742,9 +1756,9 @@ namespace BaskerNS
     #ifdef BASKER_DEBUG_NFACTOR_COL
     printf("Called t_blk_col_copy_atomic kid: %d " , kid);
     printf("Copying col, kid: %d  lvl: %d l: %d \n", 
-	   kid,lvl, l);
+           kid,lvl, l);
     printf("Copying Col, kid: %d  A: %d %d to tl: %d li: %d\n",
-	   kid, A_col, A_row, team_leader, leader_idx);
+           kid, A_col, A_row, team_leader, leader_idx);
     #endif
    
 #ifdef BASKER_2DL
@@ -1854,7 +1868,6 @@ namespace BaskerNS
 
         if(kid != team_leader)
         {
-          //LL[my_idx][blk].p_size = 0;
           LL(my_idx)(blk).p_size = 0;
         }
         else
@@ -1863,7 +1876,6 @@ namespace BaskerNS
           printf("SETTING PS: %d L:%d %d kid: %d\n",
               p_sizeL, leader_idx, blk, kid);
 #endif
-          //LL[leader_idx][blk].p_size = p_sizeL;
           LL(leader_idx)(blk).p_size = p_sizeL;
         }
         p_size = 0;
@@ -1981,7 +1993,7 @@ namespace BaskerNS
 
               //____COMEBACK
               //Kokkos::atomic_fetch_add(&(XL[jj-browL]),
-              //		     X[jj-brow]);
+              //                     X[jj-brow]);
 
 
               //XL[jj-brow] += X[jj-brow];
@@ -2021,7 +2033,6 @@ namespace BaskerNS
 
         if(kid != team_leader)
         {
-          //LL[my_idx][blk].p_size = 0;
           LL(my_idx)(blk).p_size = 0;
         }
         else
@@ -2030,7 +2041,6 @@ namespace BaskerNS
           printf("SETTING PS: %d L:%d %d kid: %d\n",
               p_sizeL, leader_idx, blk, kid);
 #endif
-          //LL[leader_idx][blk].p_size = p_sizeL;
           LL(leader_idx)(blk).p_size = p_sizeL;
         }
         p_size = 0;
@@ -2084,13 +2094,13 @@ namespace BaskerNS
       {
         //printf("upper picked, kid: %d \n", kid);
         //printf("up: %d %d kid: %d \n",
-        //	   A_col, A_row, kid);
+        //           A_col, A_row, kid);
         Bp = &(AVM(A_col)(A_row));
       }
       else
       {
         //printf("lower picked, kid: %d\n", kid);
-        Bp = &(ALM[A_col][0]);
+        Bp = &(ALM(A_col)(0));
       }
 
       BASKER_MATRIX   &B  = *Bp;
@@ -2167,7 +2177,7 @@ namespace BaskerNS
       const Int   ws_size = LL(leader_idx)(bl).ews_size;
       const Int      brow = LL(leader_idx)(bl).srow;
       const Int      nrow = LL(leader_idx)(bl).nrow;
-      Int p_size          = LL[leader_idx][bl].p_size;
+      Int p_size          = LL(leader_idx)(bl).p_size;
 
       //For recounting patterns in dense blk
       //Need better sparse update
@@ -2234,7 +2244,6 @@ namespace BaskerNS
         printf("SETTING move_over set 0, L: %d %d kid: %d \n",
             leader_idx, bl, kid);
 #endif
-        //LL[leader_idx][bl].p_size = 0;
         LL(leader_idx)(bl).p_size = 0;
         p_count =0;
       }
@@ -2247,7 +2256,6 @@ namespace BaskerNS
         printf("SETTING Re-pop pattern: %d %d size: %d \n",
             leader_idx, bl, p_count);
 #endif
-        //LL[leader_idx][bl].p_size = p_count;
         LL(leader_idx)(bl).p_size = p_count;
       }
 
@@ -2314,13 +2322,13 @@ namespace BaskerNS
       {
         //printf("upper picked, kid: %d \n", kid);
         //printf("up: %d %d kid: %d \n",
-        //	   A_col, A_row, kid);
+        //           A_col, A_row, kid);
         Bp = &(AVM(A_col)(A_row));
       }
       else
       {
         //printf("lower picked, kid: %d\n", kid);
-        Bp = &(ALM[A_col][0]);
+        Bp = &(ALM(A_col)(0));
       }
 
       BASKER_MATRIX   &B  = *Bp;
@@ -2331,17 +2339,11 @@ namespace BaskerNS
       //B.print();
 
       team_leader = find_leader(kid, l);
-      //ENTRY_1DARRAY   X = LL[team_leader][bl].ews;
       ENTRY_1DARRAY   X = LL(leader_idx)(bl).ews;
-      //INT_1DARRAY    ws = LL[team_leader][bl].iws;
       INT_1DARRAY    ws = LL(leader_idx)(bl).iws;
-      //Int brow = LL[team_leader][bl].srow;
-      //Int nrow = LL[team_leader][bl].nrow;
       const Int brow = LL(leader_idx)(bl).srow;
       const Int nrow = LL(leader_idx)(bl).nrow;
-      //Int p_size = LL[team_leader][bl].p_size;
       Int p_size = LL(leader_idx)(bl).p_size;
-      //Int ws_size = LL[team_leader][bl].iws_size;
       const Int ws_size = LL(leader_idx)(bl).iws_size;
       Int *color = &(ws(0));
       Int *pattern = &(color[ws_size]);
@@ -2371,10 +2373,10 @@ namespace BaskerNS
         //HERE!!!! (Check out G2)
         //if(B_row < brow)
         //  {
-        //	
-        //	printf("continue at : %d %d %d, kid: %d \n",
-        //	       B_row, B.srow, brow, kid);
-        //	continue;
+        //        
+        //        printf("continue at : %d %d %d, kid: %d \n",
+        //               B_row, B.srow, brow, kid);
+        //        continue;
         //}
 
         //Note: Do we need this anymore?
@@ -2417,18 +2419,12 @@ namespace BaskerNS
       Int A_col = S(lvl)(kid);
       Int A_row = (lvl==1)?(2):S(bl)(kid)%(LU_size(A_col));
       Int CM_idx = kid;
-      //ENTRY_1DARRAY   X = LL[team_leader][bl].ews;
       ENTRY_1DARRAY   X = LL(leader_idx)(bl).ews;
-      //INT_1DARRAY    ws = LL[team_leader][bl].iws;
       INT_1DARRAY    ws = LL(leader_idx)(bl).iws;
-      //Int        ws_size =LL[team_leader][bl].ews_size;
-      const Int   ws_size =LL(leader_idx)(bl).ews_size;
-      //Int brow = LL[team_leader][bl].srow;
+      const Int ws_size = LL(leader_idx)(bl).ews_size;
       const Int brow = LL(leader_idx)(bl).srow;
-      //Int nrow = LL[team_leader][bl].nrow;
       const Int nrow = LL(leader_idx)(bl).nrow;
-      //Int p_size = LL[team_leader][bl].p_size;
-      Int p_size = LL[leader_idx][bl].p_size;
+      Int p_size = LL(leader_idx)(bl).p_size;
 
       //For recounting patterns in dense blk
       //Need better sparse update
@@ -2497,7 +2493,6 @@ namespace BaskerNS
         printf("SETTING move_over set 0, L: %d %d kid: %d \n",
             leader_idx, bl, kid);
 #endif
-        //LL[leader_idx][bl].p_size = 0;
         LL(leader_idx)(bl).p_size = 0;
         p_count =0;
       }
@@ -2507,7 +2502,6 @@ namespace BaskerNS
         printf("SETTING Re-pop pattern: %d %d size: %d \n",
             leader_idx, bl, p_count);
 #endif
-        //LL[leader_idx][bl].p_size = p_count;
         LL(leader_idx)(bl).p_size = p_count;
       }
 
@@ -2535,12 +2529,12 @@ namespace BaskerNS
        Int CM_idx = kid;
        BASKER_MATRIX_VIEW &B = AV[A_col][A_row];
 
-       B.flip_base(&(thread_array[kid].C));
+       B.flip_base(&(thread_array(kid).C));
        B.k_offset = k;
 
        if(kid == 0)
        {
-    //	    printf("\n\n----------------TEST, kid: %d-----------\n\n", kid);
+    //            printf("\n\n----------------TEST, kid: %d-----------\n\n", kid);
     // B.base->print();
     }
     }
@@ -2564,7 +2558,7 @@ namespace BaskerNS
   )
   {
     //printf("before call. lkid: %d kid: %d task: %d size: %d k: %d \n",
-    //	       leader_kid, my_kid, function_n, size, k);
+    //               leader_kid, my_kid, function_n, size, k);
 
     #ifdef HAVE_VTUNE
     //__itt_pause();
@@ -2616,8 +2610,8 @@ namespace BaskerNS
 
       /* Old Atomic Barrier
          BaskerBarrier<Int,Entry,Exe_Space> BB;
-         BB.Barrier(thread_array[leader_kid].token[sublvl][function_n],
-         thread_array[leader_kid].token[sublvl][1],
+         BB.Barrier(thread_array(leader_kid).token[sublvl][function_n],
+         thread_array(leader_kid).token[sublvl][1],
          size);
          */
     }

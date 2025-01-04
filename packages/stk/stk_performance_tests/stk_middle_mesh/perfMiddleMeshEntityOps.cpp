@@ -47,20 +47,23 @@ static constexpr int VERT_RANK = 0;
 static constexpr int EDGE_RANK = 1;
 static constexpr int ELEM_RANK = 2;
 
-TEST(MiddleMeshOpsTest, GetAndDeleteDown)
+TEST(MiddleMeshOps, GetAndDeleteDown)
 {
   stk::ParallelMachine comm = MPI_COMM_WORLD;
   if (stk::middle_mesh::utils::impl::comm_size(comm) > 1)
     GTEST_SKIP();
 
-  unsigned numRuns = stk::unit_test_util::simple_fields::get_command_line_option<unsigned>("-r", 50);
-  stk::middle_mesh::mesh::impl::MeshSpec spec{100, 50, 0, 1, 0, 1};
+  const int NUM_RUNS  = 40;
+  const int NUM_ITERS = 1;
+
+  stk::middle_mesh::mesh::impl::MeshSpec spec{1000, 1000, 0, 1, 0, 1};
   auto func = [&](stk::middle_mesh::utils::Point const& pt) { return pt; };
-  auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
 
   stk::unit_test_util::BatchTimer batchTimer(comm);
   batchTimer.initialize_batch_timer();
-  for (unsigned i = 0; i < numRuns; ++i) {
+  for (unsigned i = 0; i < NUM_RUNS; ++i) {
+    auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
+
     batchTimer.start_batch_timer();
 
     auto& elements = mesh->get_mesh_entities(ELEM_RANK);
@@ -87,23 +90,26 @@ TEST(MiddleMeshOpsTest, GetAndDeleteDown)
     }
     batchTimer.stop_batch_timer();
   }
-  batchTimer.print_batch_timing(numRuns);
+  batchTimer.print_batch_timing(NUM_ITERS);
 }
 
-TEST(MiddleMeshOpsTest, GetAndDeleteUp)
+TEST(MiddleMeshOps, GetAndDeleteUp)
 {
   stk::ParallelMachine comm = MPI_COMM_WORLD;
   if (stk::middle_mesh::utils::impl::comm_size(comm) > 1)
     GTEST_SKIP();
 
-  unsigned numRuns = stk::unit_test_util::simple_fields::get_command_line_option<unsigned>("-r", 50);
-  stk::middle_mesh::mesh::impl::MeshSpec spec{100, 50, 0, 1, 0, 1};
+  const int NUM_RUNS  = 40;
+  const int NUM_ITERS = 1;
+
+  stk::middle_mesh::mesh::impl::MeshSpec spec{1000, 1000, 0, 1, 0, 1};
   auto func = [&](stk::middle_mesh::utils::Point const& pt) { return pt; };
-  auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
 
   stk::unit_test_util::BatchTimer batchTimer(comm);
   batchTimer.initialize_batch_timer();
-  for (unsigned i = 0; i < numRuns; ++i) {
+  for (unsigned i = 0; i < NUM_RUNS; ++i) {
+    auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
+
     batchTimer.start_batch_timer();
 
     auto& verts = mesh->get_mesh_entities(VERT_RANK);
@@ -130,26 +136,29 @@ TEST(MiddleMeshOpsTest, GetAndDeleteUp)
     }
     batchTimer.stop_batch_timer();
   }
-  batchTimer.print_batch_timing(numRuns);
+  batchTimer.print_batch_timing(NUM_ITERS);
 }
 
-TEST(MiddleMeshOpsTest, GetUpward)
+TEST(MiddleMeshOps, GetUpward)
 {
   stk::ParallelMachine comm = MPI_COMM_WORLD;
   if (stk::middle_mesh::utils::impl::comm_size(comm) > 1)
     GTEST_SKIP();
 
-  unsigned numRuns = stk::unit_test_util::simple_fields::get_command_line_option<unsigned>("-r", 50);
+  const int NUM_RUNS  = 25;
+  const int NUM_ITERS = 1;
 
-  stk::middle_mesh::mesh::impl::MeshSpec spec{100, 50, 0, 1, 0, 1};
+  stk::middle_mesh::mesh::impl::MeshSpec spec{1000, 1000, 0, 1, 0, 1};
   auto func = [&](stk::middle_mesh::utils::Point const& pt) { return pt; };
-  auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
 
   std::vector<stk::middle_mesh::mesh::MeshEntityPtr> edges, elems;
 
   stk::unit_test_util::BatchTimer batchTimer(comm);
   batchTimer.initialize_batch_timer();
-  for (unsigned i = 0; i < numRuns; ++i) {
+
+  auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
+
+  for (unsigned i = 0; i < NUM_RUNS; ++i) {
     batchTimer.start_batch_timer();
     auto& verts = mesh->get_mesh_entities(VERT_RANK);
 
@@ -163,20 +172,20 @@ TEST(MiddleMeshOpsTest, GetUpward)
     }
     batchTimer.stop_batch_timer();
   }
-  batchTimer.print_batch_timing(numRuns);
+  batchTimer.print_batch_timing(NUM_ITERS);
 }
 
-TEST(MiddleMeshOpsTest, GetDownward)
+TEST(MiddleMeshOps, GetDownward)
 {
   stk::ParallelMachine comm = MPI_COMM_WORLD;
   if (stk::middle_mesh::utils::impl::comm_size(comm) > 1)
     GTEST_SKIP();
 
-  unsigned numRuns = stk::unit_test_util::simple_fields::get_command_line_option<unsigned>("-r", 50);
+  const int NUM_RUNS  = 50;
+  const int NUM_ITERS = 1;
 
-  stk::middle_mesh::mesh::impl::MeshSpec spec{100, 50, 0, 1, 0, 1};
+  stk::middle_mesh::mesh::impl::MeshSpec spec{1000, 1000, 0, 1, 0, 1};
   auto func = [&](stk::middle_mesh::utils::Point const& pt) { return pt; };
-  auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
 
   std::vector<stk::middle_mesh::mesh::MeshEntityPtr> edges, verts;
 
@@ -185,7 +194,10 @@ TEST(MiddleMeshOpsTest, GetDownward)
 
   stk::unit_test_util::BatchTimer batchTimer(comm);
   batchTimer.initialize_batch_timer();
-  for (unsigned i = 0; i < numRuns; ++i) {
+
+  auto mesh = stk::middle_mesh::mesh::impl::create_mesh(spec, func);
+
+  for (unsigned i = 0; i < NUM_RUNS; ++i) {
     batchTimer.start_batch_timer();
     auto& elems = mesh->get_mesh_entities(ELEM_RANK);
 
@@ -199,7 +211,7 @@ TEST(MiddleMeshOpsTest, GetDownward)
     }
     batchTimer.stop_batch_timer();
   }
-  batchTimer.print_batch_timing(numRuns);
+  batchTimer.print_batch_timing(NUM_ITERS);
 }
 
 }

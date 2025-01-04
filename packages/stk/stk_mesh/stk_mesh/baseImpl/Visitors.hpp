@@ -6,15 +6,15 @@
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
-// 
+//
 //     * Redistributions in binary form must reproduce the above
 //       copyright notice, this list of conditions and the following
 //       disclaimer in the documentation and/or other materials provided
 //       with the distribution.
-// 
+//
 //     * Neither the name of NTESS nor the names of its contributors
 //       may be used to endorse or promote products derived from this
 //       software without specific prior written permission.
@@ -30,7 +30,7 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 
 #ifndef stk_mesh_base_impl_Visitors_hpp
 #define stk_mesh_base_impl_Visitors_hpp
@@ -40,6 +40,7 @@
 #include <stk_mesh/base/Types.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/BulkData.hpp>
+#include <stk_mesh/base/EntityLess.hpp>
 #include <stk_mesh/base/EntityProcMapping.hpp>
 
 #include <vector>
@@ -59,16 +60,12 @@ void VisitClosureBelowEntityNoRecurse(
         DESIRED_ENTITY & desired_entity)
 {
   for (EntityRank rank = stk::topology::NODE_RANK ; rank < inputEntityRank ; ++rank) {
-      const unsigned num_entities_of_rank = mesh.num_connectivity(inputEntity,rank);
-      if (num_entities_of_rank > 0) {
-        const Entity * entities = mesh.begin(inputEntity,rank);
-
-        for (unsigned i=0 ; i<num_entities_of_rank ; ++i) {
-          if (desired_entity(entities[i])) {
-            do_this(entities[i]);
-          }
-        }
+    const ConnectedEntities entities = mesh.get_connected_entities(inputEntity, rank);
+    for (unsigned i=0 ; i<entities.size(); ++i) {
+      if (desired_entity(entities[i])) {
+        do_this(entities[i]);
       }
+    }
   }
 }
 
@@ -246,23 +243,37 @@ template<class DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE, class DESIRED_ENTITY>
 void VisitUpwardClosureGeneral(
         const BulkData & mesh,
         Entity entity_of_interest,
+        EntityRank entity_of_interest_rank,
+        EntityRank endRank,
         DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE & do_this,
         DESIRED_ENTITY & desired_entity)
 {
-    if (desired_entity(entity_of_interest)) {
-        do_this(entity_of_interest);
-        if (mesh.is_valid(entity_of_interest)) {
-            EntityRank endRank = static_cast<EntityRank>(mesh.mesh_meta_data().entity_rank_count());
-            EntityRank entity_of_interest_rank = mesh.entity_rank(entity_of_interest);
-            for (EntityRank rank_up = EntityRank(endRank-1) ; rank_up > entity_of_interest_rank ; --rank_up) {
-                size_t num_entities_of_rank_up = mesh.num_connectivity(entity_of_interest,rank_up);
-                const Entity * entity_up_it = mesh.begin(entity_of_interest,rank_up);
-
-                for (size_t j=0 ; j<num_entities_of_rank_up ; ++j, ++entity_up_it) {
-                    VisitUpwardClosureGeneral(mesh,*entity_up_it,do_this,desired_entity);
-                }
-            }
+  if (desired_entity(entity_of_interest)) {
+    do_this(entity_of_interest);
+    if (mesh.is_valid(entity_of_interest)) {
+      for (EntityRank rank_up = EntityRank(entity_of_interest_rank+1); rank_up < endRank; ++rank_up) {
+        const ConnectedEntities entities_up = mesh.get_connected_entities(entity_of_interest, rank_up);
+        for (size_t j=0 ; j<entities_up.size(); ++j) {
+          VisitUpwardClosureGeneral(mesh,entities_up[j],rank_up,endRank,do_this,desired_entity);
         }
+      }
+    }
+  }
+}
+
+template<class DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE, typename FORWARD_ITERATOR, class DESIRED_ENTITY>
+void VisitUpwardClosureGeneral(
+        const BulkData & mesh,
+        const FORWARD_ITERATOR & start,
+        const FORWARD_ITERATOR & finish,
+        EntityRank endRank,
+        DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE & do_this,
+        DESIRED_ENTITY & desired_entity)
+{
+    for (FORWARD_ITERATOR entity_iterator = start ; entity_iterator != finish ; ++entity_iterator)
+    {
+        Entity entity = get_entity(entity_iterator);
+        VisitUpwardClosureGeneral<DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE,DESIRED_ENTITY>(mesh,entity,mesh.entity_rank(entity),endRank,do_this,desired_entity);
     }
 }
 
@@ -271,12 +282,15 @@ void VisitUpwardClosureGeneral(
         const BulkData & mesh,
         const FORWARD_ITERATOR & start,
         const FORWARD_ITERATOR & finish,
+        EntityRank entityRank,
+        EntityRank endRank,
         DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE & do_this,
         DESIRED_ENTITY & desired_entity)
 {
     for (FORWARD_ITERATOR entity_iterator = start ; entity_iterator != finish ; ++entity_iterator)
     {
-        VisitUpwardClosureGeneral<DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE,DESIRED_ENTITY>(mesh,get_entity(entity_iterator),do_this,desired_entity);
+        Entity entity = get_entity(entity_iterator);
+        VisitUpwardClosureGeneral<DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE,DESIRED_ENTITY>(mesh,entity,entityRank,endRank,do_this,desired_entity);
     }
 }
 
@@ -287,7 +301,8 @@ void VisitUpwardClosure(
         DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE & do_this)
 {
     OnlyVisitOnce ovo(mesh);
-    VisitUpwardClosureGeneral(mesh,entity_of_interest,do_this,ovo);
+    EntityRank endRank = static_cast<EntityRank>(mesh.mesh_meta_data().entity_rank_count());
+    VisitUpwardClosureGeneral(mesh,entity_of_interest,mesh.entity_rank(entity_of_interest),endRank,do_this,ovo);
 }
 
 template<class DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE, typename FORWARD_ITERATOR>
@@ -298,7 +313,8 @@ void VisitUpwardClosure(
         DO_THIS_FOR_ENTITY_IN_UPWARD_CLOSURE & do_this)
 {
     OnlyVisitOnce ovo(mesh);
-    VisitUpwardClosureGeneral(mesh,start,finish,do_this,ovo);
+    EntityRank endRank = static_cast<EntityRank>(mesh.mesh_meta_data().entity_rank_count());
+    VisitUpwardClosureGeneral(mesh,start,finish,endRank,do_this,ovo);
 }
 
 struct StoreEntity
