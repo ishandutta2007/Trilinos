@@ -1,49 +1,17 @@
-/*
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //          Tpetra: Templated Linear Algebra Services Package
-//                 Copyright (2008) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2008 NTESS and the Tpetra contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
-*/
+
 #include <Tpetra_TestingUtilities.hpp>
 #include <Teuchos_UnitTestHarness.hpp>
 
 #include "TpetraExt_MatrixMatrix.hpp"
+#include "Teuchos_Assert.hpp"
 #include "TpetraExt_TripleMatrixMultiply.hpp"
 #include "Tpetra_MatrixIO.hpp"
 #include "Tpetra_Core.hpp"
@@ -237,13 +205,13 @@ add_test_results regular_add_test(
 /// \tparam Matrix_t A specialization of Tpetra::CrsMatrix.
 template<class Matrix_t>
 add_test_results
-null_add_test (const Matrix_t& A,
-               const Matrix_t& B,
-               const bool AT,
-               const bool BT,
-               const Matrix_t& C,
-               Teuchos::FancyOStream& out,
-               bool& success)
+null_add_test_1 (const Matrix_t& A,
+                 const Matrix_t& B,
+                 const bool AT,
+                 const bool BT,
+                 const Matrix_t& C,
+                 Teuchos::FancyOStream& out,
+                 bool& success)
 {
   typedef typename Matrix_t::scalar_type scalar_type;
   typedef typename Matrix_t::local_ordinal_type local_ordinal_type;
@@ -318,6 +286,94 @@ null_add_test (const Matrix_t& A,
   return toReturn;
 }
 
+/// \brief Test the three-argument (A, B, C) version of CrsMatrix Add,
+///   where the output argument C is null on input.
+///
+/// \tparam Matrix_t A specialization of Tpetra::CrsMatrix.
+template<class Matrix_t>
+add_test_results
+null_add_test_2 (const Matrix_t& A,
+                 const Matrix_t& B,
+                 const bool AT,
+                 const bool BT,
+                 const Matrix_t& C,
+                 Teuchos::FancyOStream& out,
+                 bool& success)
+{
+  typedef typename Matrix_t::scalar_type scalar_type;
+  typedef typename Matrix_t::local_ordinal_type local_ordinal_type;
+  typedef typename Matrix_t::global_ordinal_type global_ordinal_type;
+  typedef typename Matrix_t::node_type NT;
+  typedef Teuchos::ScalarTraits<scalar_type> STS;
+  typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, NT> map_type;
+  typedef Tpetra::Export<local_ordinal_type, global_ordinal_type, NT> export_type;
+  const scalar_type one = STS::one ();
+
+  RCP<const Comm<int> > comm = A.getMap ()->getComm ();
+  const int myRank = comm->getRank ();
+
+  out << "  Computing Frobenius norm of the expected result C" << endl;
+  add_test_results toReturn;
+  toReturn.correctNorm = C.getFrobeniusNorm ();
+
+  out << "  Calling 3-arg add" << endl;
+  RCP<const map_type> domainMap = BT ? B.getRangeMap () : B.getDomainMap ();
+  RCP<const map_type> rangeMap = BT ? B.getDomainMap () : B.getRangeMap ();
+  RCP<Matrix_t> C_computed;
+  // for each MPI process to catch any exception message
+  std::ostringstream errStrm;
+  int lclSuccess = 1;
+  int gblSuccess = 0; // output argument
+  try {
+    Tpetra::MatrixMatrix::Add (A, AT, one, B, BT, one, C_computed);
+  }
+  catch (std::exception& e) {
+    errStrm << "Proc " << myRank << ": add threw an exception: "
+      << e.what () << endl;
+    lclSuccess = 0;
+  }
+  // MatrixMatrix::Add, with C_computed null on input, should not call fillComplete.
+  TEST_ASSERT(C_computed->isFillActive());
+  // Call fillComplete now so that we can compare against C.
+  C_computed->fillComplete(C.getDomainMap(), C.getRangeMap());
+  reduceAll<int, int> (*comm, REDUCE_MIN, lclSuccess, outArg (gblSuccess));
+  TEST_EQUALITY_CONST( gblSuccess, 1 );
+  if (gblSuccess != 1) {
+    Tpetra::Details::gathervPrint (out, errStrm.str (), *comm);
+  }
+
+  TEUCHOS_TEST_FOR_EXCEPTION(
+    C_computed.is_null (), std::logic_error, "3-arg add returned null.");
+
+  RCP<Matrix_t> C_exported;
+  if (! C_computed->getRowMap ()->isSameAs (* (C.getRowMap ()))) {
+    // Export C_computed to C's row Map, so we can compare the two.
+    export_type exp (C_computed->getRowMap (), C.getRowMap ());
+    C_exported =
+      Tpetra::exportAndFillCompleteCrsMatrix<Matrix_t> (C_computed, exp,
+                                                             C.getDomainMap (),
+                                                             C.getRangeMap ());
+  } else {
+    C_exported = C_computed;
+  }
+
+  TEUCHOS_TEST_FOR_EXCEPTION(
+    ! C_exported->getRowMap ()->isSameAs (* (C.getRowMap ())),
+    std::logic_error,
+    "Sorry, C_exported and C have different row Maps.");
+  TEUCHOS_TEST_FOR_EXCEPTION(
+    ! C_exported->getDomainMap ()->isSameAs (* (C.getDomainMap ())),
+    std::logic_error,
+    "Sorry, C_exported and C have different domain Maps.");
+  TEUCHOS_TEST_FOR_EXCEPTION(
+    ! C_exported->getRangeMap ()->isSameAs (* (C.getRangeMap ())),
+    std::logic_error,
+    "Sorry, C_exported and C have different range Maps.");
+
+  toReturn.computedNorm = C_exported->getFrobeniusNorm ();
+  toReturn.epsilon = STS::magnitude (toReturn.correctNorm - toReturn.computedNorm);
+  return toReturn;
+}
 
 template<class Matrix_t>
 add_test_results add_into_test(
@@ -347,6 +403,56 @@ add_test_results add_into_test(
 
   return toReturn;
 }
+
+
+template<class Matrix_t>
+add_test_results reuse_add_test(
+    const std::string& name,
+    RCP<Matrix_t > A,
+    RCP<Matrix_t > B,
+    bool AT,
+    bool BT,
+    RCP<Matrix_t > C,
+    RCP<const Comm<int> > comm)
+{
+  typedef typename Matrix_t::scalar_type SC;
+  typedef typename Matrix_t::local_ordinal_type LO;
+  typedef typename Matrix_t::global_ordinal_type GO;
+  typedef typename Matrix_t::node_type NT;
+  typedef Map<LO,GO,NT> Map_t;
+
+  add_test_results toReturn;
+  toReturn.correctNorm = C->getFrobeniusNorm ();
+
+  RCP<const Map_t > rowmap = AT ? A->getDomainMap() : A->getRowMap();
+  size_t estSize = A->getGlobalMaxNumRowEntries() + B->getGlobalMaxNumRowEntries();
+         // estSize is upper bound for A, B; estimate only for AT, BT.
+  RCP<Matrix_t> computedC = rcp( new Matrix_t(rowmap, estSize));
+
+  SC one = Teuchos::ScalarTraits<SC>::one();
+  Tpetra::MatrixMatrix::Add(*A, AT, one, *B, BT, one, computedC);
+  computedC->fillComplete(A->getDomainMap(), A->getRangeMap());
+
+  // Call Add a second time
+  Tpetra::MatrixMatrix::Add(*A, AT, one, *B, BT, one, computedC);
+
+  TEUCHOS_ASSERT(A->getDomainMap()->isSameAs(*computedC->getDomainMap()));
+  TEUCHOS_ASSERT(A->getRangeMap()->isSameAs(*computedC->getRangeMap()));
+
+  toReturn.computedNorm = computedC->getFrobeniusNorm ();
+  toReturn.epsilon = fabs(toReturn.correctNorm - toReturn.computedNorm);
+
+#if 0
+  Tpetra::MatrixMarket::Writer<Matrix_t>::writeSparseFile(
+    name+"_calculated.mtx", computedC);
+  Tpetra::MatrixMarket::Writer<Matrix_t>::writeSparseFile(
+    name+"_real.mtx", C);
+#endif
+
+
+  return toReturn;
+}
+
 
 template<class Matrix_t>
 mult_test_results multiply_test_manualfc(
@@ -1106,6 +1212,18 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Tpetra_MatMat, operations_test,SC,LO, GO, NT) 
       newOut << "\tComputed norm: " << results.computedNorm << endl;
       newOut << "\tEpsilon: " << results.epsilon << endl;
 
+      if (verbose)
+        newOut << "Running 3-argument add reuse test (nonnull C on input) for "
+               << currentSystem.name() << endl;
+
+      results = reuse_add_test(name+"_add",A, B, AT, BT, C, comm);
+
+      TEST_COMPARE(results.epsilon, <, epsilon);
+      newOut << "Reuse Add Test Results: " << endl;
+      newOut << "\tCorrect Norm: " << results.correctNorm << endl;
+      newOut << "\tComputed norm: " << results.computedNorm << endl;
+      newOut << "\tEpsilon: " << results.epsilon << endl;
+
       // FIXME (mfh 09 May 2013) This test doesn't currently pass.  I
       // don't think anyone ever exercised the case where C is null on
       // input before.  I'm disabling this test for now until I have a
@@ -1115,17 +1233,26 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Tpetra_MatMat, operations_test,SC,LO, GO, NT) 
                << currentSystem.name() << endl;
 
       TEUCHOS_TEST_FOR_EXCEPTION(A.is_null (), std::logic_error,
-                                 "Before null_add_test: A is null");
+                                 "Before null_add_test_1: A is null");
       TEUCHOS_TEST_FOR_EXCEPTION(B.is_null (), std::logic_error,
-                                 "Before null_add_test: B is null");
+                                 "Before null_add_test_1: B is null");
       TEUCHOS_TEST_FOR_EXCEPTION(C.is_null (), std::logic_error,
-                                 "Before null_add_test: C is null");
+                                 "Before null_add_test_1: C is null");
 
-      results = null_add_test<Matrix_t> (*A, *B, AT, BT, *C,
+      results = null_add_test_1<Matrix_t> (*A, *B, AT, BT, *C,
                                          newOut, success);
 
       TEST_COMPARE(results.epsilon, <, epsilon);
-      newOut << "Null Add Test Results: " << endl;
+      newOut << "Null Add Test (1) Results: " << endl;
+      newOut << "\tCorrect Norm: " << results.correctNorm << endl;
+      newOut << "\tComputed norm: " << results.computedNorm << endl;
+      newOut << "\tEpsilon: " << results.epsilon << endl;
+
+      results = null_add_test_2<Matrix_t> (*A, *B, AT, BT, *C,
+                                         newOut, success);
+
+      TEST_COMPARE(results.epsilon, <, epsilon);
+      newOut << "Null Add Test (2) Results: " << endl;
       newOut << "\tCorrect Norm: " << results.correctNorm << endl;
       newOut << "\tComputed norm: " << results.computedNorm << endl;
       newOut << "\tEpsilon: " << results.epsilon << endl;
@@ -2057,6 +2184,9 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Tpetra_MatMat, threaded_add_sorted, SC, LO, GO
   Tpetra::MMdetails::AddKernels<SC, LO, GO, NT>::addSorted(
                                 valsCRS[0], rowptrsCRS[0], colindsCRS[0], one, 
                                 valsCRS[1], rowptrsCRS[1], colindsCRS[1], one, 
+#if KOKKOSKERNELS_VERSION >= 40299
+                                nrows, // assumes square matrices
+#endif
                                 valsCRS[2], rowptrsCRS[2], colindsCRS[2]);
 
   ExecSpace().fence();
@@ -2686,7 +2816,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Tpetra_MatMatAdd, locally_unsorted, SC, LO, GO
 // FIXME_SYCL requires querying free device memory in KokkosKernels, see
 // https://github.com/kokkos/kokkos-kernels/issues/1062.
 // The SYCL specifications don't allow asking for that.
-#ifdef HAVE_TPETRA_SYCL
+#if defined(HAVE_TPETRA_SYCL)
   #define UNIT_TEST_GROUP_SC_LO_GO_NO( SC, LO, GO, NT )  \
     UNIT_TEST_GROUP_SC_LO_GO_NO_COMMON( SC, LO, GO, NT )
 #else

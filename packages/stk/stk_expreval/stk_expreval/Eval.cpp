@@ -46,6 +46,7 @@ Eval::Eval(VariableMap::Resolver & resolver, const std::string & expression, Var
     m_expression(expression),
     m_syntaxStatus(false),
     m_parseStatus(false),
+    m_fpErrorBehavior(FPErrorBehavior::Warn),
     m_headNode(nullptr),
     m_arrayOffsetType(arrayOffsetType),
     m_parsedEval(nullptr)
@@ -58,6 +59,7 @@ Eval::Eval(const std::string & expression, Variable::ArrayOffset arrayOffsetType
     m_expression(expression),
     m_syntaxStatus(false),
     m_parseStatus(false),
+    m_fpErrorBehavior(FPErrorBehavior::Warn),
     m_headNode(nullptr),
     m_arrayOffsetType(arrayOffsetType),
     m_parsedEval(nullptr)
@@ -74,7 +76,9 @@ Eval::Eval(const Eval& otherEval)
     m_parseStatus(otherEval.m_parseStatus),
     m_headNode(otherEval.m_headNode),
     m_nodes(otherEval.m_nodes),
+    m_evaluationNodes(otherEval.m_evaluationNodes),
     m_arrayOffsetType(otherEval.m_arrayOffsetType),
+    m_resultBuffer(otherEval.m_resultBuffer),
     m_parsedEval(nullptr)
 {}
 
@@ -210,10 +214,7 @@ bool
 Eval::undefinedFunction() const
 {
   /* Check for an undefined function in any allocated node */
-  for (const auto& node : m_nodes) {
-    if (node->m_data.function.undefinedFunction) return true;
-  }
-  return false;
+  return !m_undefinedFunctionSet.empty();
 }
 
 bool
@@ -367,6 +368,7 @@ Eval::initialize_function_map()
   m_functionMap["cycloidal_ramp"] = FunctionType::CYCLOIDAL_RAMP;
   m_functionMap["cos_ramp"] = FunctionType::COS_RAMP;
   m_functionMap["cosine_ramp"] = FunctionType::COS_RAMP;
+  m_functionMap["linear_ramp"] = FunctionType::LINEAR_RAMP;
   m_functionMap["haversine_pulse"] = FunctionType::HAVERSINE_PULSE;
   m_functionMap["point2d"] = FunctionType::POINT2D;
   m_functionMap["point3d"] = FunctionType::POINT3D;
@@ -377,12 +379,9 @@ Eval::initialize_function_map()
   m_functionMap["weibull_pdf"] = FunctionType::WEIBULL_PDF;
   m_functionMap["gamma_pdf"] = FunctionType::GAMMA_PDF;
 
-  m_functionMap["rand"] = FunctionType::RAND;
-  m_functionMap["srand"] = FunctionType::SRAND;
-  m_functionMap["random"] = FunctionType::RANDOM;
+
   m_functionMap["ts_random"] = FunctionType::TS_RANDOM;
   m_functionMap["ts_normal"] = FunctionType::TS_NORMAL;
-  m_functionMap["time"] = FunctionType::TIME;
 }
 
 Eval &
@@ -466,7 +465,37 @@ Eval::getValue(const std::string &name)
 }
 
 Eval &
+Eval::bindVariable(const std::string &name, const double &value_ref, int definedLength)
+{
+  VariableMap::iterator it = m_variableMap.find(name);
+  if (it != m_variableMap.end()) {
+    (*it).second->bind(value_ref, definedLength);
+  }
+  return *this;
+}
+
+Eval &
 Eval::bindVariable(const std::string &name, double &value_ref, int definedLength)
+{
+  VariableMap::iterator it = m_variableMap.find(name);
+  if (it != m_variableMap.end()) {
+    (*it).second->bind(value_ref, definedLength);
+  }
+  return *this;
+}
+
+Eval &
+Eval::bindVariable(const std::string &name, const int &value_ref, int definedLength)
+{
+  VariableMap::iterator it = m_variableMap.find(name);
+  if (it != m_variableMap.end()) {
+    (*it).second->bind(value_ref, definedLength);
+  }
+  return *this;
+}
+
+Eval &
+Eval::bindVariable(const std::string &name, int &value_ref, int definedLength)
 {
   VariableMap::iterator it = m_variableMap.find(name);
   if (it != m_variableMap.end()) {

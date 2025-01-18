@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -192,8 +201,6 @@ int main(int argc, char* argv[])
   cout << "--------------Done NFactor-----------------" << endl;
   mybasker.DEBUG_PRINT();
   cout << "--------------Done Print----------------------"<<endl;
-  //mybasker.SolveTest();
-  //mybasker.Solve(y,x);
   mybasker.Solve(1,y,x);
   cout << "--------------Done Solve----------------------"<<endl;
 

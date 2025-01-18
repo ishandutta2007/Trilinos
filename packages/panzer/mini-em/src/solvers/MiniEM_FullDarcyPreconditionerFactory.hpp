@@ -1,3 +1,13 @@
+// @HEADER
+// *****************************************************************************
+//           Panzer: A partial differential equation assembly
+//       engine for strongly coupled complex multiphysics systems
+//
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef _MiniEM_FullDarcyPreconditionerFactory_hpp_
 #define _MiniEM_FullDarcyPreconditionerFactory_hpp_
 
@@ -31,6 +41,7 @@ private:
    bool doDebug;
    bool useAsPreconditioner;
    double dt;
+   std::vector<int> pCoarsenSchedule_;
 
    // type of preconditioner for Schur complement
    std::string S_sigma_prec_type_;

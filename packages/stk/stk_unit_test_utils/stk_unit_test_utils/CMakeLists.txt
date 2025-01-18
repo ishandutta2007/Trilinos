@@ -11,6 +11,7 @@ SET(HEADERS_NEED_IO
   ElemGraphMultipleSharedSidesUtils.hpp
   BulkDataTester.hpp
   FaceCreationTestUtils.hpp
+  FaceTestingUtils.hpp
   GeneratedMeshToFile.hpp
   ReadWriteSidesetTester.hpp
   StkMeshFromGeneratedMesh.hpp
@@ -29,6 +30,7 @@ SET(HEADERS_NEED_IO
   TextMeshUtils.hpp
   TextMesh.hpp
   ioUtils.hpp
+  exampleMeshes.h
   )
 SET(SOURCES_NEED_IO
   BulkDataTester.cpp
@@ -47,16 +49,15 @@ SET(SOURCES_NEED_IO
 SET(HEADERS_NEED_MESH_BUT_NOT_IO
   BuildMesh.hpp
   BucketTester.hpp
+  FieldEvaluator.hpp
   MeshFixture.hpp
   MeshFileFixture.hpp
   MeshUtilsForBoundingVolumes.hpp
   ParticleUtils.hpp
-  WriteSelectedEntities.hpp
   unittestMeshUtils.hpp
   )
 SET(SOURCES_NEED_MESH_BUT_NOT_IO
   ParticleUtils.cpp
-  WriteSelectedEntities.cpp
   unittestMeshUtils.cpp
   )
 
@@ -74,6 +75,7 @@ SET(SOURCES_NEED_MPI
 
 
 SET(HEADERS
+  algorithmTimer.hpp
   AssemblyUtils.hpp
   CommandLineArgs.hpp
   getOption.h
@@ -110,9 +112,6 @@ ENDIF()
 IF(${PROJECT_NAME}_ENABLE_STKTransfer AND ${PROJECT_NAME}_ENABLE_STKMiddle_mesh)
   ADD_SUBDIRECTORY(stk_transfer_fixtures)
 ENDIF()
-
-INSTALL(FILES ${HEADERS} DESTINATION
-    ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_unit_test_utils/)
     
 if(HAVE_STK_Trilinos)
   TRIBITS_ADD_LIBRARY(stk_unit_test_utils
@@ -121,18 +120,43 @@ if(HAVE_STK_Trilinos)
     ${Gtest_NO_INSTALL_LIB_OR_HEADERS_ARG}
   )
 else()
+  LIST(APPEND HEADERS ConservativeTransferUserExample.hpp)
+
   add_library(stk_unit_test_utils ${SOURCES})
+
+  if(STK_ENABLE_STKMesh)
+    target_link_libraries(stk_unit_test_utils PUBLIC stk_mesh_base)
+  endif()
+
+  if(STK_ENABLE_STKIO)
+    target_link_libraries(stk_unit_test_utils PUBLIC stk_io)
+    if(NOT STK_ENABLE_STKNGP_TEST)
+      message(FATAL_ERROR "stk_unit_test_utils requires that STKNGP_TEST is enabled if STKIO is enabled.")
+    endif()
+    target_link_libraries(stk_unit_test_utils PUBLIC stk_ngp_test)
+  endif()
 
   target_link_libraries(stk_unit_test_utils PUBLIC stk_util_parallel)
 
   find_package(GTest REQUIRED)
   target_link_libraries(stk_unit_test_utils PUBLIC GTest::gtest)
+
+  INSTALL(TARGETS stk_unit_test_utils EXPORT stkTargets DESTINATION ${STK_INSTALL_LIBDIR})
 endif()
+
+INSTALL(FILES ${HEADERS} DESTINATION
+    ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_unit_test_utils/)
+
+target_include_directories(stk_unit_test_utils PUBLIC
+  $<BUILD_INTERFACE:${STK_TOPLEVEL_SOURCE_DIR}/stk_transfer>
+  $<INSTALL_INTERFACE:include>
+)
 
 target_include_directories(stk_unit_test_utils PUBLIC
   $<BUILD_INTERFACE:${STK_TOPLEVEL_SOURCE_DIR}/stk_unit_test_utils>
   $<INSTALL_INTERFACE:include>
 )
+
 
 if (NOT DEFINED STK_ENABLE_UnitMain)
   set(STK_ENABLE_UnitMain ON)
@@ -153,6 +177,8 @@ if (STK_ENABLE_UnitMain)
     target_link_libraries(stk_unit_main PUBLIC stk_util_env)
     target_link_libraries(stk_unit_main PUBLIC stk_util_parallel)
     target_link_libraries(stk_unit_main PUBLIC Kokkos::kokkos)
+
+    INSTALL(TARGETS stk_unit_main EXPORT stkTargets DESTINATION ${STK_INSTALL_LIBDIR})
   endif()
 endif()
 

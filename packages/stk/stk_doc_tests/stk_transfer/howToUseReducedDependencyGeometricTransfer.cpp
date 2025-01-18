@@ -42,7 +42,6 @@
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_mesh/base/MeshBuilder.hpp>
 #include <stk_io/StkMeshIoBroker.hpp>
 #include <stk_transfer/ReducedDependencyGeometricTransfer.hpp>
@@ -540,7 +539,9 @@ using RDGeomTransfer = stk::transfer::ReducedDependencyGeometricTransfer<INTERPO
 
 using TransferType = RDGeomTransfer<Interpolate<StkSendAdapter, StkRecvAdapter>>;
 
-std::shared_ptr<TransferType> setup_transfer(MPI_Comm globalComm, BulkDataPtr & sendBulk, BulkDataPtr & recvBulk,
+std::shared_ptr<TransferType> setup_transfer(MPI_Comm globalComm,
+                                             BulkDataPtr & sendBulk,
+                                             BulkDataPtr & recvBulk,
                                              const FieldConfig & sendFieldConfig,
                                              const FieldConfig & recvFieldConfig)
 {

@@ -904,7 +904,6 @@ void impl_test_local_deepcopy_rangepolicy_rank_7(const int N) {
 }
 //-------------------------------------------------------------------------------------------------------------
 
-#if defined(KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA)
 TEST(TEST_CATEGORY, local_deepcopy_teampolicy_layoutleft) {
   using ExecSpace = TEST_EXECSPACE;
   using ViewType  = Kokkos::View<double********, Kokkos::LayoutLeft, ExecSpace>;
@@ -988,6 +987,7 @@ TEST(TEST_CATEGORY, local_deepcopy_teampolicy_layoutright) {
 //-------------------------------------------------------------------------------------------------------------
 TEST(TEST_CATEGORY, local_deepcopy_rangepolicy_layoutright) {
   using ExecSpace = TEST_EXECSPACE;
+
   using ViewType = Kokkos::View<double********, Kokkos::LayoutRight, ExecSpace>;
 
   {  // Rank-1
@@ -1012,7 +1012,6 @@ TEST(TEST_CATEGORY, local_deepcopy_rangepolicy_layoutright) {
     impl_test_local_deepcopy_rangepolicy_rank_7<ExecSpace, ViewType>(8);
   }
 }
-#endif
 
 namespace Impl {
 template <typename T, typename SHMEMTYPE>

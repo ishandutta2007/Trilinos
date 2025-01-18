@@ -1,48 +1,12 @@
 // @HEADER
-//
-// ***********************************************************************
-//
+// *****************************************************************************
 //        MueLu: A package for multigrid based preconditioning
-//                  Copyright 2012 Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact
-//                    Jonathan Hu       (jhu@sandia.gov)
-//                    Andrey Prokopenko (aprokop@sandia.gov)
-//                    Ray Tuminaro      (rstumin@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2012 NTESS and the MueLu contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
+
 #ifndef MUELU_REITZINGERPFACTORY_DECL_HPP
 #define MUELU_REITZINGERPFACTORY_DECL_HPP
 
@@ -66,86 +30,83 @@
 
 namespace MueLu {
 
-  /*!
-    @class ReitzingerPFactory class.
-    @brief Factory for building tentative prolongator.
+/*!
+  @class ReitzingerPFactory class.
+  @brief Factory for building tentative prolongator.
 
-    Factory for creating Reitzinger and Schoebel tentative prolongator for Maxwell's equations.
+  Factory for creating Reitzinger and Schoebel tentative prolongator for Maxwell's equations.
 
-    @ingroup MueLuTransferClasses
+  @ingroup MueLuTransferClasses
 
-    ## Input/output of ReitzingerPFactory ##
+  ## Input/output of ReitzingerPFactory ##
 
-    ### User parameters of ReitzingerPFactory ###
-    Parameter | type | default | master.xml | validated | requested | description
-    ----------|------|---------|:----------:|:---------:|:---------:|------------
-     A        | Factory | null |   | * | * | Generating factory of the matrix A
-     P        | Factory | null |   | * | * | Generating factory of the nodal Prolongator
-     D0       | Factory | null |   | * | * | Generating factory of the discrete gradient operator
-     NodeMatrix  | Factory | null |   | * | * | Generating factory of the nodal A matrix
+  ### User parameters of ReitzingerPFactory ###
+  Parameter | type | default | master.xml | validated | requested | description
+  ----------|------|---------|:----------:|:---------:|:---------:|------------
+   A        | Factory | null |   | * | * | Generating factory of the matrix A
+   P        | Factory | null |   | * | * | Generating factory of the nodal Prolongator
+   D0       | Factory | null |   | * | * | Generating factory of the discrete gradient operator
+   NodeMatrix  | Factory | null |   | * | * | Generating factory of the nodal A matrix
 
-    The * in the @c master.xml column denotes that the parameter is defined in the @c master.xml file.<br>
-    The * in the @c validated column means that the parameter is declared in the list of valid input parameters (see ReitzingerPFactory::GetValidParameters).<br>
-    The * in the @c requested column states that the data is requested as input with all dependencies (see ReitzingerPFactory::DeclareInput).
+  The * in the @c master.xml column denotes that the parameter is defined in the @c master.xml file.<br>
+  The * in the @c validated column means that the parameter is declared in the list of valid input parameters (see ReitzingerPFactory::GetValidParameters).<br>
+  The * in the @c requested column states that the data is requested as input with all dependencies (see ReitzingerPFactory::DeclareInput).
 
-    ### Variables provided by ReitzingerPFactory ###
+  ### Variables provided by ReitzingerPFactory ###
 
-    After ReitzingerPFactory::Build the following data is available (if requested)
+  After ReitzingerPFactory::Build the following data is available (if requested)
 
-    Parameter | generated by | description
-    ----------|--------------|------------
-    | P       | ReitzingerPFactory   | Non-smoothed "tentative" Reitzinger edge prolongation operator
-    | D0      | ReitzingerPFactory   | Discrete gradient operator
-  */
+  Parameter | generated by | description
+  ----------|--------------|------------
+  | P       | ReitzingerPFactory   | Non-smoothed "tentative" Reitzinger edge prolongation operator
+  | D0      | ReitzingerPFactory   | Discrete gradient operator
+*/
 
-template <class Scalar = DefaultScalar,
-          class LocalOrdinal = DefaultLocalOrdinal,
+template <class Scalar        = DefaultScalar,
+          class LocalOrdinal  = DefaultLocalOrdinal,
           class GlobalOrdinal = DefaultGlobalOrdinal,
-          class Node = DefaultNode>
-  class ReitzingerPFactory : public PFactory {
+          class Node          = DefaultNode>
+class ReitzingerPFactory : public PFactory {
 #undef MUELU_REITZINGERPFACTORY_SHORT
 #include "MueLu_UseShortNames.hpp"
 
-  public:
-    //! @name Constructors/Destructors.
-    //@{
+ public:
+  //! @name Constructors/Destructors.
+  //@{
 
-    //! Constructor
-    ReitzingerPFactory() { }
+  //! Constructor
+  ReitzingerPFactory() {}
 
-    //! Destructor.
-    virtual ~ReitzingerPFactory() { }
-    //@}
+  //! Destructor.
+  virtual ~ReitzingerPFactory() {}
+  //@}
 
-    RCP<const ParameterList> GetValidParameterList() const;
+  RCP<const ParameterList> GetValidParameterList() const;
 
-    //! Input
-    //@{
+  //! Input
+  //@{
 
-    void DeclareInput(Level& fineLevel, Level& coarseLevel) const;
+  void DeclareInput(Level& fineLevel, Level& coarseLevel) const;
 
-    //@}
+  //@}
 
-    //! @name Build methods.
-    //@{
+  //! @name Build methods.
+  //@{
 
-    void Build (Level& fineLevel, Level& coarseLevel) const;
-    void BuildP(Level& fineLevel, Level& coarseLevel) const;
+  void Build(Level& fineLevel, Level& coarseLevel) const;
+  void BuildP(Level& fineLevel, Level& coarseLevel) const;
 
-    //@}
+  //@}
 
-    //! Utility method
-    //@{
-    void CheckCommutingProperty(const Matrix & Pe, const Matrix & D0_c, const Matrix& D0_f, const Matrix & Pn) const;
-    //@}
+  //! Utility method
+  //@{
+  void CheckCommutingProperty(const Matrix& Pe, const Matrix& D0_c, const Matrix& D0_f, const Matrix& Pn) const;
+  //@}
 
-  private:
+ private:
+};  // class ReitzingerPFactory
 
-  }; //class ReitzingerPFactory
-
-} //namespace MueLu
-
-
+}  // namespace MueLu
 
 #define MUELU_REITZINGERPFACTORY_SHORT
-#endif // MUELU_REITZINGERPFACTORY_DECL_HPP
+#endif  // MUELU_REITZINGERPFACTORY_DECL_HPP

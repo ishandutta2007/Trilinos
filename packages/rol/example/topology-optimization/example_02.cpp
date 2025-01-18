@@ -1,44 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //               Rapid Optimization Library (ROL) Package
-//                 Copyright (2014) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact lead developers:
-//              Drew Kouri   (dpkouri@sandia.gov) and
-//              Denis Ridzal (dridzal@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2014 NTESS and the ROL contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 /*! \file  example_01.cpp
@@ -57,7 +23,8 @@
 #include "ROL_StdVector.hpp"
 #include "ROL_Reduced_Objective_SimOpt.hpp"
 #include "ROL_Bounds.hpp"
-#include "ROL_OptimizationSolver.hpp"
+#include "ROL_Problem.hpp"
+#include "ROL_Solver.hpp"
 #include "ROL_ParameterList.hpp"
 
 #include "Teuchos_SerialDenseVector.hpp"
@@ -926,7 +893,7 @@ int main(int argc, char *argv[]) {
     uint ny  = 10; // Number of y-elements (20 for prob = 0, 20 for prob = 1).
     int P    = 1;  // SIMP penalization power.
     RealT frac = 0.4;      // Volume fraction.
-    ROL::Ptr<FEM<RealT> > pFEM = ROL::makePtr<FEM<RealT>>(nx,ny,P,prob);
+    ROL::Ptr<FEM<RealT>> pFEM = ROL::makePtr<FEM<RealT>>(nx,ny,P,prob);
     // Read optimization input parameter list.
     std::string filename = "input_ex02.xml";
     auto parlist = ROL::getParametersFromXmlFile( filename );
@@ -943,36 +910,39 @@ int main(int argc, char *argv[]) {
     // Initialize bound constraints.
     ROL::Ptr<std::vector<RealT>> lo_ptr = ROL::makePtr<std::vector<RealT>>(pFEM->numZ(),1.e-3);
     ROL::Ptr<std::vector<RealT>> hi_ptr = ROL::makePtr<std::vector<RealT>>(pFEM->numZ(),1.0);
-    ROL::Ptr<ROL::Vector<RealT> > lop = ROL::makePtr<ROL::StdVector<RealT>>(lo_ptr);
-    ROL::Ptr<ROL::Vector<RealT> > hip = ROL::makePtr<ROL::StdVector<RealT>>(hi_ptr);
+    ROL::Ptr<ROL::Vector<RealT>> lop = ROL::makePtr<ROL::StdVector<RealT>>(lo_ptr);
+    ROL::Ptr<ROL::Vector<RealT>> hip = ROL::makePtr<ROL::StdVector<RealT>>(hi_ptr);
     bound = ROL::makePtr<ROL::Bounds<RealT>>(lop,hip);
     // Initialize control vector.
-    ROL::Ptr<std::vector<RealT> > z_ptr = ROL::makePtr<std::vector<RealT>> (pFEM->numZ(), frac);
+    ROL::Ptr<std::vector<RealT>> z_ptr = ROL::makePtr<std::vector<RealT>> (pFEM->numZ(), frac);
     ROL::StdVector<RealT> z(z_ptr);
-    ROL::Ptr<ROL::Vector<RealT> > zp = ROL::makePtrFromRef(z);
+    ROL::Ptr<ROL::Vector<RealT>> zp = ROL::makePtrFromRef(z);
     // Initialize state vector.
-    ROL::Ptr<std::vector<RealT> > u_ptr = ROL::makePtr<std::vector<RealT>>(pFEM->numU(), 0.0);
+    ROL::Ptr<std::vector<RealT>> u_ptr = ROL::makePtr<std::vector<RealT>>(pFEM->numU(), 0.0);
     ROL::StdVector<RealT> u(u_ptr);
-    ROL::Ptr<ROL::Vector<RealT> > up = ROL::makePtrFromRef(u);
+    ROL::Ptr<ROL::Vector<RealT>> up = ROL::makePtrFromRef(u);
     // Initialize adjoint vector.
-    ROL::Ptr<std::vector<RealT> > p_ptr = ROL::makePtr<std::vector<RealT>>(pFEM->numU(), 0.0);
+    ROL::Ptr<std::vector<RealT>> p_ptr = ROL::makePtr<std::vector<RealT>>(pFEM->numU(), 0.0);
     ROL::StdVector<RealT> p(p_ptr);
-    ROL::Ptr<ROL::Vector<RealT> > pp = ROL::makePtrFromRef(p);
+    ROL::Ptr<ROL::Vector<RealT>> pp = ROL::makePtrFromRef(p);
     // Initialize multiplier vector.
-    ROL::Ptr<std::vector<RealT> > l_ptr = ROL::makePtr<std::vector<RealT>>(1, 0.0);
+    ROL::Ptr<std::vector<RealT>> l_ptr = ROL::makePtr<std::vector<RealT>>(1, 0.0);
     ROL::StdVector<RealT> l(l_ptr);
-    ROL::Ptr<ROL::Vector<RealT> > lp = ROL::makePtrFromRef(l);
+    ROL::Ptr<ROL::Vector<RealT>> lp = ROL::makePtrFromRef(l);
     // Initialize objective function.
     pobj = ROL::makePtr<Objective_TopOpt<RealT>>(pFEM);
     // Initialize reduced objective function.
     robj = ROL::makePtr<ROL::Reduced_Objective_SimOpt<RealT>>(pobj,pcon,up,zp,pp);
-    // Run optimization.
-    ROL::OptimizationProblem<RealT> problem(robj, zp, bound, vcon, lp); 
+
+    // Define optimization problem.
+    ROL::Ptr<ROL::Problem<RealT>> problem = ROL::makePtr<ROL::Problem<RealT>>(robj,zp);
+    problem->addBoundConstraint(bound);
+    problem->addLinearConstraint("Volume Constraint",vcon,lp);
+    problem->finalize(false,true,*outStream);
     bool derivCheck = true;  // Derivative check flag.
-    if (derivCheck) {
-      problem.check(*outStream);
-    }
-    ROL::OptimizationSolver<RealT> solver(problem, *parlist);
+    if (derivCheck) problem->check(true,*outStream);
+    // Solve optimization problem.
+    ROL::Solver<RealT> solver(problem, *parlist);
     solver.solve(*outStream);
   }
   catch (std::logic_error& err) {

@@ -1,44 +1,10 @@
 // @HEADER
+// *****************************************************************************
+//           Amesos2: Templated Direct Sparse Solver Package
 //
-// ***********************************************************************
-//
-//           Amesos2: Templated Direct Sparse Solver Package 
-//                  Copyright 2011 Sandia Corporation
-//
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2011 NTESS and the Amesos2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 
@@ -86,6 +52,7 @@ namespace Amesos2 {
     typedef Matrix                                                  matrix_t;
     typedef MatrixAdapter<Matrix>                                       type;
     typedef ConcreteMatrixAdapter<Matrix>                          adapter_t;
+    typedef Tpetra::Map<local_ordinal_t, global_ordinal_t, node_t> map_t;
 
     typedef typename MatrixTraits<Matrix>::global_host_idx_type  global_host_idx_t;
     typedef typename MatrixTraits<Matrix>::global_host_val_type  global_host_val_t;
@@ -134,7 +101,7 @@ namespace Amesos2 {
                             KV_GO & colind,
                             KV_GS & rowptr,
                             global_size_t& nnz,
-                            const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > rowmap,
+                            const Teuchos::Ptr<const map_t> rowmap,
                             EStorage_Ordering ordering=ARBITRARY,
                             EDistribution distribution=ROOTED) const; // This was placed as last argument to preserve API
 
@@ -185,7 +152,7 @@ namespace Amesos2 {
                             KV_GO & rowind,
                             KV_GS & colptr,
                             global_size_t& nnz,
-                            const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > colmap,
+                            const Teuchos::Ptr<const map_t> colmap,
                             EStorage_Ordering ordering=ARBITRARY,
                             EDistribution distribution=ROOTED) const; // This was placed as last argument to preserve API
 
@@ -233,22 +200,26 @@ namespace Amesos2 {
     /// Get the local number of non-zeros on this processor
     size_t getLocalNNZ() const;
 
-    Teuchos::RCP<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> >
+    Teuchos::RCP<const map_t>
     getMap() const {
       return static_cast<const adapter_t*>(this)->getMap_impl();
     }
 
-    Teuchos::RCP<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> >
+    Teuchos::RCP<const map_t>
     getRowMap() const {
       return row_map_;
     }
 
-    Teuchos::RCP<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> >
+    Teuchos::RCP<const map_t>
     getColMap() const {
       return col_map_;
     }
 
-    Teuchos::RCP<const type> get(const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > map, EDistribution distribution = ROOTED) const;
+    Teuchos::RCP<const type> get(const Teuchos::Ptr<const map_t> map, EDistribution distribution = ROOTED) const;
+
+    /// Reindex the GIDs such that they are contiguous without gaps (0, .., n-1)
+    ///  This is called in loadA for the matrix with (DISTRIBUTED_NO_OVERLAP && !is_contiguous_)
+    Teuchos::RCP<const type> reindex(Teuchos::RCP<const map_t> &contigRowMap, Teuchos::RCP<const map_t> &contigColMap) const;
 
     /// Returns a short description of this Solver
     std::string description() const;

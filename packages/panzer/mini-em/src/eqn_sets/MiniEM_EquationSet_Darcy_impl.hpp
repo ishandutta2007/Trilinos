@@ -1,3 +1,13 @@
+// @HEADER
+// *****************************************************************************
+//           Panzer: A partial differential equation assembly
+//       engine for strongly coupled complex multiphysics systems
+//
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef _MiniEM_EquationSet_Darcy_impl_hpp_
 #define _MiniEM_EquationSet_Darcy_impl_hpp_
 
@@ -50,6 +60,7 @@ EquationSet_Darcy(const Teuchos::RCP<Teuchos::ParameterList>& params,
     valid_parameters.set("Model ID","","Closure model id associated with this equation set");
     valid_parameters.set("Basis Order",1,"Order of the basis");
     valid_parameters.set("Integration Order",2,"Order of the integration");
+    valid_parameters.set("Diffusivity","kappa","Diffusivity");
     valid_parameters.set("Inverse Diffusivity","1/kappa","Inverse Diffusivity");
     valid_parameters.set("Forcing","forcing","Forcing");
 

@@ -25,7 +25,7 @@ except ImportError:                                                             
 
 
 
-def get_launch_env(build_name : str, system : str):
+def get_launch_env(system : str):
   """
   Gets the launch environment based on the detected system.
   This is an early environment that's required for running the driver.
@@ -34,8 +34,6 @@ def get_launch_env(build_name : str, system : str):
       str: The environment used to launch the driver.
   """
   env = ""
-  if "_rdc" in build_name:
-      env += " TRILINOS_MAX_CORES=96"
 
   if env == "":
       return ""
@@ -43,7 +41,7 @@ def get_launch_env(build_name : str, system : str):
       return "env" + env + " "
 
 
-def get_launch_cmd(build_name : str, system : str):
+def get_launch_cmd(system : str):
   """
   Gets the launch command based on the detected system.
 
@@ -84,7 +82,9 @@ def main(argv):
   parser.add_argument('--in-container', default=False, action="store_true",
                       help="Build is happening in a container")
   parser.add_argument("--kokkos-develop", default=False, action="store_true",
-                       help="Build is requiring to pull the current develop of kokkos and kokkos-kernels packages")
+                      help="Build is requiring to pull the current develop of kokkos and kokkos-kernels packages")
+  parser.add_argument("--extra-configure-args",
+                      help="Extra arguments that will be passed to CMake for configuring Trilinos.")
   args = parser.parse_args(argv)
 
   if os.getenv("TRILINOS_DIR") == None:
@@ -93,10 +93,10 @@ def main(argv):
 
   print("LaunchDriver> INFO: TRILINOS_DIR=\"" + os.environ["TRILINOS_DIR"] + "\"", flush=True)
 
-  ds = DetermineSystem(args.build_name, args.supported_systems)
+  ds = DetermineSystem(args.build_name, args.supported_systems, force_build_name=True)
 
-  launch_env = get_launch_env(args.build_name, ds.system_name)
-  launch_cmd = get_launch_cmd(args.build_name, ds.system_name)
+  launch_env = get_launch_env(ds.system_name)
+  launch_cmd = get_launch_cmd(ds.system_name)
   driver_args = get_driver_args(ds.system_name)
 
   # Specify, and override the driver script for ATDM ATS2 builds. Note that
@@ -115,6 +115,12 @@ def main(argv):
 
   if args.kokkos_develop:
      cmd += " --kokkos-develop"
+
+  # extra-configure-args flag currently takes precedence over the env. var.
+  if args.extra_configure_args:
+     cmd += f" --extra-configure-args=\"{args.extra_configure_args}\""
+  elif os.getenv("EXTRA_CONFIGURE_ARGS"):
+     cmd += f" --extra-configure-args=\"{os.getenv('EXTRA_CONFIGURE_ARGS')}\""
 
   print("LaunchDriver> EXEC: " + cmd, flush=True)
 

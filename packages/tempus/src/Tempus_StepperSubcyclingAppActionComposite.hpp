@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperSubcyclingAppActionComposite_hpp
 #define Tempus_StepperSubcyclingAppActionComposite_hpp
@@ -21,12 +22,10 @@ namespace Tempus {
  *  Inidividual AppActions are executed in the order in which they
  *  were added.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperSubcyclingAppActionComposite
-  : virtual public Tempus::StepperSubcyclingAppAction<Scalar>
-{
-public:
-
+  : virtual public Tempus::StepperSubcyclingAppAction<Scalar> {
+ public:
   /// Default constructor
   StepperSubcyclingAppActionComposite();
 
@@ -35,32 +34,32 @@ public:
 
   /// Execute application action for Subcycling Stepper.
   virtual void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperSubcycling<Scalar> > stepper,
-    const typename StepperSubcyclingAppAction<Scalar>::ACTION_LOCATION actLoc)
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperSubcycling<Scalar> > stepper,
+      const typename StepperSubcyclingAppAction<Scalar>::ACTION_LOCATION actLoc)
   {
-    for(auto& a : appActions_)
-      a->execute(sh, stepper, actLoc);
+    for (auto& a : appActions_) a->execute(sh, stepper, actLoc);
   }
 
   // Add AppAction to the AppAction vector.
-  void addSubcyclingAppAction(Teuchos::RCP<StepperSubcyclingAppAction<Scalar> > appAction);
+  void addSubcyclingAppAction(
+      Teuchos::RCP<StepperSubcyclingAppAction<Scalar> > appAction);
   {
     appActions_.push_back(appAction);
   }
 
   // Clear the AppAction vector.
   void clearSubcyclingAppActions();
-  { appActions_.clear();}
+  {
+    appActions_.clear();
+  }
 
   // Return the size of the AppAction vector.
   std::size_t getSize() const { return appActions_.size(); }
 
-private:
-
-  std::vector<Teuchos::RCP<StepperSubcyclingAppAction<Scalar > > > appActions_;
-
+ private:
+  std::vector<Teuchos::RCP<StepperSubcyclingAppAction<Scalar> > > appActions_;
 };
 
-} // namespace Tempus
-#endif // Tempus_StepperSubcyclingAppActionComposite_hpp
+}  // namespace Tempus
+#endif  // Tempus_StepperSubcyclingAppActionComposite_hpp

@@ -35,9 +35,9 @@
 #ifndef STK_SEARCH_POINT_HPP
 #define STK_SEARCH_POINT_HPP
 
-#include <stk_util/util/ReportHandler.hpp>
-#include <iosfwd>
 #include <Kokkos_Core.hpp>
+#include <iosfwd>
+#include <stk_util/util/ReportHandler.hpp>
 
 namespace stk { namespace search {
 
@@ -53,13 +53,13 @@ public:
   {
   }
 
-  KOKKOS_FUNCTION value_type const& operator[](size_t index) const
+  KOKKOS_FORCEINLINE_FUNCTION value_type const& operator[](size_t index) const
   {
     STK_NGP_ThrowAssert(index < Dim);
     return m_value[index];
   }
 
-  KOKKOS_FUNCTION value_type & operator[](size_t index)
+  KOKKOS_FORCEINLINE_FUNCTION value_type & operator[](size_t index)
   {
     STK_NGP_ThrowAssert(index < Dim);
     return m_value[index];
@@ -71,14 +71,14 @@ public:
     }
   }
 
-  KOKKOS_FUNCTION bool operator==(Point<value_type> const& p) const
+  KOKKOS_FORCEINLINE_FUNCTION bool operator==(Point<value_type> const& p) const
   {
     return  m_value[0] == p.m_value[0]
          && m_value[1] == p.m_value[1]
          && m_value[2] == p.m_value[2];
   }
 
-  KOKKOS_FUNCTION bool operator!=(Point<value_type> const& p) const
+  KOKKOS_FORCEINLINE_FUNCTION bool operator!=(Point<value_type> const& p) const
   { return !(*this == p); }
 
   KOKKOS_FUNCTION value_type get_x_min() const { return m_value[0]; }
@@ -88,8 +88,8 @@ public:
   KOKKOS_FUNCTION value_type get_y_max() const { return m_value[1]; }
   KOKKOS_FUNCTION value_type get_z_max() const { return m_value[2]; }
 
-
-  KOKKOS_DEFAULTED_FUNCTION ~Point() = default;
+  KOKKOS_INLINE_FUNCTION const value_type* data() const { return m_value; }
+  KOKKOS_INLINE_FUNCTION value_type* data() { return m_value; }
 
 private:
   value_type m_value[Dim];

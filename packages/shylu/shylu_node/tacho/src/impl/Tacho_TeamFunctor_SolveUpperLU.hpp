@@ -1,20 +1,12 @@
 // clang-format off
-/* =====================================================================================
-Copyright 2022 National Technology & Engineering Solutions of Sandia, LLC (NTESS).
-Under the terms of Contract DE-NA0003525 with NTESS, the U.S. Government retains
-certain rights in this software.
-
-SCR#:2790.0
-
-This file is part of Tacho. Tacho is open source software: you can redistribute it
-and/or modify it under the terms of BSD 2-Clause License
-(https://opensource.org/licenses/BSD-2-Clause). A copy of the licese is also
-provided under the main directory
-
-Questions? Kyungjoo Kim at <kyukim@sandia.gov,https://github.com/kyungjoo-kim>
-
-Sandia National Laboratories, Albuquerque, NM, USA
-===================================================================================== */
+// @HEADER
+// *****************************************************************************
+//                            Tacho package
+//
+// Copyright 2022 NTESS and the Tacho contributors.
+// SPDX-License-Identifier: BSD-2-Clause
+// *****************************************************************************
+// @HEADER
 // clang-format on
 #ifndef __TACHO_TEAMFUNCTOR_SOLVE_UPPER_LU_HPP__
 #define __TACHO_TEAMFUNCTOR_SOLVE_UPPER_LU_HPP__
@@ -81,8 +73,8 @@ public:
   ///
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void solve_var0(MemberType &member, const supernode_type &s, value_type *bptr) const {
-    using TrsvAlgoType = typename TrsvAlgorithm::type;
-    using GemvAlgoType = typename GemvAlgorithm::type;
+    using TrsvAlgoType = typename TrsvAlgorithm_Team::type;
+    using GemvAlgoType = typename GemvAlgorithm_Team::type;
 
     const value_type minus_one(-1), one(1);
     {
@@ -253,11 +245,11 @@ public:
         solve_var0(member, s, bptr);
       } else if (solve_tag_type::variant == 1) {
         solve_var1(member, s, bptr);
-      } else if (solve_tag_type::variant == 2) {
+      } else if (solve_tag_type::variant == 2 || solve_tag_type::variant == 3) {
         solve_var2(member, s, bptr);
       }
     } else if (mode == -1) {
-      printf("Error: TeamFunctorSolveUpperChol::SolveTag, computing mode is not determined\n");
+      Kokkos::printf("Error: TeamFunctorSolveUpperChol::SolveTag, computing mode is not determined\n");
     } else {
       // skip
     }
@@ -276,7 +268,7 @@ public:
         update_var0(member, s, bptr);
       } else if (update_tag_type::variant == 1) {
         update_var1(member, s, bptr);
-      } else if (update_tag_type::variant == 2) {
+      } else if (update_tag_type::variant == 2 || update_tag_type::variant == 3) {
         update_var2(member, s, bptr);
       }
     } else {

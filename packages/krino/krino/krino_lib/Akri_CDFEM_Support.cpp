@@ -65,7 +65,7 @@ CDFEM_Support::CDFEM_Support(stk::mesh::MetaData & meta)
     myFlagUseVelocityToEvaluateInterfaceCFL(false),
     my_timer_cdfem("CDFEM", sierra::Diag::sierraTimer())
 {
-  my_prolongation_model = ALE_NEAREST_POINT;
+  my_prolongation_model = ALE_CLOSEST_POINT;
 
   if (3 == my_meta.spatial_dimension())
     my_simplex_generation_method = CUT_QUADS_BY_NEAREST_EDGE_CUT;
@@ -98,6 +98,15 @@ void CDFEM_Support::register_cdfem_mesh_displacements_field()
   const FieldType & vec_type = (my_meta.spatial_dimension() == 3) ? FieldType::VECTOR_3D : FieldType::VECTOR_2D;
   FieldRef cdfem_disp_field = my_aux_meta.register_field(cdfem_mesh_displacements_field_name(), vec_type, stk::topology::NODE_RANK, 2, 1, get_universal_part());
   set_cdfem_displacement_field(cdfem_disp_field);
+}
+
+void CDFEM_Support::register_cdfem_snap_displacements_field()
+{
+  STK_ThrowRequireMsg(my_meta.spatial_dimension() > 1, "Spatial dimension must be set and equal to 2 or 3.");
+
+  const FieldType & vec_type = (my_meta.spatial_dimension() == 3) ? FieldType::VECTOR_3D : FieldType::VECTOR_2D;
+  FieldRef cdfem_disp_field = my_aux_meta.register_field(cdfem_snap_displacements_field_name(), vec_type, stk::topology::NODE_RANK, 2, 1, get_universal_part());
+  set_cdfem_snap_displacement_field(cdfem_disp_field);
 }
 
 void CDFEM_Support::register_parent_node_ids_field()
@@ -192,8 +201,28 @@ CDFEM_Support::add_edge_interpolation_field(const FieldRef field)
 void
 CDFEM_Support::set_snap_fields()
 {
-  mySnapFields = get_interpolation_fields();
-  mySnapFields.insert(my_edge_interpolation_fields.begin(), my_edge_interpolation_fields.end());
+  mySnapFields = my_edge_interpolation_fields;
+
+  if (get_resnap_method() == RESNAP_AFTER_USING_ALE_TO_UNSNAP ||
+      get_resnap_method() == RESNAP_AFTER_USING_INTERPOLATION_TO_UNSNAP)
+  {
+    mySnapFields.insert(my_interpolation_fields.begin(), my_interpolation_fields.end());
+
+    if (get_resnap_method() == RESNAP_AFTER_USING_ALE_TO_UNSNAP)
+    {
+      for (auto && lsField : get_levelset_fields())
+      {
+        for ( unsigned is = 0; is < lsField.number_of_states(); ++is )
+        {
+          const stk::mesh::FieldState state = static_cast<stk::mesh::FieldState>(is);
+          if (state != stk::mesh::StateNew)
+            mySnapFields.erase(lsField.field_state(state));
+          else
+            mySnapFields.insert(lsField.field_state(state));
+        }
+      }
+    }
+  }
 
   FieldRef cdfemSnapField = get_cdfem_snap_displacements_field();
   if (cdfemSnapField.valid())
@@ -203,20 +232,10 @@ CDFEM_Support::set_snap_fields()
       const stk::mesh::FieldState state = static_cast<stk::mesh::FieldState>(is);
       mySnapFields.erase(cdfemSnapField.field_state(state));
     }
-
-    if (!get_use_interpolation_to_unsnap_mesh())
-    {
-      for (auto && lsField : get_levelset_fields())
-      {
-        for ( unsigned is = 0; is < lsField.number_of_states(); ++is )
-        {
-          const stk::mesh::FieldState state = static_cast<stk::mesh::FieldState>(is);
-          if (state != stk::mesh::StateNew)
-            mySnapFields.erase(lsField.field_state(state));
-        }
-      }
-    }
   }
+
+  for (auto & field : mySnapFields)
+    krinolog << "Snap field " << field.name()  << " (" << state_string(field.state()) << ")" << stk::diag::dendl;
 }
 
 void
@@ -290,6 +309,13 @@ CDFEM_Support::finalize_fields()
   krinolog << stk::diag::pop << stk::diag::dendl;
 
   set_snap_fields();
+}
+
+void CDFEM_Support::set_cdfem_edge_degeneracy_handling( const Edge_Degeneracy_Handling type )
+{
+  my_cdfem_edge_degeneracy_handling = type;
+//  if (!Phase_Support::get(my_meta).has_one_levelset_per_phase())
+//    set_resnap_method(RESNAP_USING_INTERPOLATION);
 }
 
 void CDFEM_Support::force_ale_prolongation_for_field(const std::string & field_name)

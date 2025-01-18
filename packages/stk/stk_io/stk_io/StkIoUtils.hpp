@@ -50,13 +50,8 @@ namespace stk { namespace mesh { class MetaData; } }
 namespace stk { namespace mesh { class Part; } }
 namespace stk { namespace mesh { class Selector; } }
 
-namespace stk { namespace mesh { class BulkData; } }
-namespace stk { namespace mesh { struct Entity; } }
 // clang-format on
 // #######################   End Clang Header Tool Managed Headers  ########################
-
-namespace stk { namespace io { class MetaData; } }
-namespace stk { namespace io { class BulkData; } }
 
 namespace stk {
 namespace io {
@@ -96,6 +91,10 @@ void fill_block_parts_given_names(const std::vector<std::string>& side_block_nam
 
 void throw_if_any_elem_block_has_invalid_topology(const stk::mesh::MetaData& meta,
                                                   const std::string& msgRegionName);
+
+stk::mesh::FieldVector get_fields_with_role(const stk::mesh::MetaData &meta, const Ioss::Field::RoleType role);
+stk::mesh::FieldVector get_fields_with_role(const stk::mesh::MetaData &meta, const stk::mesh::EntityRank rank,
+                                            const Ioss::Field::RoleType role);
 
 stk::mesh::FieldVector get_transient_fields(const stk::mesh::MetaData &meta);
 stk::mesh::FieldVector get_transient_fields(const stk::mesh::MetaData &meta, const stk::mesh::EntityRank rank);

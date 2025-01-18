@@ -1,48 +1,12 @@
 // @HEADER
-//
-// ***********************************************************************
-//
+// *****************************************************************************
 //        MueLu: A package for multigrid based preconditioning
-//                  Copyright 2012 Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact
-//                    Jonathan Hu       (jhu@sandia.gov)
-//                    Andrey Prokopenko (aprokop@sandia.gov)
-//                    Ray Tuminaro      (rstumin@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2012 NTESS and the MueLu contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
+
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
@@ -67,14 +31,14 @@
 #include <MueLu_ExplicitInstantiation.hpp>
 #endif
 
-template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int argc, char *argv[]) {
+template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib &lib, int argc, char *argv[]) {
 #include <MueLu_UseShortNames.hpp>
+  using Teuchos::ArrayView;
+  using Teuchos::ParameterList;
   using Teuchos::RCP;
   using Teuchos::rcp;
-  using Teuchos::ArrayView;
   using Teuchos::TimeMonitor;
-  using Teuchos::ParameterList;
 
   // =========================================================================
   // MPI initialization using Teuchos
@@ -89,17 +53,18 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
   // Parameters initialization
   // =========================================================================
   GO nx = 100, ny = 100, nz = 100;
-  Galeri::Xpetra::Parameters<GO> galeriParameters(clp, nx, ny, nz, "Laplace3D"); // manage parameters of the test case
-  Xpetra::Parameters             xpetraParameters(clp);                          // manage parameters of Xpetra
+  Galeri::Xpetra::Parameters<GO> galeriParameters(clp, nx, ny, nz, "Laplace3D");  // manage parameters of the test case
+  Xpetra::Parameters xpetraParameters(clp);                                       // manage parameters of Xpetra
 
-  int loops = 10; clp.setOption("l", &loops, "Number of loops");
+  int loops = 10;
+  clp.setOption("l", &loops, "Number of loops");
 
   clp.recogniseAllOptions(true);
   switch (clp.parse(argc, argv)) {
-    case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED:        return EXIT_SUCCESS;
+    case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED: return EXIT_SUCCESS;
     case Teuchos::CommandLineProcessor::PARSE_ERROR:
     case Teuchos::CommandLineProcessor::PARSE_UNRECOGNIZED_OPTION: return EXIT_FAILURE;
-    case Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL:          break;
+    case Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL: break;
   }
 
   // Retrieve matrix parameters (they may have been changed on the command line)
@@ -120,8 +85,8 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
   else if (matrixType == "Laplace3D" || matrixType == "Brick3D" || matrixType == "Elasticity3D")
     map = Galeri::Xpetra::CreateMap<LO, GO, Node>(xpetraParameters.GetLib(), "Cartesian3D", comm, galeriList);
 
-  RCP<Galeri::Xpetra::Problem<Map,CrsMatrixWrap,MultiVector> > Pr =
-    Galeri::Xpetra::BuildProblem<SC,LO,GO,Map,CrsMatrixWrap,MultiVector>(matrixType, map, galeriList);
+  RCP<Galeri::Xpetra::Problem<Map, CrsMatrixWrap, MultiVector> > Pr =
+      Galeri::Xpetra::BuildProblem<SC, LO, GO, Map, CrsMatrixWrap, MultiVector>(matrixType, map, galeriList);
   RCP<Matrix> A = Pr->BuildMatrix();
 
   LO numRows = A->getLocalNumRows();
@@ -138,7 +103,6 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
     tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer("Loop #1: Xpetra")));
     for (int i = 0; i < loops; i++) {
       for (LocalOrdinal row = 0; row < numRows; row++) {
-
         A->getLocalRowView(row, indices, vals);
 
         validation += indices.size();
@@ -154,16 +118,16 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
     GO validation = 0;
 
     if (lib == Xpetra::UseTpetra) {
-      typedef Tpetra::CrsMatrix<SC,LO,GO,NO> tCrsMatrix;
+      typedef Tpetra::CrsMatrix<SC, LO, GO, NO> tCrsMatrix;
       RCP<const tCrsMatrix> tA = Utilities::Op2TpetraCrs(A);
       TEUCHOS_TEST_FOR_EXCEPTION(tA.is_null(), MueLu::Exceptions::RuntimeError,
                                  "A is not a Tpetra CrsMatrix");
 
       typename Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::local_inds_host_view_type indices;
       typename Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::values_host_view_type vals;
- 
+
       tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer("Loop #2: Tpetra/Epetra")));
-      for (int i = 0; i < loops; i++)  {
+      for (int i = 0; i < loops; i++) {
         for (LocalOrdinal row = 0; row < numRows; row++) {
           tA->getLocalRowView(row, indices, vals);
 
@@ -183,9 +147,9 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
 
       for (int i = 0; i < loops; i++) {
         for (LocalOrdinal row = 0; row < numRows; row++) {
-          int      numEntries;
-          double * eValues;
-          int    * eIndices;
+          int numEntries;
+          double *eValues;
+          int *eIndices;
 
           eA->ExtractMyRowView(row, numEntries, eValues, eIndices);
 
@@ -201,7 +165,6 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
     std::cout << "validation = " << validation << std::endl;
   }
 
-
   // Loop 3
   {
     auto localMatrix = A->getLocalMatrixHost();
@@ -211,7 +174,7 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
     tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer("Loop #3: Kokkos-serial")));
     for (int i = 0; i < loops; i++) {
       for (LocalOrdinal row = 0; row < numRows; row++) {
-        auto rowView = localMatrix.row (row);
+        auto rowView = localMatrix.row(row);
         auto length  = rowView.length;
 
         validation += length;
@@ -232,13 +195,15 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
 
     tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer("Loop #4: Kokkos-parallel (node)")));
     for (int i = 0; i < loops; i++)
-      Kokkos::parallel_reduce("Utils::DetectDirichletRows", RangePolicy(0, numRows),
-        KOKKOS_LAMBDA(const LO row, GO& r) {
-          auto rowView = localMatrix.row (row);
-          auto length  = rowView.length;
+      Kokkos::parallel_reduce(
+          "Utils::DetectDirichletRows", RangePolicy(0, numRows),
+          KOKKOS_LAMBDA(const LO row, GO &r) {
+            auto rowView = localMatrix.row(row);
+            auto length  = rowView.length;
 
-          r += length;
-        }, validation);
+            r += length;
+          },
+          validation);
     tm = Teuchos::null;
 
     std::cout << "validation = " << validation << std::endl;
@@ -262,6 +227,5 @@ int main_(Teuchos::CommandLineProcessor &clp, Xpetra::UnderlyingLib& lib, int ar
 #include "MueLu_Test_ETI.hpp"
 
 int main(int argc, char *argv[]) {
-  return Automatic_Test_ETI(argc,argv);
+  return Automatic_Test_ETI(argc, argv);
 }
-

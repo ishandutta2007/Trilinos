@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #include "Tempus_ExplicitTemplateInstantiation.hpp"
 
@@ -14,14 +15,13 @@
 
 namespace Tempus {
 
-  TEMPUS_INSTANTIATE_TEMPLATE_CLASS(StepperLeapfrog)
+TEMPUS_INSTANTIATE_TEMPLATE_CLASS(StepperLeapfrog)
 
-  // Nonmember constructor
-  template Teuchos::RCP<StepperLeapfrog<double> >
-  createStepperLeapfrog(
+// Nonmember constructor
+template Teuchos::RCP<StepperLeapfrog<double> > createStepperLeapfrog(
     const Teuchos::RCP<const Thyra::ModelEvaluator<double> >& model,
     Teuchos::RCP<Teuchos::ParameterList> pl);
 
-}
+}  // namespace Tempus
 
 #endif

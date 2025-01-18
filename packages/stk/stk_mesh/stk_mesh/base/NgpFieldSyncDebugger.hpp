@@ -52,7 +52,7 @@ namespace stk {
 namespace mesh {
 
 //==============================================================================
-template <typename T>
+template <typename T, typename NgpMemSpace>
 class EmptyNgpFieldSyncDebugger
 {
 public:
@@ -104,10 +104,6 @@ public:
 
   template <typename NgpField>
   KOKKOS_INLINE_FUNCTION
-  void device_stale_access_check(NgpField *, const stk::mesh::DeviceMesh::MeshIndex &, int, const char *, int) const {}
-
-  template <typename NgpField>
-  KOKKOS_INLINE_FUNCTION
   void device_stale_access_check(NgpField *, const stk::mesh::FastMeshIndex &, const char *, int) const {}
 
   template <typename NgpField>
@@ -115,7 +111,7 @@ public:
 };
 
 //==============================================================================
-template <typename T>
+template <typename T, typename NgpMemSpace>
 class NgpFieldSyncDebugger
 {
 public:
@@ -232,23 +228,6 @@ public:
 
   template <typename NgpField>
   KOKKOS_FUNCTION
-  void device_stale_access_check(NgpField* ngpField, const stk::mesh::DeviceMesh::MeshIndex& index, int component,
-                                 const char* fileName, int lineNumber) const
-  {
-    anyPotentialDeviceFieldModification() = true;
-
-    if (field_not_updated_after_mesh_mod(ngpField->synchronizedCount)) {
-      print_unupdated_field_warning(fileName, lineNumber);
-      return;
-    }
-
-    if (data_is_stale_on_device(index, component)) {
-      print_stale_data_warning(ngpField, index.bucket->bucket_id(), index.bucketOrd, component, fileName, lineNumber);
-    }
-  }
-
-  template <typename NgpField>
-  KOKKOS_FUNCTION
   void device_stale_access_check(NgpField* ngpField, const stk::mesh::FastMeshIndex& index,
                                  const char* fileName, int lineNumber) const
   {
@@ -314,8 +293,8 @@ public:
     stk::mesh::Selector fieldSelector(*(ngpField->hostField));
 
     UnsignedViewType & localDeviceNumComponentsPerEntity = ngpField->deviceFieldBucketsNumComponentsPerEntity;
-    FieldDataDeviceViewType<T> & localDeviceData = ngpField->deviceData;
-    FieldDataDeviceViewType<T> & localLastFieldValue = lastFieldValue;
+    FieldDataDeviceViewType<T, NgpMemSpace> & localDeviceData = ngpField->deviceData;
+    FieldDataDeviceViewType<T, NgpMemSpace> & localLastFieldValue = lastFieldValue;
     LastFieldModLocationType & localLastFieldModLocation = lastFieldModLocation;
     ScalarUvmType<bool> & localLostDeviceFieldData = lostDeviceFieldData;
     UnsignedViewType & localDebugDeviceSelectedBucketOffset = debugDeviceSelectedBucketOffset;
@@ -370,8 +349,8 @@ public:
     const stk::mesh::BulkData & bulk = *ngpField->hostBulk;
     stk::mesh::NgpMesh & ngpMesh = stk::mesh::get_updated_ngp_mesh(bulk);
     UnsignedViewType & localDeviceNumComponentsPerEntity = ngpField->deviceFieldBucketsNumComponentsPerEntity;
-    FieldDataDeviceViewType<T> & localDeviceData = ngpField->deviceData;
-    FieldDataDeviceViewType<T> & localLastFieldValue = lastFieldValue;
+    FieldDataDeviceViewType<T, NgpMemSpace> & localDeviceData = ngpField->deviceData;
+    FieldDataDeviceViewType<T, NgpMemSpace> & localLastFieldValue = lastFieldValue;
     UnsignedViewType & localDebugDeviceSelectedBucketOffset = debugDeviceSelectedBucketOffset;
 
     stk::mesh::for_each_entity_run(ngpMesh, ngpField->rank, modifiedSelector,
@@ -392,8 +371,8 @@ private:
     const stk::mesh::FieldBase & stkField = *ngpField->hostField;
 
     if (buckets.size() != 0) {
-      lastFieldValue = FieldDataDeviceViewType<T>(stkField.name()+"_lastValue", buckets.size(),
-                                                  ORDER_INDICES(ngpField->bucketCapacity, numPerEntity));
+      lastFieldValue = FieldDataDeviceViewType<T, NgpMemSpace>(stkField.name()+"_lastValue", buckets.size(),
+                                                               ORDER_INDICES(ngpField->bucketCapacity, numPerEntity));
       lastFieldModLocation = LastFieldModLocationType(stkField.name()+"_lastModLocation", buckets.size(),
                                                       ORDER_INDICES(ngpField->bucketCapacity, numPerEntity));
     }
@@ -437,11 +416,6 @@ private:
   KOKKOS_INLINE_FUNCTION
   bool data_is_stale_on_device(const stk::mesh::FastMeshIndex & index, int component) const {
     return data_is_stale_on_device(index.bucket_id, index.bucket_ord, component);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  bool data_is_stale_on_device(const stk::mesh::DeviceMesh::MeshIndex & index, int component) const {
-    return data_is_stale_on_device(index.bucket->bucket_id(), index.bucketOrd, component);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -516,7 +490,7 @@ private:
   ScalarUvmType<bool> lostDeviceFieldData;
   ScalarUvmType<bool> anyPotentialDeviceFieldModification;
   LastFieldModLocationType lastFieldModLocation;
-  FieldDataDeviceViewType<T> lastFieldValue;
+  FieldDataDeviceViewType<T, NgpMemSpace> lastFieldValue;
   typename UnsignedViewType::HostMirror debugHostSelectedBucketOffset;
   UnsignedViewType debugDeviceSelectedBucketOffset;
 };

@@ -82,7 +82,6 @@ class DataExchangeKnownPatternNonBlocking
     void start_sends(std::vector< std::vector<T> > &sendLists);
 
     MPI_Comm m_comm;
-    int m_tagHint;
     MPITag m_tag;
 
     std::vector<int> m_recvRankMap;
@@ -163,7 +162,6 @@ void DataExchangeKnownPatternNonBlocking::complete_receives(std::vector< std::ve
   {
     int idx;
     MPI_Waitany(m_recvReqs.size(), m_recvReqs.data(), &idx, MPI_STATUS_IGNORE);
-
 
     int rank = m_recvRankMap[idx];
     func(rank, recvLists[rank]);

@@ -1,3 +1,11 @@
+// @HEADER
+// *****************************************************************************
+//     Compadre: COMpatible PArticle Discretization and REmap Toolkit
+//
+// Copyright 2018 NTESS and the Compadre contributors.
+// SPDX-License-Identifier: BSD-2-Clause
+// *****************************************************************************
+// @HEADER
 #ifndef _COMPADRE_QUADRATUREMANAGER_HPP_
 #define _COMPADRE_QUADRATUREMANAGER_HPP_
 
@@ -8,7 +16,7 @@
 namespace Compadre {
 
 // ENUM for quadrature types
-enum QuadratureType {INVALID, LINE, TRI, QUAD, TET, HEX};
+enum QuadratureType : int {INVALID, LINE, TRI, QUAD, TET, HEX};
 
 //!  Quadrature
 /*!

@@ -34,8 +34,9 @@
 #ifndef STK_UTIL_UTIL_STRIDEDARRAY_HPP
 #define STK_UTIL_UTIL_STRIDEDARRAY_HPP
 
-#include "stk_util/stk_config.h"
-#include <Kokkos_Core.hpp>
+#include <stk_util/stk_config.h>
+#include <stk_util/util/PairIter.hpp>
+#include "Kokkos_Macros.hpp"
 
 namespace stk
 {
@@ -47,15 +48,43 @@ template <typename T>
 class StridedArray
 {
 public:
-  KOKKOS_FUNCTION 
-  StridedArray() : dataPointer(nullptr), length(0), stride(defaultStride)
+  KOKKOS_INLINE_FUNCTION 
+  StridedArray()
+  : dataPointer(nullptr),
+    length(0)
+#ifdef STK_ENABLE_GPU
+    , stride(defaultStride)
+#endif
   {
   }
-  KOKKOS_FUNCTION
-  StridedArray(T* e, unsigned n, int stride_in=defaultStride) : dataPointer(e), length(n), stride(stride_in)
+
+  KOKKOS_INLINE_FUNCTION
+  StridedArray(T* e,
+               unsigned n,
+               int stride_in=defaultStride)
+  : dataPointer(e),
+    length(n)
+#ifdef STK_ENABLE_GPU
+    , stride(stride_in)
+#endif
   {
   }
-  KOKKOS_FUNCTION
+
+  KOKKOS_INLINE_FUNCTION
+  StridedArray(PairIter<T*> data
+#ifdef STK_ENABLE_GPU
+               , int stride_in=defaultStride
+#endif
+              )
+  : dataPointer(data.begin()),
+    length(data.size())
+#ifdef STK_ENABLE_GPU
+    , stride(stride_in)
+#endif
+  {
+  }
+
+  KOKKOS_INLINE_FUNCTION
   T operator[](unsigned i) const
   {
 #if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
@@ -64,15 +93,46 @@ public:
     return dataPointer[i];
 #endif
   }
-  KOKKOS_FUNCTION
+
+  KOKKOS_INLINE_FUNCTION
+  T* data() { return dataPointer; }
+  KOKKOS_INLINE_FUNCTION
+  const T* data() const { return dataPointer; }
+
+  KOKKOS_INLINE_FUNCTION
   unsigned size() const
   { 
     return length;
   }
+
+  KOKKOS_INLINE_FUNCTION
+  bool operator==(const StridedArray<T>& rhs) const
+  {
+    if (this->size() != rhs.size()) {
+      return false;
+    }
+
+    for(unsigned i=0; i<size(); ++i) {
+      if ((*this)[i] != rhs[i]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool operator!=(const StridedArray<T>& rhs) const
+  {
+    return !(*this == rhs);
+  }
+
 private:
   T* dataPointer;
   unsigned length;
+#ifdef STK_ENABLE_GPU
   int stride;
+#endif
 };
 
 } //namespace util

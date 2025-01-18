@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef TEMPUS_CDR_MODEL_DECL_HPP
 #define TEMPUS_CDR_MODEL_DECL_HPP
@@ -19,7 +20,8 @@ class Epetra_Import;
 
 namespace Tempus_Test {
 
-template<class Scalar> class ModelEvaluator1DFEM;
+template <class Scalar>
+class ModelEvaluator1DFEM;
 
 /** \brief 1D CGFEM model for convection/diffusion/reaction
  *
@@ -41,18 +43,14 @@ dt     dz    dz^2
  * <tt>Thyra::DefaultSerialDenseLinearOpWithSolveFactory</tt> is used to
  * create the linear solver.
  */
-template<class Scalar>
-class CDR_Model
-  : public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
-{
-public:
-
-  CDR_Model(const Teuchos::RCP<const Epetra_Comm>& comm,
-            const int num_global_elements,
-            const Scalar z_min,
+template <class Scalar>
+class CDR_Model : public ::Thyra::StateFuncModelEvaluatorBase<Scalar> {
+ public:
+  CDR_Model(const Teuchos::RCP<const Epetra_Comm> &comm,
+            const int num_global_elements, const Scalar z_min,
             const Scalar z_max,
-            const Scalar a,  // convection
-            const Scalar k); // source
+            const Scalar a,   // convection
+            const Scalar k);  // source
 
   /** \name Initializers/Accessors */
   //@{
@@ -61,7 +59,9 @@ public:
 
   void setShowGetInvalidArgs(bool showGetInvalidArg);
 
-  void set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory);
+  void set_W_factory(
+      const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >
+          &W_factory);
 
   //@}
 
@@ -73,13 +73,13 @@ public:
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const;
   Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > create_W() const;
   Teuchos::RCP< ::Thyra::LinearOpBase<Scalar> > create_W_op() const;
-  Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > get_W_factory() const;
+  Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >
+  get_W_factory() const;
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const;
-  Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
+  Teuchos::RCP< ::Thyra::PreconditionerBase<Scalar> > create_W_prec() const;
   //@}
 
-private:
-
+ private:
   /** Allocates and returns the Jacobian matrix graph */
   virtual Teuchos::RCP<Epetra_CrsGraph> createGraph();
 
@@ -88,15 +88,13 @@ private:
 
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
   void evalModelImpl(
-    const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
-    const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
-    ) const;
+      const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
+      const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs) const;
 
   //@}
 
-private: // data members
-
-  const Teuchos::RCP<const Epetra_Comm>  comm_;
+ private:  // data members
+  const Teuchos::RCP<const Epetra_Comm> comm_;
   const int num_global_elements_;
   const Scalar z_min_;
   const Scalar z_max_;
@@ -104,14 +102,14 @@ private: // data members
   const Scalar k_;
 
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > x_space_;
-  Teuchos::RCP<const Epetra_Map>   x_owned_map_;
-  Teuchos::RCP<const Epetra_Map>   x_ghosted_map_;
+  Teuchos::RCP<const Epetra_Map> x_owned_map_;
+  Teuchos::RCP<const Epetra_Map> x_ghosted_map_;
   Teuchos::RCP<const Epetra_Import> importer_;
 
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > f_space_;
-  Teuchos::RCP<const Epetra_Map>   f_owned_map_;
+  Teuchos::RCP<const Epetra_Map> f_owned_map_;
 
-  Teuchos::RCP<Epetra_CrsGraph>  W_graph_;
+  Teuchos::RCP<Epetra_CrsGraph> W_graph_;
 
   Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > W_factory_;
 
@@ -130,13 +128,11 @@ private: // data members
   bool showGetInvalidArg_;
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
-
 };
 
 //==================================================================
 // Finite Element Basis Object
 class Basis {
-
  public:
   // Constructor
   Basis();
@@ -156,6 +152,6 @@ class Basis {
   double uu_dot, duu_dot;
 };
 
-} // namespace Tempus_Test
+}  // namespace Tempus_Test
 
 #endif

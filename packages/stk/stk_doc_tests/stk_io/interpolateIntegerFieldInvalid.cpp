@@ -64,7 +64,6 @@ TEST(StkMeshIoBrokerHowTo, interpolateIntegerFieldInvalid)
     //+ integer interpolated field.
 
     stk::io::StkMeshIoBroker stkIo(communicator);
-    stkIo.use_simple_fields();
 
     const std::string generatedFileName = "generated:8x8x8|nodeset:xyz";
     stkIo.add_mesh_database(generatedFileName, stk::io::READ_MESH);
@@ -75,8 +74,7 @@ TEST(StkMeshIoBrokerHowTo, interpolateIntegerFieldInvalid)
     stk::mesh::put_field_on_mesh(integer_field, stkIo.meta_data().universal_part(), nullptr);
     stkIo.populate_bulk_data();
 
-    EXPECT_ANY_THROW(stkIo.add_input_field(stk::io::MeshField(integer_field, "int_field",
-                                                              stk::io::MeshField::LINEAR_INTERPOLATION)));
+    EXPECT_ANY_THROW(stkIo.add_input_field(stk::io::MeshField(integer_field, "int_field", stk::io::MeshField::LINEAR_INTERPOLATION)));
     //-END
   }
   // ============================================================

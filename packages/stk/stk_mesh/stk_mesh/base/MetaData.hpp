@@ -6,15 +6,15 @@
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
-// 
+//
 //     * Redistributions in binary form must reproduce the above
 //       copyright notice, this list of conditions and the following
 //       disclaimer in the documentation and/or other materials provided
 //       with the distribution.
-// 
+//
 //     * Neither the name of NTESS nor the names of its contributors
 //       may be used to endorse or promote products derived from this
 //       software without specific prior written permission.
@@ -30,7 +30,7 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 
 #ifndef stk_mesh_MetaData_hpp
 #define stk_mesh_MetaData_hpp
@@ -47,7 +47,6 @@
 #include <utility>                      // for pair
 #include <vector>                       // for vector, vector<>::size_type
 #include <stk_util/stk_config.h>
-#include <stk_mesh/base/CoordinateSystems.hpp>
 #include <stk_mesh/base/EntityKey.hpp>  // for EntityKey
 #include <stk_mesh/base/Part.hpp>       // for Part
 #include <stk_mesh/base/Selector.hpp>   // for Selector
@@ -63,27 +62,33 @@
 #include <stk_mesh/base/Field.hpp>
 #include "stk_mesh/base/FieldBase.hpp"  // for FieldBase
 #include "stk_mesh/base/FieldState.hpp"  // for ::MaximumFieldStates, etc
-#include "stk_mesh/baseImpl/PartImpl.hpp"  // for PartImpl
 #include "stk_util/util/ReportHandler.hpp"  // for ThrowErrorMsgIf, etc
 #include "stk_util/util/CSet.hpp"       // for CSet
 #include "stk_util/diag/StringUtil.hpp"
 #include <type_traits>
 
-namespace shards { class ArrayDimTag; }
 namespace shards { class CellTopologyManagedData; }
 namespace stk { namespace mesh { class BulkData; } }
 namespace stk { namespace mesh { class MetaData; } }
-
 namespace stk {
 namespace mesh {
-
-typedef Field<double, stk::mesh::Cartesian> CoordinatesField;
 
 template <typename>
 struct is_field : std::false_type {};
 
-template <typename Scalar, class Tag1, class Tag2, class Tag3, class Tag4, class Tag5, class Tag6, class Tag7>
-struct is_field<Field<Scalar, Tag1, Tag2, Tag3, Tag4, Tag5, Tag6, Tag7>> : std::true_type {};
+template <typename Scalar>
+struct is_field<Field<Scalar>> : std::true_type {};
+
+template <typename field_type>
+constexpr bool is_field_v = is_field<field_type>::value;
+
+
+template <typename field_type>
+struct is_field_base : std::is_same<field_type, FieldBase> {};
+
+template <typename field_type>
+constexpr bool is_field_base_v = is_field_base<field_type>::value;
+
 
 /** \addtogroup stk_mesh_module
  *  \{
@@ -103,7 +108,7 @@ inline void set_topology(Part & part)
 stk::topology get_topology(const MetaData& meta_data, EntityRank entity_rank, const std::pair<const unsigned*, const unsigned*>& supersets);
 
 /** get the stk::topology given a Shards Cell Topology */
-stk::topology get_topology(shards::CellTopology shards_topology, unsigned spatial_dimension = 3);
+stk::topology get_topology(shards::CellTopology shards_topology, unsigned spatial_dimension = 3, bool useAllFaceSideShell = false);
 
 /** Get the Shards Cell Topology given a stk::topology  */
 shards::CellTopology get_cell_topology(stk::topology topo);
@@ -295,7 +300,7 @@ public:
   }
 
   void set_part_id(Part& part, int64_t lid)
-  { part.m_partImpl.set_id(lid); }
+  { part.set_id(lid); }
 
   /** \brief  Declare a superset-subset relationship between parts */
   void declare_part_subset( Part & superset , Part & subset, bool verifyFieldRestrictions=true );
@@ -361,29 +366,11 @@ public:
   // Get a field by name, and return nullptr if it does not exist.
   // A case-insensitive name search will be performed.  An exception
   // will be thrown if a Field with the specified name exists but
-  // the Field template parameters do not match.
+  // the datatype does not match.  Example:
   //
-  // stk::mesh::Field<double, stk::mesh::Cartesian3d> * field =
-  //     meta.get_field<stk::mesh::Field<double, stk::mesh::Cartesian3d>>(...);
+  // stk::mesh::Field<double> * field = meta.get_field<double>(stk::topology::NODE_RANK, "density");
   //
-  // Note that this method will eventually be deprecated in favor
-  // of the method below where only the datatype is specified as
-  // a template parameter.
-  //
-  template <class field_type, typename std::enable_if<is_field<field_type>::value, int>::type = 0>
-  field_type * get_field(stk::mesh::EntityRank entity_rank,
-                         const std::string & name,
-                         const char * fileName = HOST_DEBUG_FILE_NAME,
-                         int lineNumber = HOST_DEBUG_LINE_NUMBER) const;
-
-  // Get a field by name, and return nullptr if it does not exist.
-  // A case-insensitive name search will be performed.  An exception
-  // will be thrown if a Field with the specified name exists but
-  // the datatype does not match.
-  //
-  // stk::mesh::Field<double> * field = meta.get_field<double>(...);
-  //
-  template <typename T, typename std::enable_if<not is_field<T>::value, int>::type = 0>
+  template <typename T>
   Field<T> * get_field(stk::mesh::EntityRank entity_rank,
                        const std::string & name,
                        const char * fileName = HOST_DEBUG_FILE_NAME,
@@ -411,38 +398,17 @@ public:
     return m_field_repo.get_fields(rank) ;
   }
 
-  // Declare a stk::mesh::Field by providing the full templated Field
-  // type as the template argument.  For example:
+  // Declare a stk::mesh::Field by providing the datatype as the template parameter.
+  // For example:
   //
-  //   stk::mesh::Field<double, stk::mesh::Cartesian3d> & field =
-  //     meta.declare_field<stk::mesh::Field<double, stk::mesh::Cartesian3d>>(...)
+  //   stk::mesh::Field<double>& field = meta.declare_field<double>(stk::topology::NODE_RANK, "density");
   //
-  // A compatible re-declaration will return the previously-declared Field.
-  // Note that use of the extra template arguments after the datatype will
-  // soon be deprecated, and sizing of Fields (e.g. for vectors, tensors, etc.)
-  // will be exclusively handled through stk::mesh::put_field_on_mesh() calls.
-  // Exodus file output subscripting will be handled through calls to
-  // stk::io::set_field_output_type().
+  // A compatible re-declaration will return the previously-declared Field.  Note that
+  // sizing of Fields (e.g. for vectors, tensors, etc.) is exclusively handled through
+  // calls to stk::mesh::put_field_on_mesh().  Exodus file output subscripting of
+  // multi-component Fields is handled through calls to stk::io::set_field_output_type().
   //
-  // This declare_field<field_type> method itself will eventually be deprecated
-  // in favor of the declare_field<T> method below, where only the datatype
-  // is specified as a template parameter.
-  //
-  template <class field_type, typename std::enable_if<is_field<field_type>::value, int>::type = 0>
-  field_type & declare_field(stk::topology::rank_t arg_entity_rank,
-                             const std::string & name,
-                             unsigned number_of_states = 1,
-                             const char * fileName = HOST_DEBUG_FILE_NAME,
-                             int lineNumber = HOST_DEBUG_LINE_NUMBER);
-
-  // Declare a stk::mesh::Field by providing only the datatype as the template
-  // argument.  For example:
-  //
-  //   stk::mesh::Field<double>& field = meta.declare_field<double>(...)
-  //
-  // A compatible re-declaration will return the previously-declared Field.
-  //
-  template <typename T, typename std::enable_if<not is_field<T>::value, int>::type = 0>
+  template <typename T>
   Field<T> & declare_field(stk::topology::rank_t arg_entity_rank,
                            const std::string & name,
                            unsigned number_of_states = 1,
@@ -512,12 +478,12 @@ public:
   // Enable a mode where an error will be thrown if Fields are registered with
   // extra template parameters beyond just the datatype, and auto-registered
   // Fields during a mesh read will be created with only the datatype template
-  // parameter.  This will eventually graduate from an optional behavior to
-  // the only supported behavior.
+  // parameter.  This is now the only supported behavior, and this function
+  // will be deprecated and removed in the near future.
   //
-  void use_simple_fields() { m_use_simple_fields = true; }
+  void use_simple_fields();
 
-  bool is_using_simple_fields() const { return m_use_simple_fields; }
+  bool is_using_simple_fields() const;
 
   /** \brief  Declare a field restriction via runtime type information.
    */
@@ -624,14 +590,28 @@ public:
   bool delete_part_alias_case_insensitive(Part& part, const std::string& alias);
   std::vector<std::string> get_part_aliases(const Part& part) const;
 
+  // To enable the Field Sync Debugger in a production run, add the STK_DEBUG_FIELD_SYNC
+  // define to your build.  This function is solely used to flip external parts of the
+  // debugger on for unit testing when it is not enabled globally.
+  //
+  void enable_field_sync_debugger() {
+    m_isFieldSyncDebuggerEnabled = true;
+  }
+
+  bool is_field_sync_debugger_enabled() {
+#ifdef STK_DEBUG_FIELD_SYNC
+    return true;
+#else
+    return m_isFieldSyncDebuggerEnabled;
+#endif
+  }
+
 protected:
 
   Part & declare_internal_part( const std::string & p_name);
 
   /** \} */
 private:
-  // Functions
-
   MetaData( const MetaData & );                ///< \brief  Not allowed
   MetaData & operator = ( const MetaData & );  ///< \brief  Not allowed
 
@@ -645,12 +625,9 @@ private:
 
   void assign_topology(Part& part, stk::topology stkTopo);
 
-  // Members
+  void declare_field_sync_debugger_field(stk::mesh::FieldBase& field);
 
   BulkData* m_bulk_data;
-  bool   m_commit ;
-  bool   m_are_late_fields_enabled;
-  bool   m_use_simple_fields;
   impl::PartRepository m_part_repo ;
   CSet   m_attributes ;
 
@@ -675,6 +652,10 @@ private:
 
   std::map<std::string, unsigned, std::less<std::string> > m_partAlias;
   std::map<unsigned, std::vector<std::string>> m_partReverseAlias;
+
+  bool m_commit;
+  bool m_are_late_fields_enabled;
+  bool m_isFieldSyncDebuggerEnabled;
 
   /** \name  Invariants/preconditions for MetaData.
    * \{
@@ -709,63 +690,67 @@ const std::vector<std::string>& entity_rank_names();
  * See Field.hpp for a full discussion of field restrictions.
  */
 
-template< class field_type >
-field_type & put_field_on_mesh( field_type & field ,
-                        const Part & part ,
-                        const typename stk::mesh::FieldTraits<field_type>::data_type* init_value);
+template <typename field_type>
+field_type & put_field_on_mesh(field_type & field,
+                               const Part & part,
+                               const typename field_type::value_type* init_value);
 
-template< class field_type >
-field_type & put_field_on_mesh( field_type & field ,
-                        const Selector & selector ,
-                        const typename stk::mesh::FieldTraits<field_type>::data_type* init_value);
+template <typename field_type>
+field_type & put_field_on_mesh(field_type & field,
+                               const Selector & selector,
+                               const typename field_type::value_type* init_value);
 
-template< class field_type >
-field_type & put_field_on_mesh( field_type & field ,
-                        const Part & part ,
-                        unsigned     n1 ,
-                        const typename stk::mesh::FieldTraits<field_type>::data_type* init_value);
 
-template< class field_type >
-field_type & put_field_on_mesh( field_type & field ,
-                        const Selector & selector ,
-                        unsigned     n1 ,
-                        const typename stk::mesh::FieldTraits<field_type>::data_type* init_value);
+template <typename field_type>
+field_type & put_field_on_mesh(field_type & field,
+                               const Part & part,
+                               unsigned n1,
+                               const typename field_type::value_type* init_value);
 
-template< class field_type >
-field_type & put_field_on_mesh( field_type & field ,
-                        const Part & part ,
-                        unsigned     n1 ,
-                        unsigned     n2 ,
-                        const typename stk::mesh::FieldTraits<field_type>::data_type* init_value);
+template <typename field_type>
+field_type & put_field_on_mesh(field_type & field,
+                               const Selector & selector,
+                               unsigned n1,
+                               const typename field_type::value_type* init_value);
 
-template< class field_type >
-field_type & put_field_on_mesh( field_type & field ,
-                        const Selector & selector ,
-                        unsigned     n1 ,
-                        unsigned     n2 ,
-                        const typename stk::mesh::FieldTraits<field_type>::data_type* init_value);
 
-template< class field_type >
-field_type & put_field_on_entire_mesh_with_initial_value(field_type & field, const typename FieldTraits<field_type>::data_type *initial_value)
+template <typename field_type>
+field_type & put_field_on_mesh(field_type & field,
+                               const Part & part,
+                               unsigned n1,
+                               unsigned n2,
+                               const typename field_type::value_type* init_value);
+
+template <typename field_type>
+field_type & put_field_on_mesh(field_type & field,
+                               const Selector & selector,
+                               unsigned n1,
+                               unsigned n2,
+                               const typename field_type::value_type* init_value);
+
+
+template <typename field_type>
+field_type & put_field_on_entire_mesh_with_initial_value(field_type & field,
+                                                         const typename field_type::value_type *initial_value)
 {
     return put_field_on_mesh(field, field.mesh_meta_data().universal_part(), initial_value);
 }
 
-template< class field_type >
+template <typename field_type>
 field_type & put_field_on_entire_mesh_with_initial_value(field_type & field,
                                                          unsigned n1,
-                                                         const typename FieldTraits<field_type>::data_type *initial_value)
+                                                         const typename field_type::value_type *initial_value)
 {
     return put_field_on_mesh(field, field.mesh_meta_data().universal_part(), n1, initial_value);
 }
 
-template< class field_type >
+template <typename field_type>
 field_type & put_field_on_entire_mesh(field_type & field)
 {
     return put_field_on_entire_mesh_with_initial_value(field, nullptr);
 }
 
-template< class field_type >
+template <typename field_type>
 field_type & put_field_on_entire_mesh(field_type & field, unsigned n1)
 {
     return put_field_on_entire_mesh_with_initial_value(field, n1, nullptr);
@@ -797,186 +782,32 @@ Part & MetaData::get_part( unsigned ord ) const
   return *m_part_repo.get_all_parts()[ord];
 }
 
-template <class field_type, typename std::enable_if<is_field<field_type>::value, int>::type>
-inline
-field_type * MetaData::get_field(stk::mesh::EntityRank arg_entity_rank,
-                                 const std::string & name,
-                                 const char * fileName,
-                                 int lineNumber) const
-{
-  typedef FieldTraits< field_type > Traits ;
-
-  if (m_use_simple_fields) {
-    std::ostringstream os;
-    os << "Invalid call to MetaData::get_field() for Field '" << name << "'." << std::endl
-       << "  Cannot use a Field as the template parameter:" << std::endl
-       << "    get_field<" << sierra::demangle(typeid(field_type).name()) << ">()" << std::endl
-       << "  Please use only a datatype template parameter, e.g. get_field<"
-         << sierra::demangle(typeid(typename Traits::data_type).name()) << ">()." << std::endl;
-
-    if (lineNumber != -1) {
-      os << "  Called from: " << fileName << ":" << lineNumber << std::endl;
-    }
-    else {
-      os << "  Please build with at least gcc-4.8.0 or clang-9.0.0 to see caller location" << std::endl;
-    }
-    STK_ThrowErrorMsg(os.str());
-  }
-
-  const DataTraits & dt = data_traits< typename Traits::data_type >();
-  const DataTraits & dt_void = data_traits< void >();
-
-  const shards::ArrayDimTag * tags[8] ;
-
-  Traits::assign_tags( tags );
-
-  FieldBase * const field = m_field_repo.get_field( arg_entity_rank, name , dt , Traits::Rank , tags , 0 );
-
-  STK_ThrowRequireMsg(field == nullptr || field->data_traits().type_info == dt.type_info || dt_void.type_info == dt.type_info,
-                  "field " << field->name() << " has type " << field->data_traits().type_info.name() << " when expecting type " << dt.type_info.name());
-
-  return static_cast<field_type*>(field);
-}
-
-template <typename T, typename std::enable_if<not is_field<T>::value, int>::type>
+template <typename T>
 inline
 Field<T> * MetaData::get_field(stk::mesh::EntityRank arg_entity_rank,
                                const std::string & name,
                                const char * fileName,
                                int lineNumber) const
 {
-  typedef FieldTraits<Field<T>> Traits;
+  static_assert(not is_field_v<T> && not is_field_base_v<T>,
+                "You must use a datatype as the template parameter to MetaData::get_field(), "
+                "and not the Field itself");
 
-  const DataTraits & dt = data_traits<typename Traits::data_type>();
+  const DataTraits & dt = data_traits<T>();
   const DataTraits & dt_void = data_traits<void>();
 
-  const shards::ArrayDimTag * tags[8];
+  FieldBase * const field = m_field_repo.get_field(arg_entity_rank, name, dt, 0);
 
-  Traits::assign_tags(tags);
-
-  FieldBase * const field = m_field_repo.get_field(arg_entity_rank, name, dt, Traits::Rank, tags, 0);
-
-  STK_ThrowRequireMsg(field == nullptr || field->data_traits().type_info == dt.type_info || dt_void.type_info == dt.type_info,
-                  "field " << field->name() << " has type " << field->data_traits().type_info.name()
-                  << " when expecting type " << dt.type_info.name());
+  STK_ThrowRequireMsg(field == nullptr ||
+                      field->data_traits().type_info == dt.type_info ||
+                      dt_void.type_info == dt.type_info,
+                      "field " << field->name() << " has type " << field->data_traits().type_info.name()
+                      << " when expecting type " << dt.type_info.name());
 
   return static_cast<Field<T>*>(field);
 }
 
-
-template <class field_type, typename std::enable_if<is_field<field_type>::value, int>::type>
-field_type &
-MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
-                        const std::string & name,
-                        unsigned number_of_states,
-                        const char * fileName,
-                        int lineNumber)
-{
-  typedef FieldTraits< field_type > Traits ;
-
-  const DataTraits & traits = data_traits< typename Traits::data_type >();
-
-  const shards::ArrayDimTag * dim_tags[8] ;
-
-  Traits::assign_tags( dim_tags );
-
-  if (m_use_simple_fields) {
-    std::ostringstream os;
-    os << "Invalid call to MetaData::declare_field() for Field '" << name << "'." << std::endl
-       << "  Cannot use a Field as the template parameter:" << std::endl
-       << "    declare_field<" << sierra::demangle(typeid(field_type).name()) << ">()" << std::endl
-       << "  Please use only a datatype template parameter, e.g. declare_field<"
-         << sierra::demangle(typeid(typename Traits::data_type).name()) << ">()." << std::endl;
-
-    if (lineNumber != -1) {
-      os << "  Called from: " << fileName << ":" << lineNumber << std::endl;
-    }
-    else {
-      os << "  Please build with at least gcc-4.8.0 or clang-9.0.0 to see caller location" << std::endl;
-    }
-    STK_ThrowErrorMsg(os.str());
-  }
-
-  const char** reservedStateSuffix = reserved_state_suffix();
-
-  // Check that the name does not have a reserved suffix
-
-  for ( unsigned i = 0 ; i < 6 ; ++i ) {
-    const int len_name   = name.size();
-    const int len_suffix = std::strlen( reservedStateSuffix[i] );
-    const int offset     = len_name - len_suffix ;
-    if ( 0 <= offset ) {
-      const char * const name_suffix = name.c_str() + offset ;
-      STK_ThrowErrorMsgIf( equal_case( name_suffix , reservedStateSuffix[i] ),
-          "For name = \"" << name_suffix <<
-          "\" CANNOT HAVE THE RESERVED STATE SUFFIX \"" <<
-          reservedStateSuffix[i] << "\"" );
-    }
-  }
-
-  // Check that the field of this name has not already been declared
-
-  field_type * f[ MaximumFieldStates ] = {nullptr};
-
-  FieldBase* rawField = m_field_repo.get_field(arg_entity_rank , name ,
-                                               traits , Traits::Rank , dim_tags , number_of_states);
-  
-
-  f[0] = dynamic_cast<field_type*>(rawField);
-
-  if (rawField != nullptr) {
-    STK_ThrowRequireMsg(f[0] == rawField, "Re-registration of field '" << name << "' with a different template type is not allowed.");
-  }
-
-  if (f[0] != nullptr) {
-    for ( unsigned i = 1 ; i < number_of_states ; ++i ) {
-      f[i] = &f[0]->field_of_state(static_cast<FieldState>(i));
-    }
-  }
-  else {
-    // Field does not exist then create it
-
-    std::string field_names[ MaximumFieldStates ];
-
-    field_names[0] = name ;
-
-    if ( 2 == number_of_states ) {
-      field_names[1] = name ;
-      field_names[1].append( reservedStateSuffix[0] );
-    }
-    else {
-      for ( unsigned i = 1 ; i < number_of_states ; ++i ) {
-        field_names[i] = name ;
-        field_names[i].append( reservedStateSuffix[i] );
-      }
-    }
-
-    for ( unsigned i = 0 ; i < number_of_states ; ++i ) {
-
-      f[i] = new field_type(this,
-                            arg_entity_rank,
-                            m_field_repo.get_fields().size(),
-                            field_names[i],
-                            traits,
-                            Traits::Rank,
-                            dim_tags,
-                            number_of_states,
-                            static_cast<FieldState>(i));
-
-      m_field_repo.add_field( f[i] );
-    }
-
-    for ( unsigned i = 0 ; i < number_of_states ; ++i ) {
-      f[i]->set_field_states( f );
-    }
-  }
-
-  f[0]->set_mesh(m_bulk_data);
-
-  return *f[0] ;
-}
-
-template <typename T, typename std::enable_if<not is_field<T>::value, int>::type>
+template <typename T>
 Field<T> &
 MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
                         const std::string & name,
@@ -984,13 +815,11 @@ MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
                         const char * fileName,
                         int lineNumber)
 {
-  typedef FieldTraits<Field<T>> Traits;
+  static_assert(not is_field_v<T> && not is_field_base_v<T>,
+                "You must use a datatype as the template parameter to MetaData::declare_field(), "
+                "and not the Field itself");
 
-  const DataTraits & traits = data_traits<typename Traits::data_type>();
-
-  const shards::ArrayDimTag * dim_tags[8];
-
-  Traits::assign_tags(dim_tags);
+  const DataTraits & traits = data_traits<T>();
 
   const char** reservedStateSuffix = reserved_state_suffix();
 
@@ -1001,7 +830,7 @@ MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
     const int len_suffix = std::strlen( reservedStateSuffix[i] );
     const int offset     = len_name - len_suffix;
     if ( 0 <= offset ) {
-      const char * const name_suffix = name.c_str() + offset;
+      [[maybe_unused]] const char * const name_suffix = name.c_str() + offset;
       STK_ThrowErrorMsgIf(equal_case( name_suffix , reservedStateSuffix[i]),
           "For name = \"" << name_suffix <<
           "\" CANNOT HAVE THE RESERVED STATE SUFFIX \"" <<
@@ -1013,13 +842,13 @@ MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
 
   Field<T> * f[MaximumFieldStates] = {nullptr};
 
-  FieldBase* rawField = m_field_repo.get_field(arg_entity_rank, name,
-                                               traits, Traits::Rank, dim_tags, number_of_states);
+  FieldBase* rawField = m_field_repo.get_field(arg_entity_rank, name, traits, number_of_states);
 
   f[0] = dynamic_cast<Field<T>*>(rawField);
 
   if (rawField != nullptr) {
-    STK_ThrowRequireMsg(f[0] == rawField, "Re-registration of field '" << name << "' with a different template type is not allowed.");
+    STK_ThrowRequireMsg(f[0] == rawField,
+                        "Re-registration of field '" << name << "' with a different template type is not allowed.");
   }
 
   if (f[0] != nullptr) {
@@ -1052,8 +881,6 @@ MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
                           m_field_repo.get_fields().size(),
                           field_names[i],
                           traits,
-                          Traits::Rank,
-                          dim_tags,
                           number_of_states,
                           static_cast<FieldState>(i));
 
@@ -1067,65 +894,48 @@ MetaData::declare_field(stk::topology::rank_t arg_entity_rank,
 
   f[0]->set_mesh(m_bulk_data);
 
+  declare_field_sync_debugger_field(*f[0]);
+
   return *f[0];
 }
 
-template <class field_type>
+template <typename field_type>
 inline
 field_type & put_field_on_mesh(field_type & field,
                                const Part & part,
-                               const typename stk::mesh::FieldTraits<field_type>::data_type* init_value)
+                               const typename field_type::value_type* init_value)
 {
-  typedef FieldTraits<field_type> Traits;
-  typedef typename Traits::Helper Helper;
   MetaData & meta = MetaData::get(field);
 
   unsigned numScalarsPerEntity = 1;
-  if (not meta.is_using_simple_fields()) {
-    if (field.field_array_rank() > 0) {
-      unsigned stride[8] = {0,0,0,0,0,0,0,0};
-      Helper::assign(stride);
-      numScalarsPerEntity = stride[0];
-    }
-  }
-
-  unsigned firstDimension = numScalarsPerEntity;
+  unsigned firstDimension = 1;
   meta.declare_field_restriction(field, part, numScalarsPerEntity, firstDimension, init_value);
 
   return field;
 }
 
-template <class field_type>
+template <typename field_type>
 inline
 field_type & put_field_on_mesh(field_type & field,
                                const Selector & selector,
-                               const typename stk::mesh::FieldTraits<field_type>::data_type* init_value)
+                               const typename field_type::value_type* init_value)
 {
-  typedef FieldTraits<field_type> Traits;
-  typedef typename Traits::Helper Helper;
   MetaData & meta = MetaData::get(field);
 
   unsigned numScalarsPerEntity = 1;
-  if (not meta.is_using_simple_fields()) {
-    if (field.field_array_rank() > 0) {
-      unsigned stride[8] = {0,0,0,0,0,0,0,0};
-      Helper::assign(stride);
-      numScalarsPerEntity = stride[0];
-    }
-  }
-
-  unsigned firstDimension = numScalarsPerEntity;
+  unsigned firstDimension = 1;
   meta.declare_field_restriction(field, selector, numScalarsPerEntity, firstDimension, init_value);
 
   return field;
 }
 
-template <class field_type>
+
+template <typename field_type>
 inline
 field_type & put_field_on_mesh(field_type &field,
                                const Part &part,
                                unsigned n1,
-                               const typename stk::mesh::FieldTraits<field_type>::data_type* init_value)
+                               const typename field_type::value_type* init_value)
 {
   unsigned numScalarsPerEntity = n1;
   unsigned firstDimension = n1;
@@ -1134,12 +944,12 @@ field_type & put_field_on_mesh(field_type &field,
   return field;
 }
 
-template <class field_type>
+template <typename field_type>
 inline
 field_type & put_field_on_mesh(field_type &field,
                                const Selector &selector,
                                unsigned n1,
-                               const typename stk::mesh::FieldTraits<field_type>::data_type* init_value)
+                               const typename field_type::value_type* init_value)
 {
   unsigned numScalarsPerEntity = n1;
   unsigned firstDimension = n1;
@@ -1148,13 +958,13 @@ field_type & put_field_on_mesh(field_type &field,
   return field;
 }
 
-template <class field_type>
+template <typename field_type>
 inline
 field_type & put_field_on_mesh(field_type &field,
                                const Part &part,
                                unsigned n1,
                                unsigned n2,
-                               const typename stk::mesh::FieldTraits<field_type>::data_type* init_value)
+                               const typename field_type::value_type* init_value)
 {
   unsigned numScalarsPerEntity = n1*n2;
   unsigned firstDimension = n1;
@@ -1163,13 +973,13 @@ field_type & put_field_on_mesh(field_type &field,
   return field;
 }
 
-template <class field_type>
+template <typename field_type>
 inline
 field_type & put_field_on_mesh(field_type &field,
                                const Selector &selector,
                                unsigned n1,
                                unsigned n2,
-                               const typename stk::mesh::FieldTraits<field_type>::data_type* init_value)
+                               const typename field_type::value_type* init_value)
 {
   unsigned numScalarsPerEntity = n1*n2;
   unsigned firstDimension = n1;
@@ -1278,56 +1088,16 @@ is_auto_declared_part(const Part &part)
   return stk::mesh::impl::is_internal_part(part);
 }
 
-template <class field_type, typename std::enable_if<is_field<field_type>::value, int>::type = 0>
-field_type * get_field_by_name(const std::string & name,
-                               const MetaData & metaData,
-                               const char * fileName = HOST_DEBUG_FILE_NAME,
-                               int lineNumber = HOST_DEBUG_LINE_NUMBER)
-{
-  if (metaData.is_using_simple_fields()) {
-    typedef FieldTraits<field_type> Traits;
-    std::ostringstream os;
-    os << "Invalid call to get_field_by_name() for Field '" << name << "'." << std::endl
-       << "  Cannot use a Field as the template parameter:" << std::endl
-       << "    get_field_by_name<" << sierra::demangle(typeid(field_type).name()) << ">()" << std::endl
-       << "  Please use only a datatype template parameter, e.g. get_field_by_name<"
-         << sierra::demangle(typeid(typename Traits::data_type).name()) << ">()." << std::endl;
-
-    if (lineNumber != -1) {
-      os << "  Called from: " << fileName << ":" << lineNumber << std::endl;
-    }
-    else {
-      os << "  Please build with at least gcc-4.8.0 or clang-9.0.0 to see caller location" << std::endl;
-    }
-    STK_ThrowErrorMsg(os.str());
-  }
-
-  field_type* field = nullptr;
-  unsigned num_nonnull_fields = 0;
-  for(stk::topology::rank_t i=stk::topology::NODE_RANK; i<=stk::topology::CONSTRAINT_RANK; ++i) {
-    field_type* thisfield = metaData.get_field<field_type>(i, name);
-    if (thisfield != nullptr) {
-      if (field == nullptr) {
-        field = thisfield;
-      }
-      ++num_nonnull_fields;
-    }
-  }
-
-  if (num_nonnull_fields > 1) {
-    std::cerr << "get_field_by_name WARNING, found "<<num_nonnull_fields<<" fields with name="<<name
-      <<". Returning the first one."<<std::endl;
-  }
-
-  return field;
-}
-
-template <typename T, typename std::enable_if<not is_field<T>::value, int>::type = 0>
+template <typename T>
 Field<T> * get_field_by_name(const std::string & name,
                              const MetaData & metaData,
                              const char * fileName = HOST_DEBUG_FILE_NAME,
                              int lineNumber = HOST_DEBUG_LINE_NUMBER)
 {
+  static_assert(not is_field_v<T> && not is_field_base_v<T>,
+                "You must use a datatype as the template parameter to get_field_by_name(), "
+                "and not the Field itself");
+
   Field<T>* field = nullptr;
   unsigned num_nonnull_fields = 0;
   for(stk::topology::rank_t i=stk::topology::NODE_RANK; i<=stk::topology::CONSTRAINT_RANK; ++i) {
@@ -1341,8 +1111,8 @@ Field<T> * get_field_by_name(const std::string & name,
   }
 
   if (num_nonnull_fields > 1) {
-    std::cerr << "get_field_by_name WARNING, found "<<num_nonnull_fields<<" fields with name="<<name
-      <<". Returning the first one."<<std::endl;
+    std::cerr << "get_field_by_name WARNING, found "<< num_nonnull_fields << " fields with name=" << name
+              << ". Returning the first one." << std::endl;
   }
 
   return field;

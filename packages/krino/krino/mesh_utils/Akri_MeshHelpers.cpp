@@ -28,6 +28,102 @@
 
 namespace krino{
 
+void populate_stk_local_ids(stk::mesh::BulkData & mesh)
+{
+  stk::mesh::Selector selector = mesh.mesh_meta_data().universal_part();
+  for (auto rank = stk::topology::NODE_RANK; rank <= stk::topology::ELEMENT_RANK; ++rank)
+  {
+    unsigned localId = 0;
+    auto buckets = mesh.get_buckets(rank, selector);
+    for (auto && b : buckets)
+    {
+      for (unsigned i = 0; i < b->size(); ++i)
+      {
+        mesh.set_local_id((*b)[i], localId);
+        localId++;
+      }
+    }
+  }
+}
+
+void fill_node_ids_for_nodes(const stk::mesh::BulkData & mesh, const std::vector<stk::mesh::Entity> & parentNodes, std::vector<stk::mesh::EntityId> & parentNodeIds)
+{
+  parentNodeIds.clear();
+  for (auto parent : parentNodes)
+    parentNodeIds.push_back(mesh.identifier(parent));
+}
+
+stk::mesh::PartVector get_all_block_parts(const stk::mesh::MetaData & meta)
+{
+  stk::mesh::PartVector blockParts;
+  for (auto * part : meta.get_parts())
+    if (part->primary_entity_rank() == stk::topology::ELEMENT_RANK &&
+        part->subsets().empty() &&
+        part->topology() != stk::topology::INVALID_TOPOLOGY &&
+        !stk::mesh::is_auto_declared_part(*part))
+      blockParts.push_back(part);
+  return blockParts;
+}
+
+size_t get_size_of_vector_indexable_by_entity_offset(const stk::mesh::BulkData & mesh, const stk::mesh::EntityRank entityRank)
+{
+  stk::mesh::Entity::entity_value_type maxEntity(0);
+  for ( auto && bucket : mesh.buckets(entityRank) )
+    for ( auto && entity : *bucket )
+      maxEntity = std::max(maxEntity, entity.local_offset());
+  return maxEntity + 1;
+}
+
+std::vector<stk::mesh::Entity> get_selected_side_attached_elements(const stk::mesh::BulkData &mesh,
+  const stk::mesh::Selector & elementSelector,
+  const stk::mesh::Entity elem)
+{
+  std::vector<stk::mesh::Entity> nbrs;
+
+  std::vector<stk::mesh::Entity> elemNbrs;
+  std::vector<stk::mesh::Entity> elemSideNodes;
+
+  const stk::mesh::Entity* elemNodes = mesh.begin_nodes(elem);
+  const stk::topology elemTopology = mesh.bucket(elem).topology();
+  const unsigned numSides = elemTopology.num_sides();
+  nbrs.reserve(numSides);
+  for (unsigned iside=0; iside<numSides; ++iside)
+  {
+    stk::topology sideTopology = elemTopology.side_topology(iside);
+    elemSideNodes.resize(sideTopology.num_nodes());
+    elemTopology.side_nodes(elemNodes, iside, elemSideNodes.data());
+
+    stk::mesh::get_entities_through_relations(mesh, elemSideNodes, stk::topology::ELEMENT_RANK, elemNbrs);
+    for (auto nbr : elemNbrs)
+      if (nbr != elem && elementSelector(mesh.bucket(nbr)))
+        nbrs.push_back(nbr);
+  }
+  return nbrs;
+}
+
+double * get_field_data(const stk::mesh::BulkData& mesh, const FieldRef field, const stk::mesh::Entity entity)
+{
+  STK_ThrowRequireMsg(field.valid(), "Invalid field: " << field.name());
+  double * fieldData = field_data<double>(field, entity);
+  STK_ThrowRequireMsg(nullptr != fieldData, "Field: " << field.name() << " not present on " << debug_entity_1line(mesh, entity));
+  return fieldData;
+}
+
+double & get_scalar_field(const stk::mesh::BulkData& mesh, const FieldRef field, const stk::mesh::Entity entity)
+{
+  return *get_field_data(mesh, field, entity);
+}
+
+stk::math::Vector3d get_vector_field(const stk::mesh::BulkData& mesh, const FieldRef vecField, const stk::mesh::Entity entity)
+{
+  return stk::math::Vector3d(get_field_data(mesh, vecField, entity));
+}
+
+stk::math::Vector3d get_vector_field(const stk::mesh::BulkData& mesh, const FieldRef vecField, const stk::mesh::Entity entity, const unsigned vecLen)
+{
+  return stk::math::Vector3d(get_field_data(mesh, vecField, entity), vecLen);
+}
+
 static bool float_less(double a, double b)
 {
   return static_cast<float>(a) < static_cast<float>(b);
@@ -56,6 +152,14 @@ bool is_less_than_in_x_then_y_then_z(const stk::math::Vector3d& A, const stk::ma
 size_t get_global_num_entities(const stk::mesh::BulkData& mesh, stk::mesh::EntityRank entityRank)
 {
   size_t numEntities = stk::mesh::count_selected_entities(mesh.mesh_meta_data().locally_owned_part(), mesh.buckets(entityRank));
+  const size_t localNumEntities = numEntities;
+  stk::all_reduce_sum(mesh.parallel(), &localNumEntities, &numEntities, 1);
+  return numEntities;
+}
+
+size_t get_global_num_entities(const stk::mesh::BulkData& mesh, const stk::mesh::Part & part)
+{
+  size_t numEntities = stk::mesh::count_selected_entities(mesh.mesh_meta_data().locally_owned_part() & part, mesh.buckets(part.primary_entity_rank()));
   const size_t localNumEntities = numEntities;
   stk::all_reduce_sum(mesh.parallel(), &localNumEntities, &numEntities, 1);
   return numEntities;
@@ -344,6 +448,50 @@ void compute_element_quality(const stk::mesh::BulkData & mesh, double & minEdgeL
   stk::all_reduce_max(mesh.parallel(), &localMaxVolume, &maxVolume, 1);
 }
 
+static double element_L1_average_edge_length(const stk::topology elemTopology, const std::vector<stk::math::Vector3d> & elementNodeCoords)
+{
+  const unsigned numEdges = elemTopology.num_edges();
+
+  double sumEdgeLengths = 0.0;
+  for ( unsigned edge = 0; edge < numEdges; edge++ )
+  {
+    const unsigned * const lnn = get_edge_node_ordinals(elemTopology, edge);
+    sumEdgeLengths += (elementNodeCoords[lnn[0]] - elementNodeCoords[lnn[1]]).length();
+  }
+
+  return sumEdgeLengths/numEdges;
+}
+
+double compute_global_average_edge_length_for_elements(const stk::mesh::BulkData & mesh, const FieldRef coordsField, const std::vector<stk::mesh::Entity> & elementsToIntersect)
+{
+  std::vector<stk::math::Vector3d> elementNodeCoords;
+
+  double sumAvgEdgeLengths = 0.0;
+  for ( auto && elem : elementsToIntersect )
+  {
+    fill_element_node_coordinates(mesh, elem, coordsField, elementNodeCoords);
+    sumAvgEdgeLengths += element_L1_average_edge_length(mesh.bucket(elem).topology(), elementNodeCoords);
+  }
+
+
+  std::array<double,2> localSum = {sumAvgEdgeLengths, 1.0*elementsToIntersect.size()};
+  std::array<double,2> globalSum;
+
+  stk::all_reduce_sum(mesh.parallel(), localSum.data(), globalSum.data(), localSum.size());
+
+  const double avgElemSize = ( globalSum[1] != 0.0 ) ? globalSum[0]/globalSum[1] : 0.0;
+
+  return avgElemSize;
+}
+
+double compute_global_average_edge_length_for_selected_elements(const stk::mesh::BulkData & mesh, const FieldRef coordsField, const stk::mesh::Selector & elementSelector)
+{
+  std::vector< stk::mesh::Entity> elems;
+  stk::mesh::get_selected_entities( elementSelector, mesh.buckets( stk::topology::ELEMENT_RANK ), elems, false );
+
+  return compute_global_average_edge_length_for_elements(mesh, coordsField, elems);
+}
+
 static std::vector<stk::mesh::Entity> get_owned_nodes_with_nodal_volume_below_threshold(const stk::mesh::BulkData & mesh, const stk::mesh::Selector & blockSelector, const double threshold)
 {
   STK_ThrowRequireMsg(mesh.is_automatic_aura_on() || mesh.parallel_size() == 1, "Method requires automatic aura.");
@@ -411,10 +559,10 @@ void pack_entities_for_sharing_procs(const stk::mesh::BulkData & mesh,
   });
 }
 
-void unpack_shared_entities(const stk::mesh::BulkData & mesh,
-    std::vector<stk::mesh::Entity> & sharedEntities,
+std::vector<stk::mesh::Entity> unpack_entities_from_other_procs(const stk::mesh::BulkData & mesh,
     stk::CommSparse &commSparse)
 {
+  std::vector<stk::mesh::Entity> entities;
   stk::unpack_communications(commSparse, [&](int procId)
   {
     stk::CommBuffer & buffer = commSparse.recv_buffer(procId);
@@ -425,9 +573,10 @@ void unpack_shared_entities(const stk::mesh::BulkData & mesh,
       commSparse.recv_buffer(procId).unpack(entityKey);
       stk::mesh::Entity entity = mesh.get_entity(entityKey);
       STK_ThrowAssert(mesh.is_valid(entity));
-      sharedEntities.push_back(entity);
+      entities.push_back(entity);
     }
   });
+  return entities;
 }
 
 static
@@ -437,8 +586,7 @@ void append_shared_entities_to_owned_ones(const stk::mesh::BulkData & mesh,
   stk::CommSparse commSparse(mesh.parallel());
   pack_entities_for_sharing_procs(mesh, entities, commSparse);
 
-  std::vector<stk::mesh::Entity> sharedEntities;
-  unpack_shared_entities(mesh, sharedEntities, commSparse);
+  const std::vector<stk::mesh::Entity> sharedEntities = unpack_entities_from_other_procs(mesh, commSparse);
   entities.insert(entities.end(), sharedEntities.begin(), sharedEntities.end());
 }
 
@@ -1392,72 +1540,19 @@ void unpack_entities_from_other_procs(const stk::mesh::BulkData & mesh,
 }
 
 void
-update_node_activation(stk::mesh::BulkData & mesh, stk::mesh::Part & active_part)
+activate_all_entities(stk::mesh::BulkData & mesh, stk::mesh::Part & activePart)
 {
-  stk::mesh::MetaData & meta = mesh.mesh_meta_data();
-
-  stk::mesh::PartVector active_part_vec(1, &active_part);
-  stk::mesh::PartVector inactive_part_vec;
-
-  std::vector<stk::mesh::Entity> entities;
-  stk::mesh::Selector locally_owned(meta.locally_owned_part());
-  stk::mesh::get_selected_entities( locally_owned, mesh.buckets( stk::topology::NODE_RANK ), entities );
-
-  for (std::vector<stk::mesh::Entity>::iterator i_node = entities.begin(); i_node != entities.end(); ++i_node)
-  {
-    stk::mesh::Entity node = *i_node;
-
-    const unsigned num_node_elems = mesh.num_elements(node);
-    const stk::mesh::Entity* node_elems = mesh.begin_elements(node);
-    bool have_active_elems = false;
-    for (unsigned node_elem_index=0; node_elem_index<num_node_elems && !have_active_elems; ++node_elem_index)
-    {
-      stk::mesh::Entity elem = node_elems[node_elem_index];
-
-      if (mesh.bucket(elem).member(active_part))
-      {
-        have_active_elems = true;
-      }
-    }
-
-    if (have_active_elems)
-    {
-      if (!mesh.bucket(node).member(active_part))
-      {
-        mesh.change_entity_parts(node, active_part_vec, inactive_part_vec);
-      }
-    }
-    else
-    {
-      if (mesh.bucket(node).member(active_part))
-      {
-        mesh.change_entity_parts(node, inactive_part_vec, active_part_vec);
-      }
-    }
-  }
-}
-
-void
-activate_all_entities(stk::mesh::BulkData & mesh, stk::mesh::Part & active_part)
-{
-  std::vector<stk::mesh::PartVector> add_parts;
-  std::vector<stk::mesh::PartVector> remove_parts;
+  stk::mesh::PartVector addParts = {&activePart};
+  stk::mesh::PartVector removeParts = {};
   std::vector<stk::mesh::Entity> entities;
 
-  stk::mesh::Selector inactive_locally_owned = mesh.mesh_meta_data().locally_owned_part() & !active_part;
+  stk::mesh::Selector inactiveLocallyOwned = mesh.mesh_meta_data().locally_owned_part() & !activePart;
 
   for (stk::mesh::EntityRank entity_rank = stk::topology::NODE_RANK; entity_rank <= stk::topology::ELEMENT_RANK; ++entity_rank)
-  {
-    const stk::mesh::BucketVector & buckets = mesh.get_buckets(entity_rank, inactive_locally_owned);
-    for (auto&& bucket_ptr : buckets)
-    {
-      entities.insert(entities.end(), bucket_ptr->begin(), bucket_ptr->end());
-    }
-  }
-  add_parts.assign(entities.size(), {&active_part});
-  remove_parts.resize(entities.size());
+    for (auto&& bucketPtr : mesh.get_buckets(entity_rank, inactiveLocallyOwned))
+      entities.insert(entities.end(), bucketPtr->begin(), bucketPtr->end());
 
-  mesh.batch_change_entity_parts(entities, add_parts, remove_parts);
+  mesh.batch_change_entity_parts(entities, addParts, removeParts);
 }
 
 //--------------------------------------------------------------------------------
@@ -1714,37 +1809,121 @@ stk::mesh::PartVector filter_non_io_parts(const stk::mesh::PartVector & all_part
   return io_parts;
 }
 
-void
-activate_selected_sides_touching_active_elements(stk::mesh::BulkData & mesh, const stk::mesh::Selector & side_selector, stk::mesh::Part & active_part)
+static bool entity_has_any_active_element(const stk::mesh::BulkData & mesh, const stk::mesh::Part & activePart, const stk::mesh::Entity entity)
 {
-  // This method requires AURA
-  STK_ThrowRequire(mesh.is_automatic_aura_on());
+  // Requires AURA for parallel consistent answer
+  for (auto elem : StkMeshEntities{mesh.begin_elements(entity), mesh.end_elements(entity)})
+    if (mesh.bucket(elem).member(activePart))
+      return true;
+  return false;
+}
 
-  mesh.modification_begin();
-  stk::mesh::PartVector active_part_vec(1, &active_part);
-  stk::mesh::PartVector inactive_part_vec;
-  stk::mesh::Selector select_locally_owned = side_selector & mesh.mesh_meta_data().locally_owned_part();
+static void fill_selected_entities_that_need_to_be_made_active_or_inactive(const stk::mesh::BulkData & mesh,
+    const stk::mesh::EntityRank entityRank,
+    const stk::mesh::Selector & entitySelector,
+    const stk::mesh::Part & activePart,
+    std::vector<stk::mesh::Entity> & entitiesToMakeActive,
+    std::vector<stk::mesh::Entity> & entitiesToMakeInactive)
+{
+  // Uses entity_has_any_active_element, which requires AURA for parallel consistent answer
 
-  std::vector<stk::mesh::Entity> sides;
-  stk::mesh::get_selected_entities( select_locally_owned, mesh.buckets( mesh.mesh_meta_data().side_rank() ), sides );
-  for (auto && side : sides)
+  entitiesToMakeActive.clear();
+  entitiesToMakeInactive.clear();
+
+  stk::mesh::Selector selectLocallyOwned = entitySelector & mesh.mesh_meta_data().locally_owned_part();
+  const stk::mesh::BucketVector & buckets = mesh.get_buckets( entityRank, selectLocallyOwned );
+
+  for ( auto && bucket : buckets )
   {
-    bool have_active_elem = false;
-    const stk::mesh::Entity* side_elems = mesh.begin_elements(side);
-    const unsigned num_side_elems = mesh.num_elements(side);
-    for (unsigned ielem=0; ielem<num_side_elems; ++ielem)
+    const bool isBucketActive = bucket->member(activePart);
+    for (auto entity : *bucket)
     {
-      if (mesh.bucket(side_elems[ielem]).member(active_part))
+      if (entity_has_any_active_element(mesh, activePart, entity))
       {
-        have_active_elem = true;
-        break;
+        if (!isBucketActive)
+          entitiesToMakeActive.push_back(entity);
+      }
+      else
+      {
+        if (isBucketActive)
+          entitiesToMakeInactive.push_back(entity);
       }
     }
-
-    if (have_active_elem) mesh.change_entity_parts(side, active_part_vec, inactive_part_vec);
-    else  mesh.change_entity_parts(side, inactive_part_vec, active_part_vec);
   }
-  mesh.modification_end();
+}
+
+static void check_for_possible_parallel_inconsistency_in_activity(const stk::mesh::BulkData & mesh,
+    const stk::mesh::EntityRank entityRank,
+    const stk::mesh::Selector & entitySelector,
+    const stk::mesh::Part & activePart)
+{
+  std::ostringstream errLog;
+  stk::mesh::Selector selectUnowned = entitySelector & !mesh.mesh_meta_data().locally_owned_part();
+
+  for (auto && bucket : mesh.get_buckets(entityRank, selectUnowned))
+  {
+    const bool isBucketActive = bucket->member(activePart);
+    for (auto entity : *bucket)
+      if (isBucketActive != entity_has_any_active_element(mesh, activePart, entity))
+        errLog << "Possible parallel inconsistency for " << debug_entity_1line(mesh, entity) << "\n";
+  }
+  RequireEmptyErrorMsg(mesh.parallel(), errLog.str(), "Cannot determine if active part is parallel consistent.  Contact the krino team.");
+}
+
+void
+activate_selected_entities_touching_active_elements(stk::mesh::BulkData & mesh,
+    const stk::mesh::EntityRank entityRank,
+    const stk::mesh::Selector & entitySelector,
+    stk::mesh::Part & activePart)
+{
+  // This method requires AURA to guarantee a parallel consistent result.
+  // Otherwise, we must have nested active and inactive elements on each proc for the result
+  // to be parallel consistent.
+  // I think that CDFEM and krino adaptivity satisfy this nesting requirement.
+  // Traditional element death would not, however.
+  // So it would be unnecessarily expensive to do the extra communication all the time
+  // when we don't have aura.
+  // And the usage of krino with traditional element death is possibly rare?
+  // So our current strategy is to call check_for_possible_parallel_inconsistency_in_activity
+  // at the end if we don't have aura and error out if there is a possible inconsistency.
+
+  std::vector<stk::mesh::Entity> entitiesToMakeActive;
+  std::vector<stk::mesh::Entity> entitiesToMakeInactive;
+
+  fill_selected_entities_that_need_to_be_made_active_or_inactive(mesh, entityRank, entitySelector, activePart, entitiesToMakeActive, entitiesToMakeInactive);
+
+  stk::mesh::PartVector activeParts = {&activePart};
+  stk::mesh::PartVector inactiveParts;
+
+  const size_t numChanges = entitiesToMakeActive.size() + entitiesToMakeInactive.size();
+
+  if(stk::is_true_on_any_proc(mesh.parallel(), numChanges > 0))
+  {
+    std::vector<stk::mesh::Entity> entities;
+    std::vector<stk::mesh::PartVector> addParts;
+    std::vector<stk::mesh::PartVector> removeParts;
+    entities.reserve(numChanges);
+    addParts.reserve(numChanges);
+    removeParts.reserve(numChanges);
+
+    for (auto entity : entitiesToMakeActive)
+    {
+      entities.push_back(entity);
+      addParts.push_back(activeParts);
+      removeParts.push_back(inactiveParts);
+    }
+    for (auto entity : entitiesToMakeInactive)
+    {
+      entities.push_back(entity);
+      addParts.push_back(inactiveParts);
+      removeParts.push_back(activeParts);
+    }
+
+    mesh.batch_change_entity_parts(entities, addParts, removeParts);
+  }
+
+  if (!mesh.is_automatic_aura_on() && mesh.parallel_size() > 1)
+    check_for_possible_parallel_inconsistency_in_activity(mesh, entityRank, entitySelector, activePart);
 }
 
 void
@@ -2491,7 +2670,7 @@ void pack_owned_entities_for_ghosting_procs(const stk::mesh::BulkData & mesh,
 }
 
 static
-void unpack_ghosted_entities_from_owners(const stk::mesh::BulkData & mesh,
+void unpack_entities(const stk::mesh::BulkData & mesh,
     std::vector<stk::mesh::Entity> & entities,
     stk::CommSparse &commSparse)
 {
@@ -2514,7 +2693,168 @@ void communicate_owned_entities_to_ghosting_procs(const stk::mesh::BulkData & me
 {
   stk::CommSparse commSparse(mesh.parallel());
   pack_owned_entities_for_ghosting_procs(mesh, entities, commSparse);
-  unpack_ghosted_entities_from_owners(mesh, entities, commSparse);
+  unpack_entities(mesh, entities, commSparse);
+}
+
+static
+void pack_for_owning_procs(const stk::mesh::BulkData & mesh,
+    const std::vector<stk::mesh::Entity> & entities,
+    stk::CommSparse &commSparse)
+{
+  std::vector<int> elemCommProcs;
+  stk::pack_and_communicate(commSparse,[&]()
+  {
+    for (auto entity : entities)
+    {
+      if (!mesh.bucket(entity).owned())
+      {
+        commSparse.send_buffer(mesh.parallel_owner_rank(entity)).pack(mesh.entity_key(entity));
+      }
+    }
+  });
+}
+
+void communicate_entities_to_owning_proc(const stk::mesh::BulkData & mesh, const std::vector<stk::mesh::Entity> & entitiesToSend, std::vector<stk::mesh::Entity> & entitiesReceived)
+{
+  stk::CommSparse commSparse(mesh.parallel());
+  pack_for_owning_procs(mesh, entitiesToSend, commSparse);
+  entitiesReceived.clear();
+  unpack_entities(mesh, entitiesReceived, commSparse);
+}
+
+template<typename NODE_CONTAINER>
+void pack_shared_nodes_for_sharing_procs(const stk::mesh::BulkData & mesh,
+    const NODE_CONTAINER & nodes,
+    stk::CommSparse &commSparse)
+{
+  std::vector<int> nodeSharedProcs;
+  stk::pack_and_communicate(commSparse,[&]()
+  {
+    for (auto node : nodes)
+    {
+      if (mesh.bucket(node).shared())
+      {
+        mesh.comm_shared_procs(node, nodeSharedProcs);
+        for (int procId : nodeSharedProcs)
+          commSparse.send_buffer(procId).pack(mesh.identifier(node));
+      }
+    }
+  });
+}
+
+static
+void unpack_shared_nodes(const stk::mesh::BulkData & mesh,
+    std::set<stk::mesh::Entity> & nodes,
+    stk::CommSparse &commSparse)
+{
+  stk::unpack_communications(commSparse, [&](int procId)
+  {
+    stk::CommBuffer & buffer = commSparse.recv_buffer(procId);
+
+    while ( buffer.remaining() )
+    {
+      stk::mesh::EntityId nodeId;
+      commSparse.recv_buffer(procId).unpack(nodeId);
+      stk::mesh::Entity node = mesh.get_entity(stk::topology::NODE_RANK, nodeId);
+      STK_ThrowRequire(mesh.is_valid(node));
+      nodes.insert(node);
+    }
+  });
+}
+
+static
+void unpack_shared_nodes(const stk::mesh::BulkData & mesh,
+    std::vector<stk::mesh::Entity> & nodes,
+    stk::CommSparse &commSparse)
+{
+  stk::unpack_communications(commSparse, [&](int procId)
+  {
+    stk::CommBuffer & buffer = commSparse.recv_buffer(procId);
+
+    while ( buffer.remaining() )
+    {
+      stk::mesh::EntityId nodeId;
+      commSparse.recv_buffer(procId).unpack(nodeId);
+      stk::mesh::Entity node = mesh.get_entity(stk::topology::NODE_RANK, nodeId);
+      STK_ThrowRequire(mesh.is_valid(node));
+      nodes.push_back(node);
+    }
+  });
+}
+
+void communicate_shared_nodes_to_sharing_procs(const stk::mesh::BulkData & mesh, std::set<stk::mesh::Entity> & nodes)
+{
+  stk::CommSparse commSparse(mesh.parallel());
+  pack_shared_nodes_for_sharing_procs(mesh, nodes, commSparse);
+  unpack_shared_nodes(mesh, nodes, commSparse);
+}
+
+void communicate_shared_nodes_to_sharing_procs_and_sort_and_unique(const stk::mesh::BulkData & mesh, std::vector<stk::mesh::Entity> & nodes)
+{
+  stk::CommSparse commSparse(mesh.parallel());
+  pack_shared_nodes_for_sharing_procs(mesh, nodes, commSparse);
+  unpack_shared_nodes(mesh, nodes, commSparse);
+
+  stk::util::sort_and_unique(nodes, stk::mesh::EntityLess(mesh));
+}
+
+static void fill_part_changes_to_convert_entity(const stk::mesh::BulkData & mesh,
+    const std::map<int,int> & partOrdinalMapping,
+    const stk::mesh::Entity entity,
+    stk::mesh::PartVector & addParts,
+    stk::mesh::PartVector & removeParts)
+{
+  addParts.clear();
+  removeParts.clear();
+  for (auto * part : mesh.bucket(entity).supersets())
+  {
+    const auto iter = partOrdinalMapping.find(part->mesh_meta_data_ordinal());
+    if (iter != partOrdinalMapping.end())
+    {
+      removeParts.push_back(part);
+      if (iter->second >= 0) // Negative part ordinal used to indicate invalid mapping
+        addParts.push_back(&mesh.mesh_meta_data().get_part(iter->second));
+    }
+  }
+}
+
+static void append_part_changes_to_convert_entity(const stk::mesh::BulkData & mesh,
+    const std::map<int,int> & partOrdinalMapping,
+    const stk::mesh::Entity entity,
+    std::vector<stk::mesh::Entity> & entitiesToChange,
+    std::vector<stk::mesh::PartVector> & addParts,
+    std::vector<stk::mesh::PartVector> & removeParts)
+{
+  stk::mesh::PartVector entityAddParts;
+  stk::mesh::PartVector entityRemoveParts;
+  fill_part_changes_to_convert_entity(mesh, partOrdinalMapping, entity, entityAddParts, entityRemoveParts);
+  entitiesToChange.push_back(entity);
+  addParts.push_back(entityAddParts);
+  removeParts.push_back(entityRemoveParts);
+}
+
+static void append_part_changes_to_convert_element_and_sides(const stk::mesh::BulkData & mesh,
+    const std::map<int,int> & partOrdinalMapping,
+    const stk::mesh::Entity elem,
+    std::vector<stk::mesh::Entity> & entitiesToChange,
+    std::vector<stk::mesh::PartVector> & addParts,
+    std::vector<stk::mesh::PartVector> & removeParts)
+{
+  const stk::mesh::EntityRank sideRank = mesh.mesh_meta_data().side_rank();
+  append_part_changes_to_convert_entity(mesh, partOrdinalMapping, elem, entitiesToChange, addParts, removeParts);
+  for (auto side : StkMeshEntities{mesh.begin(elem, sideRank), mesh.end(elem, sideRank)})
+    append_part_changes_to_convert_entity(mesh, partOrdinalMapping, side, entitiesToChange, addParts, removeParts);
+}
+
+void batch_convert_elements_and_their_sides(stk::mesh::BulkData & mesh, const std::map<int,int> & partOrdinalMapping, const std::vector<stk::mesh::Entity> & elements)
+{
+  std::vector<stk::mesh::Entity> entitiesToChange;
+  std::vector<stk::mesh::PartVector> addParts;
+  std::vector<stk::mesh::PartVector> removeParts;
+  for (auto elem : elements)
+    append_part_changes_to_convert_element_and_sides(mesh, partOrdinalMapping, elem, entitiesToChange, addParts, removeParts);
+
+  mesh.batch_change_entity_parts(entitiesToChange, addParts, removeParts);
 }
 
 } // namespace krino

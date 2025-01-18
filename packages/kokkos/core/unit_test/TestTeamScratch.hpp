@@ -30,7 +30,6 @@ TEST(TEST_CATEGORY, team_scratch_request) {
   TestScratchTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >();
 }
 
-#if defined(KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA)
 TEST(TEST_CATEGORY, team_lambda_shared_request) {
   TestLambdaSharedTeam<Kokkos::HostSpace, TEST_EXECSPACE,
                        Kokkos::Schedule<Kokkos::Static> >();
@@ -38,7 +37,6 @@ TEST(TEST_CATEGORY, team_lambda_shared_request) {
                        Kokkos::Schedule<Kokkos::Dynamic> >();
 }
 TEST(TEST_CATEGORY, scratch_align) { TestScratchAlignment<TEST_EXECSPACE>(); }
-#endif
 
 TEST(TEST_CATEGORY, shmem_size) { TestShmemSize<TEST_EXECSPACE>(); }
 
@@ -52,6 +50,24 @@ TEST(TEST_CATEGORY, multi_level_scratch) {
   TestMultiLevelScratchTeam<TEST_EXECSPACE,
                             Kokkos::Schedule<Kokkos::Dynamic> >();
 #endif
+}
+
+struct DummyTeamParallelForFunctor {
+  KOKKOS_FUNCTION void operator()(
+      Kokkos::TeamPolicy<TEST_EXECSPACE>::member_type) const {}
+};
+
+TEST(TEST_CATEGORY, team_scratch_memory_index_parallel_for) {
+  // Requesting per team scratch memory for a largish number of teams, resulted
+  // in problems computing the correct scratch pointer due to missed
+  // initialization of the maximum number of scratch pad indices in the Cuda
+  // baackend.
+  const int scratch_size = 4896;
+  const int league_size  = 7535;
+
+  Kokkos::TeamPolicy<TEST_EXECSPACE> policy(league_size, Kokkos::AUTO);
+  policy.set_scratch_size(1, Kokkos::PerTeam(scratch_size));
+  Kokkos::parallel_for("kernel", policy, DummyTeamParallelForFunctor());
 }
 
 }  // namespace Test

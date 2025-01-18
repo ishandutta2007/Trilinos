@@ -1,44 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //               Rapid Optimization Library (ROL) Package
-//                 Copyright (2014) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact lead developers:
-//              Drew Kouri   (dpkouri@sandia.gov) and
-//              Denis Ridzal (dridzal@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2014 NTESS and the ROL contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef ROL_TYPEB_TRUSTREGIONSPGALGORITHM_DEF_HPP
@@ -95,7 +61,9 @@ TrustRegionSPGAlgorithm<Real>::TrustRegionSPGAlgorithm(ParameterList &list,
   tol2_      = lmlist.sublist("Solver").get("Relative Tolerance",                  1e-2);
   useMin_    = lmlist.sublist("Solver").get("Use Smallest Model Iterate",          true);
   useNMSP_   = lmlist.sublist("Solver").get("Use Nonmonotone Search",              false);
-  useSimpleSPG_ = !lmlist.sublist("Solver").get("Compute Cauchy Point",            true);
+
+  bool useCachyPoint = lmlist.sublist("Solver").get("Compute Cauchy Point", true);
+  useSimpleSPG_ = !useCachyPoint;
   // Inexactness Information
   ParameterList &glist = list.sublist("General");
   useInexact_.clear();
@@ -125,7 +93,8 @@ TrustRegionSPGAlgorithm<Real>::TrustRegionSPGAlgorithm(ParameterList &list,
   // Initialize trust region model
   model_ = makePtr<TrustRegionModel_U<Real>>(list,secant,mode);
   if (secant == nullPtr) {
-    esec_ = StringToESecant(list.sublist("General").sublist("Secant").get("Type","Limited-Memory BFGS"));
+    std::string secantType = list.sublist("General").sublist("Secant").get("Type","Limited-Memory BFGS");
+    esec_ = StringToESecant(secantType);
   }
 }
 
@@ -149,7 +118,7 @@ void TrustRegionSPGAlgorithm<Real>::initialize(Vector<Real>          &x,
   state_->value = obj.value(x,ftol); 
   state_->nfval++;
   //obj.gradient(*state_->gradientVec,x,ftol);
-  state_->gnorm = computeGradient(x,*state_->gradientVec,*state_->stepVec,state_->searchSize,obj,outStream);
+  computeGradient(x,*state_->gradientVec,*state_->stepVec,state_->searchSize,obj,true,gtol_,state_->gnorm,outStream);
   state_->ngrad++;
   //state_->stepVec->set(x);
   //state_->stepVec->axpy(-one,state_->gradientVec->dual());
@@ -188,30 +157,34 @@ Real TrustRegionSPGAlgorithm<Real>::computeValue(Real inTol,
 }
 
 template<typename Real>
-Real TrustRegionSPGAlgorithm<Real>::computeGradient(const Vector<Real> &x,
+void TrustRegionSPGAlgorithm<Real>::computeGradient(const Vector<Real> &x,
                                                     Vector<Real> &g,
                                                     Vector<Real> &pwa,
                                                     Real del,
                                                     Objective<Real> &obj,
+                                                    bool accept,
+                                                    Real &gtol,
+                                                    Real &gnorm,
                                                     std::ostream &outStream) const {
-  Real gnorm(0);
   if ( useInexact_[1] ) {
     const Real one(1);
-    Real gtol1 = scale0_*del;
-    Real gtol0 = gtol1 + one;
-    while ( gtol0 > gtol1 ) {
-      obj.gradient(g,x,gtol1);
+    Real gtol0 = scale0_*del;
+    if (accept) gtol  = gtol0 + one;
+    else        gtol0 = scale0_*std::min(gnorm,del);
+    while ( gtol > gtol0 ) {
+      gtol = gtol0;
+      obj.gradient(g,x,gtol);
       gnorm = TypeB::Algorithm<Real>::optimalityCriterion(x,g,pwa,outStream);
-      gtol0 = gtol1;
-      gtol1 = scale0_*std::min(gnorm,del);
+      gtol0 = scale0_*std::min(gnorm,del);
     }
   }
   else {
-    Real gtol = std::sqrt(ROL_EPSILON<Real>());
-    obj.gradient(g,x,gtol);
-    gnorm = TypeB::Algorithm<Real>::optimalityCriterion(x,g,pwa,outStream);
+    if (accept) {
+      gtol = std::sqrt(ROL_EPSILON<Real>());
+      obj.gradient(g,x,gtol);
+      gnorm = TypeB::Algorithm<Real>::optimalityCriterion(x,g,pwa,outStream);
+    }
   }
-  return gnorm;
 }
 
 template<typename Real>
@@ -244,7 +217,7 @@ void TrustRegionSPGAlgorithm<Real>::run(Vector<Real>          &x,
 
   while (status_->check(*state_)) {
     // Build trust-region model
-    model_->setData(obj,*state_->iterateVec,*state_->gradientVec);
+    model_->setData(obj,*state_->iterateVec,*state_->gradientVec,gtol_);
 
     /**** SOLVE TRUST-REGION SUBPROBLEM ****/
     q = zero;
@@ -300,6 +273,7 @@ void TrustRegionSPGAlgorithm<Real>::run(Vector<Real>          &x,
       else { // Shrink trust-region radius
         state_->searchSize = gamma1_*std::min(state_->snorm,state_->searchSize);
       }
+      computeGradient(x,*state_->gradientVec,*pwa1,state_->searchSize,obj,false,gtol_,state_->gnorm,outStream);
     }
     else if ((rho >= eta0_ && TRflag_ != TRUtils::NPOSPREDNEG)
              || (TRflag_ == TRUtils::POSPREDNEG)) { // Step Accepted
@@ -319,7 +293,7 @@ void TrustRegionSPGAlgorithm<Real>::run(Vector<Real>          &x,
       if (rho >= eta2_) state_->searchSize = std::min(gamma2_*state_->searchSize, delMax_);
       // Compute gradient at new iterate
       dwa1->set(*state_->gradientVec);
-      state_->gnorm = computeGradient(x,*state_->gradientVec,*pwa1,state_->searchSize,obj,outStream);
+      computeGradient(x,*state_->gradientVec,*pwa1,state_->searchSize,obj,true,gtol_,state_->gnorm,outStream);
       state_->ngrad++;
       state_->iterateVec->set(x);
       // Update secant information in trust-region model

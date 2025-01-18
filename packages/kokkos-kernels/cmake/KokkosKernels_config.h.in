@@ -49,14 +49,15 @@
 #cmakedefine KOKKOSKERNELS_INST_EXECSPACE_CUDA
 #cmakedefine KOKKOSKERNELS_INST_MEMSPACE_CUDASPACE
 #cmakedefine KOKKOSKERNELS_INST_MEMSPACE_CUDAUVMSPACE
-/* Whether to build kernels for execution space Kokkos::Experimental::HIP */
+/* Whether to build kernels for execution space Kokkos::HIP */
 #cmakedefine KOKKOSKERNELS_INST_EXECSPACE_HIP
 #cmakedefine KOKKOSKERNELS_INST_MEMSPACE_HIPSPACE
+#cmakedefine KOKKOSKERNELS_INST_MEMSPACE_HIPMANAGEDSPACE
 /* Whether to build kernels for execution space Kokkos::Experimental::SYCL */
 #cmakedefine KOKKOSKERNELS_INST_EXECSPACE_SYCL
 #cmakedefine KOKKOSKERNELS_INST_MEMSPACE_SYCLSPACE
 #cmakedefine KOKKOSKERNELS_INST_MEMSPACE_SYCLSHAREDSPACE
-/* Whether to build kernels for execution space Kokkos::Experimental::HIP */
+/* Whether to build kernels for execution space Kokkos::Experimental::OpenMPTarget */
 #cmakedefine KOKKOSKERNELS_INST_EXECSPACE_OPENMPTARGET
 #cmakedefine KOKKOSKERNELS_INST_MEMSPACE_OPENMPTARGETSPACE
 /* Whether to build kernels for execution space Kokkos::OpenMP */
@@ -109,12 +110,16 @@
 
 /* BLAS library */
 #cmakedefine KOKKOSKERNELS_ENABLE_TPL_BLAS
+/* LAPACK */
+#cmakedefine KOKKOSKERNELS_ENABLE_TPL_LAPACK
 /* MKL library */
 #cmakedefine KOKKOSKERNELS_ENABLE_TPL_MKL
-/* CUSPARSE */
-#cmakedefine KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 /* CUBLAS */
 #cmakedefine KOKKOSKERNELS_ENABLE_TPL_CUBLAS
+/* CUSPARSE */
+#cmakedefine KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
+/* CUSOLVER */
+#cmakedefine KOKKOSKERNELS_ENABLE_TPL_CUSOLVER
 /* MAGMA */
 #cmakedefine KOKKOSKERNELS_ENABLE_TPL_MAGMA
 /* SuperLU */
@@ -135,6 +140,8 @@
 #cmakedefine KOKKOSKERNELS_ENABLE_TPL_ROCBLAS
 /* ROCSPARSE */
 #cmakedefine KOKKOSKERNELS_ENABLE_TPL_ROCSPARSE
+/* ROCSOLVER */
+#cmakedefine KOKKOSKERNELS_ENABLE_TPL_ROCSOLVER
 
 #cmakedefine KOKKOSKERNELS_ENABLE_SUPERNODAL_SPTRSV
 
@@ -145,6 +152,9 @@
 #define KOKKOSKERNELS_ENABLE_TPL_BLAS
 #endif
 #endif
+
+/* Whether MKL is providing the BLAS and LAPACK implementation */
+#cmakedefine MKL_PROVIDES_BLAS_LAPACK
 
 #if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP) && \
     !defined(KOKKOS_ENABLE_SYCL) && !defined(KOKKOS_ENABLE_OPENMPTARGET)
@@ -163,5 +173,13 @@
 #ifndef KOKKOSKERNELS_IMPL_COMPILE_LIBRARY
 #define KOKKOSKERNELS_IMPL_COMPILE_LIBRARY false
 #endif
+
+/* Enabled components */
+#cmakedefine KOKKOSKERNELS_ENABLE_COMPONENT_BATCHED
+#cmakedefine KOKKOSKERNELS_ENABLE_COMPONENT_BLAS
+#cmakedefine KOKKOSKERNELS_ENABLE_COMPONENT_LAPACK
+#cmakedefine KOKKOSKERNELS_ENABLE_COMPONENT_SPARSE
+#cmakedefine KOKKOSKERNELS_ENABLE_COMPONENT_GRAPH
+#cmakedefine KOKKOSKERNELS_ENABLE_COMPONENT_ODE
 
 #endif  // KOKKOSKERNELS_CONFIG_H

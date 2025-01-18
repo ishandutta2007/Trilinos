@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperLeapfrogObserverDefault_hpp
 #define Tempus_StepperLeapfrogObserverDefault_hpp
@@ -13,7 +14,6 @@
 #include "Tempus_SolutionHistory.hpp"
 #include "Tempus_StepperLeapfrogObserverBase.hpp"
 
-
 namespace Tempus {
 
 /** \brief Default observer for StepperLeapfrog.
@@ -21,42 +21,38 @@ namespace Tempus {
  *  The default observer provides no-op functionality for the observer.
  *  See StepperLeapfrogObserverBase for details on the algorithm.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperLeapfrogObserverDefault
-  : virtual public Tempus::StepperLeapfrogObserverBase<Scalar>
-{
-public:
-
+  : virtual public Tempus::StepperLeapfrogObserverBase<Scalar> {
+ public:
   /// Constructor
-  StepperLeapfrogObserverDefault(){}
+  StepperLeapfrogObserverDefault() {}
 
   /// Destructor
-  virtual ~StepperLeapfrogObserverDefault(){}
+  virtual ~StepperLeapfrogObserverDefault() {}
 
   /// Observe Leapfrog Stepper at end of takeStep.
   virtual void observe(
-    Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<const StepperLeapfrog<Scalar> > /* stepper */,
-    const typename StepperLeapfrogAppAction<Scalar>::ACTION_LOCATION actLoc)
+      Teuchos::RCP<const SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<const StepperLeapfrog<Scalar> > /* stepper */,
+      const typename StepperLeapfrogAppAction<Scalar>::ACTION_LOCATION actLoc)
   {
-    switch(actLoc) {
+    switch (actLoc) {
       case StepperLeapfrogAppAction<Scalar>::BEGIN_STEP:
       case StepperLeapfrogAppAction<Scalar>::BEFORE_X_UPDATE:
       case StepperLeapfrogAppAction<Scalar>::BEFORE_EXPLICIT_EVAL:
       case StepperLeapfrogAppAction<Scalar>::BEFORE_XDOT_UPDATE:
-      case StepperLeapfrogAppAction<Scalar>::END_STEP:
-      {
+      case StepperLeapfrogAppAction<Scalar>::END_STEP: {
         // No-op.
         break;
       }
       default:
         TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Error - unknown action location.\n");
+                                   "Error - unknown action location.\n");
     }
   }
-
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperLeapfrogObserverDefault_hpp
+#endif  // Tempus_StepperLeapfrogObserverDefault_hpp

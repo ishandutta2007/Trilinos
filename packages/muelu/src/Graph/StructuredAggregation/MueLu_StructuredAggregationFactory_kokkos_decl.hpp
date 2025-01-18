@@ -1,48 +1,12 @@
 // @HEADER
-//
-// ***********************************************************************
-//
+// *****************************************************************************
 //        MueLu: A package for multigrid based preconditioning
-//                  Copyright 2012 Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact
-//                    Jonathan Hu       (jhu@sandia.gov)
-//                    Andrey Prokopenko (aprokop@sandia.gov)
-//                    Ray Tuminaro      (rstumin@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2012 NTESS and the MueLu contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
+
 #ifndef MUELU_STRUCTUREDAGGREGATIONFACTORY_KOKKOS_DECL_HPP
 #define MUELU_STRUCTUREDAGGREGATIONFACTORY_KOKKOS_DECL_HPP
 
@@ -51,7 +15,7 @@
 #include "MueLu_Level_fwd.hpp"
 #include "MueLu_Exceptions.hpp"
 
-#include "MueLu_AggregationStructuredAlgorithm_kokkos_fwd.hpp"
+#include "MueLu_AggregationStructuredAlgorithm_fwd.hpp"
 
 #include <Tpetra_KokkosCompat_ClassicNodeAPI_Wrapper.hpp>
 
@@ -103,62 +67,61 @@ namespace MueLu {
     | CrsGraph     | StructuredAggregationFactory_kokkos   | CrsGraph of the prolongator
 */
 
-  template<class LocalOrdinal = DefaultLocalOrdinal,
-           class GlobalOrdinal = DefaultGlobalOrdinal,
-           class Node = DefaultNode>
-  class StructuredAggregationFactory_kokkos : public SingleLevelFactoryBase {
+template <class LocalOrdinal  = DefaultLocalOrdinal,
+          class GlobalOrdinal = DefaultGlobalOrdinal,
+          class Node          = DefaultNode>
+class StructuredAggregationFactory_kokkos : public SingleLevelFactoryBase {
 #undef MUELU_STRUCTUREDAGGREGATIONFACTORY_KOKKOS_SHORT
 #include "MueLu_UseShortNamesOrdinal.hpp"
 
-  public:
-    //! @name Constructors/Destructors.
-    //@{
+ public:
+  //! @name Constructors/Destructors.
+  //@{
 
-    //! Constructor.
-    StructuredAggregationFactory_kokkos();
+  //! Constructor.
+  StructuredAggregationFactory_kokkos();
 
-    //! Destructor.
-    virtual ~StructuredAggregationFactory_kokkos() { }
+  //! Destructor.
+  virtual ~StructuredAggregationFactory_kokkos() {}
 
-    RCP<const ParameterList> GetValidParameterList() const;
+  RCP<const ParameterList> GetValidParameterList() const;
 
-    //@}
+  //@}
 
-    //! @name Set/get methods.
-    //@{
-    // set information about 1-node aggregates (map name and generating factory)
-    void SetOnePtMapName(const std::string name, Teuchos::RCP<const FactoryBase> mapFact) {
-      SetParameter("OnePt aggregate map name", ParameterEntry(std::string(name))); // revalidate
-      SetFactory("OnePt aggregate map factory",mapFact);
-    }
+  //! @name Set/get methods.
+  //@{
+  // set information about 1-node aggregates (map name and generating factory)
+  void SetOnePtMapName(const std::string name, Teuchos::RCP<const FactoryBase> mapFact) {
+    SetParameter("OnePt aggregate map name", ParameterEntry(std::string(name)));  // revalidate
+    SetFactory("OnePt aggregate map factory", mapFact);
+  }
 
-    //@}
+  //@}
 
-    //! Input
-    //@{
+  //! Input
+  //@{
 
-    void DeclareInput(Level& currentLevel) const;
+  void DeclareInput(Level& currentLevel) const;
 
-    //@}
+  //@}
 
-    //! @name Build methods.
-    //@{
+  //! @name Build methods.
+  //@{
 
-    /*! @brief Build aggregates. */
-    void Build(Level& currentLevel) const;
+  /*! @brief Build aggregates. */
+  void Build(Level& currentLevel) const;
 
-    //@}
+  //@}
 
-  private:
+ private:
+  //! boolean flag: definition phase
+  //! if true, the aggregation algorithms still can be set and changed.
+  //! if false, no change in aggregation algorithms is possible any more
+  mutable bool bDefinitionPhase_;
 
-    //! boolean flag: definition phase
-    //! if true, the aggregation algorithms still can be set and changed.
-    //! if false, no change in aggregation algorithms is possible any more
-    mutable bool bDefinitionPhase_;
+};  // class StructuredAggregationFactory
 
-  }; // class StructuredAggregationFactory
-
-}
+}  // namespace MueLu
 
 #define MUELU_STRUCTUREDAGGREGATIONFACTORY_KOKKOS_SHORT
-#endif // MUELU_UNCOUPLEDAGGREGATIONFACTORY_KOKKOS_DECL_HPP
+#endif  // MUELU_UNCOUPLEDAGGREGATIONFACTORY_KOKKOS_DECL_HPP

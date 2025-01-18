@@ -1,43 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //        Piro: Strategy package for embedded analysis capabilitites
-//                  Copyright (2010) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Andy Salinger (agsalin@sandia.gov), Sandia
-// National Laboratories.
-//
-// ************************************************************************
+// Copyright 2010 NTESS and the Piro contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef PIRO_PRODUCTMODELEVAL_HPP
@@ -489,9 +456,9 @@ ProductModelEvaluator<Real>::evalModelImpl(
     if (supports_dfdp_op) {
         Teuchos::RCP<Thyra::PhysicallyBlockedLinearOpBase<Real>> dfdp_op =
             Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(outArgs.get_DfDp(0).getLinearOp());
-        if (!Teuchos::is_null(dfdp_op))
-        for(std::size_t j=0; j<p_indices_.size(); ++j) {
-            internal_outArgs.set_DfDp( p_indices_[j], Thyra::ModelEvaluatorBase::Derivative<Real>(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dfdp_op->getNonconstBlock(0, j))));
+        if (Teuchos::nonnull(dfdp_op)) {
+            for(std::size_t j=0; j<p_indices_.size(); ++j)
+                internal_outArgs.set_DfDp( p_indices_[j], Thyra::ModelEvaluatorBase::Derivative<Real>(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dfdp_op->getNonconstBlock(0, j))));
         }
     }
 
@@ -499,7 +466,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
         if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp,i,0).supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
             Teuchos::RCP<Thyra::PhysicallyBlockedLinearOpBase<Real>> dgdp_op =
                 Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(outArgs.get_DgDp(i,0).getLinearOp());
-            if (!Teuchos::is_null(dgdp_op)) {
+            if (Teuchos::nonnull(dgdp_op)) {
                 for(std::size_t j=0; j<p_indices_.size(); ++j) {
                     auto dgdp_j_mv =
                         Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Real>>( Teuchos::rcp_dynamic_cast<Thyra::DefaultScaledAdjointLinearOp<Real>>(dgdp_op->getNonconstBlock(0, j))->getNonconstOp() );
@@ -520,6 +487,20 @@ ProductModelEvaluator<Real>::evalModelImpl(
                         internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative<Real>(dgdp_j_mv, dgdp_orient));
                     }
                 }
+            }
+        }
+    }
+
+    for (auto i = 0; i < thyra_model_->Ng(); ++i) {
+        bool suppGradMV = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp,i,0).supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+        bool suppJacMV = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp,i,0).supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+        if (suppGradMV || suppJacMV) {
+            auto dgdp_vec = Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_DgDp(i,0).getMultiVector());
+            if (Teuchos::nonnull(dgdp_vec)) {
+                auto dgdp_orient = suppGradMV ? Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM : Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+                for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                    internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative<Real>(dgdp_vec->getNonconstMultiVectorBlock(j), dgdp_orient));
+               }
             }
         }
     }
@@ -803,24 +784,40 @@ ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase
 
     for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
         outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index));
-        Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support;
+        outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx_dot, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx_dot, g_index));
+        
+        bool suppLinOp(true), suppGradMV(true), suppJacMV(true);        
         for (std::size_t i = 0; i < p_indices_.size(); ++i) {
-            if (!outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index, p_indices_[i]).none()) {
-                dgdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
-                break;
-            }
+            const auto& dgdpi_support = outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index, p_indices_[i]);
+            suppLinOp = dgdpi_support.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP) ?  suppLinOp : false;
+            suppGradMV = dgdpi_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM) ?  suppGradMV : false;
+            suppJacMV = dgdpi_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) ?  suppJacMV : false;
         }
+
+        Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support;
+        if(suppLinOp) dgdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+        if(suppGradMV) dgdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+        if(suppJacMV) dgdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+
         outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, dgdp_support);
     }
 
-    Thyra::ModelEvaluatorBase::DerivativeSupport dfdp_support;
-    for (std::size_t i = 0; i < p_indices_.size(); ++i) {
-        if (!outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, p_indices_[i]).none()) {
-            dfdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
-            break;
+    { //DfDp
+        bool suppLinOp(true), suppGradMV(true), suppJacMV(true);        
+        for (std::size_t i = 0; i < p_indices_.size(); ++i) {
+            const auto& dfdpi_support = outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, p_indices_[i]);
+            suppLinOp = dfdpi_support.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP) ?  suppLinOp : false;
+            suppGradMV = dfdpi_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM) ?  suppGradMV : false;
+            suppJacMV = dfdpi_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) ?  suppJacMV : false;
         }
+
+        Thyra::ModelEvaluatorBase::DerivativeSupport dfdp_support;
+        if(suppLinOp) dfdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+        if(suppGradMV) dfdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+        if(suppJacMV) dfdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+
+        outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DfDp, 0, dfdp_support);
     }
-    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DfDp, 0, dfdp_support);
 
     for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
 
@@ -871,6 +868,7 @@ ProductModelEvaluator<Real>::toInternalOutArgs(const Thyra::ModelEvaluatorBase::
 
     for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
         outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index));
+        outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx_dot, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx_dot, g_index));
         outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xx, g_index, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xx, g_index));
         for (std::size_t i = 0; i < p_indices_.size(); ++i) {
             outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, p_indices_[i], outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0));

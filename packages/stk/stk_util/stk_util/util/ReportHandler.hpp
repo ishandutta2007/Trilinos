@@ -32,17 +32,20 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#ifndef STK_UTIL_ENVIRONMENT_REPORTHANDLER_HPP
-#define STK_UTIL_ENVIRONMENT_REPORTHANDLER_HPP
+#ifndef STK_UTIL_UTIL_REPORTHANDLER_HPP
+#define STK_UTIL_UTIL_REPORTHANDLER_HPP
 
 #include <sstream>    // for ostringstream
 #include <stdexcept>  // for logic_error, runtime_error
 #include <string>     // for operator+, allocator, string, char_traits
 #include <type_traits>
 
-#include "Kokkos_Core.hpp"
 #include "stk_util/diag/String.hpp"
-#include "stk_util/stk_kokkos_macros.h"  // for STK_INLINE_FUNCTION
+#include "stk_util/stk_kokkos_macros.h"  // for STK_FUNCTION
+
+#ifdef STK_ENABLE_GPU_BUT_NO_RDC
+#include <Kokkos_Core.hpp>
+#endif
 
 namespace stk {
 
@@ -287,7 +290,7 @@ inline auto eval_test_condition(const T& val)
     }                                                                                                          \
   } while (false)
 
-inline void ThrowMsgHost(bool expr, const char * exprString, const char * message, const std::string & location)
+inline void ThrowMsgHost(bool /* expr */, const char* exprString, const char* message, const std::string& location)
 {
   std::ostringstream stk_util_internal_throw_require_loc_oss;
   stk_util_internal_throw_require_loc_oss << stk::source_relative_path(location) << "\n";
@@ -298,12 +301,16 @@ inline void ThrowMsgHost(bool expr, const char * exprString, const char * messag
     "Error: " + message + "\n");
 }
 
+#ifdef STK_ENABLE_GPU_BUT_NO_RDC
 STK_INLINE_FUNCTION void ThrowMsgDevice(const char * message)
-{
+{ 
   Kokkos::abort(message);
 }
+#else
+STK_FUNCTION void ThrowMsgDevice(const char * message);
+#endif
 
-inline void ThrowHost(bool expr, const char * exprString, const std::string & location)
+inline void ThrowHost(bool /* expr */, const char* exprString, const std::string& location)
 {
   std::ostringstream stk_util_internal_throw_require_loc_oss;
   stk_util_internal_throw_require_loc_oss << stk::source_relative_path(location) << "\n";
@@ -323,11 +330,14 @@ inline void ThrowErrorMsgHost(const char * message, const std::string & location
     "Error: " + message + "\n");
 }
 
+#ifdef STK_ENABLE_GPU_BUT_NO_RDC
 STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
-{
+{ 
   Kokkos::abort(message);
 }
-
+#else
+STK_FUNCTION void ThrowErrorMsgDevice(const char * message);
+#endif
 
 // This generic macro is for unconditional throws. We pass "" as the expr
 // string, the handler should be smart enough to realize that this means there
@@ -432,7 +442,7 @@ STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
 #define STK_ThrowInvalidArgIf(expr)
 #endif
 
-#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__))
+#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__) || defined(__SYCL_DEVICE_ONLY__))
 #define STK_NGP_ThrowRequireMsg(expr, message)               \
   do {                                                       \
     const bool __stk_expr_res = bool(expr);                  \
@@ -450,7 +460,7 @@ STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
   } while (false);
 #endif
 
-#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__))
+#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__) || defined(__SYCL_DEVICE_ONLY__))
 #define STK_NGP_ThrowRequire(expr)                              \
   do {                                                          \
     const bool __stk_expr_res = bool(expr);                     \
@@ -476,7 +486,7 @@ STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
 #  define STK_NGP_ThrowAssertMsg(expr,message)                                       STK_NGP_ThrowRequireMsg(expr, message)
 #endif
 
-#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__))
+#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__) || defined(__SYCL_DEVICE_ONLY__))
 #define STK_NGP_ThrowErrorMsgIf(expr, message)                                        STK_NGP_ThrowRequireMsg(!(expr), message);
 #else
 #define STK_NGP_ThrowErrorMsgIf(expr, message)                              \
@@ -488,7 +498,7 @@ STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
   } while (false);
 #endif
 
-#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__))
+#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__) || defined(__SYCL_DEVICE_ONLY__))
 #define STK_NGP_ThrowErrorIf(expr)                                     STK_NGP_ThrowRequireMsg(!(expr), "!(" #expr ")");
 #else
 #define STK_NGP_ThrowErrorIf(expr)                              \
@@ -500,7 +510,7 @@ STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
   } while (false);
 #endif
 
-#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__))
+#if ((defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 0)) || defined(__HIP_DEVICE_COMPILE__) || defined(__SYCL_DEVICE_ONLY__))
 #define STK_NGP_ThrowErrorMsg(message)                                      ThrowErrorMsgDevice(message ": " __FILE__ ":" LINE_STRING);
 #else
 #define STK_NGP_ThrowErrorMsg(message)                                      ThrowErrorMsgHost(message, STK_STR_TRACE);
@@ -523,4 +533,4 @@ STK_INLINE_FUNCTION void ThrowErrorMsgDevice(const char * message)
 /// @}
 ///
 
-#endif // STK_UTIL_ENVIRONMENT_REPORTHANDLER_HPP
+#endif // STK_UTIL_UTIL_REPORTHANDLER_HPP

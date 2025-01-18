@@ -1,42 +1,10 @@
 // @HEADER
-// ***********************************************************************
-// 
+// *****************************************************************************
 //         Stratimikos: Thyra-based strategies for linear solvers
-//                Copyright (2006) Sandia Corporation
-// 
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Roscoe A. Bartlett (rabartl@sandia.gov) 
-// 
-// ***********************************************************************
+// Copyright 2006 NTESS and the Stratimikos contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "Thyra_MLPreconditionerFactory.hpp"
@@ -48,6 +16,7 @@
 #include "ml_MultiLevelOperator.h"
 #include "ml_ValidateParameters.h"
 #include "ml_RefMaxwell.h"
+#include "ml_GradDiv.h"
 #include "Epetra_RowMatrix.h"
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_dyn_cast.hpp"
@@ -68,7 +37,8 @@ enum EMLProblemType {
   ML_PROBTYPE_DOMAIN_DECOMPOSITION,
   ML_PROBTYPE_DOMAIN_DECOMPOSITION_ML,
   ML_PROBTYPE_MAXWELL,
-  ML_PROBTYPE_REFMAXWELL
+  ML_PROBTYPE_REFMAXWELL,
+  ML_PROBTYPE_GRADDIV
 };
 const std::string BaseMethodDefaults_valueNames_none = "none";
 const Teuchos::Array<std::string> BaseMethodDefaults_valueNames
@@ -79,7 +49,8 @@ const Teuchos::Array<std::string> BaseMethodDefaults_valueNames
   "DD",
   "DD-ML",
   "maxwell",
-  "refmaxwell"
+  "refmaxwell",
+  "graddiv"
   );
 
 
@@ -238,9 +209,12 @@ void MLPreconditionerFactory::initializePrec(
   //
   Teuchos::RCP<ML_Epetra::MultiLevelPreconditioner> ml_precOp;
   Teuchos::RCP<ML_Epetra::RefMaxwellPreconditioner> rm_precOp;
+  Teuchos::RCP<ML_Epetra::GradDivPreconditioner>    gd_precOp;
   if(epetra_precOp.get()) {
     if(problemType == ML_PROBTYPE_REFMAXWELL)
       rm_precOp = rcp_dynamic_cast<ML_Epetra::RefMaxwellPreconditioner>(epetra_precOp->epetra_op(),true);
+    else if(problemType == ML_PROBTYPE_GRADDIV)
+      gd_precOp = rcp_dynamic_cast<ML_Epetra::GradDivPreconditioner>(epetra_precOp->epetra_op(),true);
     else
       ml_precOp = rcp_dynamic_cast<ML_Epetra::MultiLevelPreconditioner>(epetra_precOp->epetra_op(),true);
   }
@@ -272,6 +246,8 @@ void MLPreconditionerFactory::initializePrec(
 
     if(problemType==ML_PROBTYPE_REFMAXWELL)
       rm_precOp = rcp(new ML_Epetra::RefMaxwellPreconditioner(*epetraFwdCrsMat, paramList_->sublist(MLSettings_name),false));
+    else if(problemType==ML_PROBTYPE_GRADDIV)
+      gd_precOp = rcp(new ML_Epetra::GradDivPreconditioner(*epetraFwdCrsMat, paramList_->sublist(MLSettings_name),false));
     else
       ml_precOp = rcp(new ML_Epetra::MultiLevelPreconditioner(*epetraFwdRowMat, paramList_->sublist(MLSettings_name),false));
 
@@ -290,6 +266,9 @@ void MLPreconditionerFactory::initializePrec(
       if (problemType==ML_PROBTYPE_REFMAXWELL) {
 	TEUCHOS_TEST_FOR_EXCEPT(0!=rm_precOp->SetParameterList(paramList_->sublist(MLSettings_name)));
       }
+      else if (problemType==ML_PROBTYPE_GRADDIV) {
+	TEUCHOS_TEST_FOR_EXCEPT(0!=gd_precOp->SetParameterList(paramList_->sublist(MLSettings_name)));
+      }
       else {
 	TEUCHOS_TEST_FOR_EXCEPT(0!=ml_precOp->SetParameterList(paramList_->sublist(MLSettings_name)));
       }
@@ -300,6 +279,9 @@ void MLPreconditionerFactory::initializePrec(
   //
   if (problemType==ML_PROBTYPE_REFMAXWELL)
     set_extra_data(epetraFwdOp, "IFPF::epetraFwdOp", Teuchos::inOutArg(rm_precOp),
+		   Teuchos::POST_DESTROY, false);
+  else if (problemType==ML_PROBTYPE_GRADDIV)
+    set_extra_data(epetraFwdOp, "IFPF::epetraFwdOp", Teuchos::inOutArg(gd_precOp),
 		   Teuchos::POST_DESTROY, false);
   else
     set_extra_data(epetraFwdOp, "IFPF::epetraFwdOp", Teuchos::inOutArg(ml_precOp),
@@ -316,6 +298,14 @@ void MLPreconditionerFactory::initializePrec(
     }
     else {
       TEUCHOS_TEST_FOR_EXCEPT(0!=rm_precOp->ReComputePreconditioner());
+    }
+  }
+  else if (problemType==ML_PROBTYPE_GRADDIV) {
+    if (startingOver) {
+      TEUCHOS_TEST_FOR_EXCEPT(0!=gd_precOp->ComputePreconditioner());
+    }
+    else {
+      TEUCHOS_TEST_FOR_EXCEPT(0!=gd_precOp->ReComputePreconditioner());
     }
   }
   else {
@@ -341,6 +331,9 @@ void MLPreconditionerFactory::initializePrec(
   if (problemType==ML_PROBTYPE_REFMAXWELL)
     set_extra_data(fwdOp, "IFPF::fwdOp", Teuchos::inOutArg(rm_precOp),
 		   Teuchos::POST_DESTROY, false);
+  else if (problemType==ML_PROBTYPE_GRADDIV)
+    set_extra_data(fwdOp, "IFPF::fwdOp", Teuchos::inOutArg(gd_precOp),
+		   Teuchos::POST_DESTROY, false);
   else
     set_extra_data(fwdOp, "IFPF::fwdOp", Teuchos::inOutArg(ml_precOp),
 		   Teuchos::POST_DESTROY, false);
@@ -352,7 +345,9 @@ void MLPreconditionerFactory::initializePrec(
   }
   // ToDo: Look into adjoints again.
   if (problemType==ML_PROBTYPE_REFMAXWELL)
-    epetra_precOp->initialize(rm_precOp,epetraFwdOpTransp,EPETRA_OP_APPLY_APPLY_INVERSE,EPETRA_OP_ADJOINT_UNSUPPORTED);  
+    epetra_precOp->initialize(rm_precOp,epetraFwdOpTransp,EPETRA_OP_APPLY_APPLY_INVERSE,EPETRA_OP_ADJOINT_UNSUPPORTED);
+  else if (problemType==ML_PROBTYPE_GRADDIV)
+    epetra_precOp->initialize(gd_precOp,epetraFwdOpTransp,EPETRA_OP_APPLY_APPLY_INVERSE,EPETRA_OP_ADJOINT_UNSUPPORTED);
   else
     epetra_precOp->initialize(ml_precOp,epetraFwdOpTransp,EPETRA_OP_APPLY_APPLY_INVERSE,EPETRA_OP_ADJOINT_UNSUPPORTED);
   //
@@ -407,6 +402,9 @@ void MLPreconditionerFactory::setParameterList(
     Teuchos::ParameterList defaultParams;
     if(defaultType == ML_PROBTYPE_REFMAXWELL) {	
       ML_Epetra::SetDefaultsRefMaxwell(defaultParams);
+    }
+    else if(defaultType == ML_PROBTYPE_GRADDIV) {
+      ML_Epetra::SetDefaultsGradDiv(defaultParams);
     }
     else {	
       TEUCHOS_TEST_FOR_EXCEPTION(0!=ML_Epetra::SetDefaults(defaultTypeStr,defaultParams)				
@@ -485,7 +483,8 @@ MLPreconditionerFactory::getValidParameters() const
           "Set default parameters for a domain decomposition method",
           "Set default parameters for a domain decomposition method special to ML",
           "Set default parameters for a Maxwell-type of preconditioner",
-          "Set default parameters for a RefMaxwell-type preconditioner"
+          "Set default parameters for a RefMaxwell-type preconditioner",
+          "Set default parameters for a Grad-Div-type preconditioner"
           ),
         tuple<EMLProblemType>(
           ML_PROBTYPE_NONE,
@@ -494,7 +493,8 @@ MLPreconditionerFactory::getValidParameters() const
           ML_PROBTYPE_DOMAIN_DECOMPOSITION,
           ML_PROBTYPE_DOMAIN_DECOMPOSITION_ML,
           ML_PROBTYPE_MAXWELL,
-	  ML_PROBTYPE_REFMAXWELL
+	  ML_PROBTYPE_REFMAXWELL,
+          ML_PROBTYPE_GRADDIV
           ),
         BaseMethodDefaults_name
         )

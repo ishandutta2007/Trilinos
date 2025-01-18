@@ -1,5 +1,17 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_UTIL_HPP
 #define SHYLUBASKER_UTIL_HPP
+
+/*Teuchos Includes*/
+#include "Teuchos_ScalarTraits.hpp"
 
 /*Basker Includes*/
 #include "shylubasker_decl.hpp"
@@ -112,10 +124,7 @@ namespace BaskerNS
         {
           basker->t_reset_ND_factor(kid);
         }
-        if(basker->btf_nblks > 1)
-        {
-          basker->t_reset_BTF_factor(kid);
-        }
+        basker->t_reset_BTF_factor(kid);
       }
 #if defined(BASKER_SPLIT_A) 
       if (basker->btf_top_nblks > 0) {
@@ -243,11 +252,11 @@ namespace BaskerNS
     typedef Kokkos::TeamPolicy<Exe_Space>     TeamPolicy;
     typedef typename TeamPolicy::member_type  TeamMember;
     Kokkos::parallel_for(
-			 TeamPolicy(Exe_Space::thread_pool_size(),1),
-			 KOKKOS_LAMBDA(const TeamMember& thread)
+                         TeamPolicy(Exe_Space::thread_pool_size(),1),
+                         KOKKOS_LAMBDA(const TeamMember& thread)
     #else
     #pragma omp parallel
-    #endif			 
+    #endif
     {
       #ifdef BASKER_KOKKOS
       if(kid == thread.league_rank())
@@ -282,12 +291,11 @@ namespace BaskerNS
     #ifdef BASKER_KOKKOS
     typedef Kokkos::TeamPolicy<Exe_Space>     TeamPolicy;
     typedef typename TeamPolicy::member_type  TeamMember;
-    Kokkos::parallel_for(
-			 TeamPolicy(Exe_Space::thread_pool_size(),1),
-			 KOKKOS_LAMBDA(const TeamMember& thread)
+    Kokkos::parallel_for(TeamPolicy(Exe_Space::thread_pool_size(),1),
+                         KOKKOS_LAMBDA(const TeamMember& thread)
     #else
     #pragma omp parallel
-    #endif			 
+    #endif
     {
       #ifdef BASKER_KOKKOS
       if(kid == thread.league_rank())
@@ -356,7 +364,7 @@ namespace BaskerNS
         {
           #ifdef BASKER_DEBUG_INIT
           printf("L Factor Init: %d %d , kid: %d, nnz: %ld \n",
-              b, row, kid, LL[b][row].nnz);
+              b, row, kid, LL(b)(row).nnz);
           #endif
 
           LL(b)(row).clear_pend();
@@ -375,7 +383,7 @@ namespace BaskerNS
         #ifdef BASKER_DEBUG_INIT
         printf("U Factor init: %d %d, nnz: %ld \n",
             b, LU_size[b]-1, 
-            LU[b][LU_size[b]-1].nnz);
+            LU(b)(LU_size[b]-1).nnz);
         #endif
 
         //LU(b)(LU_size(b)-1).nnz = 0;
@@ -408,7 +416,7 @@ namespace BaskerNS
           #ifdef BASKER_DEBUG_INIT
           printf("Init U: %d %d lvl: %d l: %d kid: %d nnz: %ld \n",
               U_col, U_row, lvl, l, kid, 
-              LU[U_col][U_row].nnz);
+              LU(U_col)(U_row).nnz);
           #endif
 
           for(Int kk = 0; kk < LU(U_col)(U_row).ncol+1; kk++)
@@ -446,8 +454,8 @@ namespace BaskerNS
     Kokkos::Timer timer_init_matrixL;
     Kokkos::Timer timer_fill_matrixL;
     timer_initL.reset();
+    printf( " > t_init_factor( tid = %d, nlvls = %d ) <\n",kid,tree.nlvls+1 ); fflush(stdout);
     #endif
-    //printf( " > t_init_factor( tid = %d ) <\n",kid );
     for(Int lvl = 0; lvl < tree.nlvls+1; lvl++)
     {
       if(kid%((Int)pow(2,lvl)) == 0)
@@ -456,15 +464,15 @@ namespace BaskerNS
 
         for(Int row = 0; row < LL_size(b); row++)
         {
-          #ifdef BASKER_DEBUG_INIT
-          printf("L Factor Init: %d %d , kid: %d, nnz: %ld \n",
-              b, row, kid, LL[b][row].nnz);
+          #ifdef BASKER_TIMER
+          printf("L Factor Init: L(%d %d) , kid: %d, nnz = %ld (%d x %d)\n",
+              b, row, kid, LL(b)(row).nnz, LL(b)(row).nrow,LL(b)(row).ncol);
           #endif
 
           #ifdef BASKER_TIMER
           timer_init_matrixL.reset();
+          printf( " ++ lvl=%d: LL(%d,%d): nnz=%d, mnnz=%d ++\n",(int)lvl, (int)b, (int)row, (int)LL(b)(row).nnz, (int)LL(b)(row).mnnz); fflush(stdout);
           #endif
-          //printf( " lvl=%d: LL(%d,%d): nnz=%d, mnnz=%d\n",(int)lvl, (int)b, (int)row, (int)LL(b)(row).nnz, (int)LL(b)(row).mnnz);
           LL(b)(row).init_matrix("Loffdig",
               LL(b)(row).srow,
               LL(b)(row).nrow,
@@ -472,6 +480,7 @@ namespace BaskerNS
               LL(b)(row).ncol,
               LL(b)(row).nnz);
           #ifdef BASKER_TIMER
+          printf( " >> LL(%d,%d).init_matrix done <<\n",b,row ); fflush(stdout);
           init_matrixL_time += timer_init_matrixL.seconds();
           #endif
 
@@ -482,15 +491,19 @@ namespace BaskerNS
           }
           #ifdef BASKER_TIMER
           timer_fill_matrixL.reset();
+          printf( " ++ zero out (%d) ++\n",int(LL(b)(row).col_ptr.extent(0)) ); fflush(stdout);
           #endif
           //LL(b)(row).fill();
-          Kokkos::deep_copy(LL(b)(row).col_ptr, 0);
+          LL(b)(row).init_ptr();
+          //Kokkos::deep_copy(LL(b)(row).col_ptr, 0);
           #ifdef BASKER_TIMER
+          printf( " LL(%d)(%d).init_pend(ncol = %d)\n",b,row,LL(b)(row).ncol ); fflush(stdout);
           fill_matrixL_time += timer_fill_matrixL.seconds();
           #endif
-          //printf( " LL(%d)(%d).init_pend(ncol = %d)\n",b,row,LL(b)(row).ncol );
           LL(b)(row).init_pend();
-
+          #ifdef BASKER_TIMER
+          printf( " (b=%d: row=%d) done\n\n",b,row ); fflush(stdout);
+          #endif
         }//end over all row
       }//end select which thread
     }//end for over all lvl
@@ -499,6 +512,7 @@ namespace BaskerNS
     std::cout << " >   Basker t_init_factor::initL(" << kid << "): time: " << initL_time << std::endl;
     std::cout << " > + Basker t_init_factor::initL::initMatrix(" << kid << "): time: " << init_matrixL_time << std::endl;
     std::cout << " > + Basker t_init_factor::initL::fillMatrix(" << kid << "): time: " << fill_matrixL_time << std::endl;
+    fflush(stdout);
     #endif
 
     //U
@@ -515,10 +529,14 @@ namespace BaskerNS
         #ifdef BASKER_DEBUG_INIT
         printf("U Factor init: %d %d, nnz: %ld \n",
             b, LU_size[b]-1, 
-            LU[b][LU_size[b]-1].nnz);
+            LU(b)(LU_size[b]-1).nnz);
         #endif
 
-        //printf( " lvl=%d: LU(%d,%d): nnz=%d, mnnz=%d\n", (int)lvl, (int)b, (int)LU_size(b)-1, (int)LU(b)(LU_size(b)-1).nnz, (int)LU(b)(LU_size(b)-1).mnnz);
+        #ifdef BASKER_TIMER
+        printf( " lvl=%d: LU(%d,%d): %dx%d, nnz=%d, mnnz=%d, at (%d,%d)\n", (int)lvl, (int)b, (int)LU_size(b)-1,
+                (int)LU(b)(LU_size(b)-1).nrow,(int)LU(b)(LU_size(b)-1).ncol,(int)LU(b)(LU_size(b)-1).nnz, (int)LU(b)(LU_size(b)-1).mnnz,
+                (int)LU(b)(LU_size(b)-1).srow,(int)LU(b)(LU_size(b)-1).scol);
+        #endif
         LU(b)(LU_size(b)-1).init_matrix("Udiag",
             LU(b)(LU_size(b)-1).srow,
             LU(b)(LU_size(b)-1).nrow,
@@ -527,7 +545,8 @@ namespace BaskerNS
             LU(b)(LU_size(b)-1).nnz);
 
         //LU(b)(LU_size(b)-1).fill();
-        Kokkos::deep_copy(LU(b)(LU_size(b)-1).col_ptr, 0);
+        LU(b)(LU_size(b)-1).init_ptr();
+        //Kokkos::deep_copy(LU(b)(LU_size(b)-1).col_ptr, 0);
 
         for(Int l = lvl+1; l < tree.nlvls+1; l++)
         {
@@ -564,10 +583,15 @@ namespace BaskerNS
           #ifdef BASKER_DEBUG_INIT
           printf("Init U: %d %d lvl: %d l: %d kid: %d nnz: %ld \n",
               U_col, U_row, lvl, l, kid, 
-              LU[U_col][U_row].nnz);
+              LU(U_col)(U_row).nnz);
           #endif
 
-          //printf( " > l=%d: LU(%d,%d): nnz=%d, mnnz=%d\n", (int)l, (int)U_col, (int)U_row, (int)LU(U_col)(U_row).nnz, (int)LU(U_col)(U_row).mnnz);
+          #ifdef BASKER_TIMER
+          printf( "  +++ l=%d: LU(%d,%d): %dx%d, nnz=%d, mnnz=%d at (%d,%d)\n", (int)l, (int)U_col, (int)U_row,
+                  (int)LU(U_col)(U_row).nrow,(int)LU(U_col)(U_row).ncol,
+                  (int)LU(U_col)(U_row).nnz, (int)LU(U_col)(U_row).mnnz,
+                  (int)LU(U_col)(U_row).srow,(int)LU(U_col)(U_row).scol);
+          #endif
           LU(U_col)(U_row).init_matrix("Uoffdiag",
               LU(U_col)(U_row).srow,
               LU(U_col)(U_row).nrow,
@@ -576,7 +600,8 @@ namespace BaskerNS
               LU(U_col)(U_row).nnz);
 
           //LU(U_col)(U_row).fill();
-          Kokkos::deep_copy(LU(U_col)(U_row).col_ptr, 0);
+          LU(U_col)(U_row).init_ptr();
+          //Kokkos::deep_copy(LU(U_col)(U_row).col_ptr, 0);
 
           if(Options.incomplete == BASKER_TRUE)
           {
@@ -764,11 +789,12 @@ namespace BaskerNS
           }
           else
           {
-            //printf("Using BTF AU\n");
+            //printf(" %d: Using BTF AVM(%d,%d), %dx%d\n",kid,U_col,U_row, AVM(U_col)(U_row).nrow,AVM(U_col)(U_row).ncol);
             //printf("2nd convert AVM: %d %d size:%d kid: %d\n",
-            //	   U_col, U_row, AVM(U_col)(U_row).nnz, 
+            //     U_col, U_row, AVM(U_col)(U_row).nnz, 
             //     kid);
             AVM(U_col)(U_row).convert2D(BTF_A, alloc, kid);
+            //printf(" %d: Using BTF AU(%d,%d) done\n",kid,U_col,U_row);
           }
 
         }//over inner lvls
@@ -849,19 +875,20 @@ namespace BaskerNS
 
               //printf( " kid=%d :: LL(%d, %d).fill\n",kid, b,l );
               //LL(b)(l).fill();
-              Kokkos::deep_copy(LL(b)(l).col_ptr, 0);
+              LL(b)(l).init_ptr();
+              //Kokkos::deep_copy(LL(b)(l).col_ptr, 0);
 
               if(l==0)
               {
                 //Also workspace matrix 
                 //This could be made smaller
                 //printf("C: size: %d kid: %d \n",
-                //	   iws_size, kid);
+                //       iws_size, kid);
 
-                //thread_array[kid].C.init_matrix("cwork", 
-                //			     0, iws_size,
-                //			     0, 2, 
-                //			     iws_size*2);
+                //thread_array(kid).C.init_matrix("cwork", 
+                //       0, iws_size,
+                //       0, 2, 
+                //       iws_size*2);
               }
             } //end for l
           }
@@ -874,23 +901,23 @@ namespace BaskerNS
       } //end if btf_tabs_offset != 0
       //else // though offset=0, there may be still BLK factorization
       {
-        if(btf_nblks > 1 && (btf_top_tabs_offset > 0 || btf_nblks > btf_tabs_offset))
+        if(btf_top_tabs_offset > 0 || btf_nblks > btf_tabs_offset)
         { // if any left over for BLK factorization
           if(Options.btf == BASKER_TRUE)
           {
-            Int iws_mult = thread_array[kid].iws_mult;
-            Int iws_size = thread_array[kid].iws_size;
-            Int ews_mult = thread_array[kid].ews_mult;
-            Int ews_size = thread_array[kid].ews_size;
+            Int iws_mult = thread_array(kid).iws_mult;
+            Int iws_size = thread_array(kid).iws_size;
+            Int ews_mult = thread_array(kid).ews_mult;
+            Int ews_size = thread_array(kid).ews_size;
 
             for(Int i=0; i < iws_mult*iws_size; i++)
             {
-              thread_array[kid].iws[i] = 0;
+              thread_array(kid).iws[i] = 0;
             }
 
             for(Int i = 0; i < ews_mult*ews_size; i++)
             {
-              thread_array[kid].ews[i] = 0.0;
+              thread_array(kid).ews[i] = 0.0;
             }
           }
         }
@@ -910,14 +937,14 @@ namespace BaskerNS
       }
     }
     printf("init_workspace 1d, kid: %d size: %d %d %d %d \n",
-	    kid, iws_mult, iws_size, ews_mult, ews_size);
+           kid, iws_mult, iws_size, ews_mult, ews_size);
     for(Int i=0; i< iws_mult*iws_size; i++)
     {
-      thread_array[kid].iws[i] = 0;
+      thread_array(kid).iws[i] = 0;
     }
     for(Int i = 0; i < ews_mult*ews_size; i++)
     {
-      thread_array[kid].ews[i] = 0;
+      thread_array(kid).ews[i] = 0;
     }
     #endif  //endif def basker_2dl
     //return 0;
@@ -985,7 +1012,7 @@ namespace BaskerNS
 
     for(Int l = 0; l < tree.nblks; l++)
     {
-      BASKER_MATRIX &myL = LL[l][0];
+      BASKER_MATRIX &myL = LL(l)(0);
 
       for(Int k = 0; k < myL.ncol; k++)
       {
@@ -1023,13 +1050,13 @@ namespace BaskerNS
     for(Int l = 0; l < tree.nblks; l++)
     {
       //over each column
-      for(Int k=0; k < LL[l][0].ncol; k++)
+      for(Int k=0; k < LL(l)(0).ncol; k++)
       {
-        fprintf(fp, "k=%ld \n", (long)k+LL[l][0].scol);
+        fprintf(fp, "k=%ld \n", (long)k+LL(l)(0).scol);
 
         for(Int r = 0; r < LL_size[l]; r++)
         {
-          BASKER_MATRIX &myL = LL[l][r];
+          BASKER_MATRIX &myL = LL(l)(r);
           for(Int j = myL.col_ptr[k]; j < myL.col_ptr[k+1]; j++)
           {
             fprintf(fp, "(%ld , %ld , %ld, %ld, %ld) %g , ",
@@ -1099,12 +1126,12 @@ namespace BaskerNS
     for(Int l = 0; l < tree.nblks; l++)
     {
       //over each column
-      for(Int k=0; k < LL[l][0].ncol; k++)
+      for(Int k=0; k < LL(l)(0).ncol; k++)
       {
-        //fprintf(fp, "k=%d \n", k+LL[l][0].scol);
+        //fprintf(fp, "k=%d \n", k+LL(l)(0).scol);
         for(Int r = 0; r < LL_size[l]; r++)
         {
-          BASKER_MATRIX &myL = LL[l][r];
+          BASKER_MATRIX &myL = LL(l)(r);
 
           for(Int j = myL.col_ptr[k]; j < myL.col_ptr[k+1]; j++)
           {
@@ -1157,12 +1184,12 @@ namespace BaskerNS
     for(Int l = 0; l < tree.nblks; l++)
     {
       //over each column
-      for(Int k = 0; k < LU[l][0].ncol; k++)
+      for(Int k = 0; k < LU(l)(0).ncol; k++)
       {
         //over each row of U
         for(Int r = 0; r < LU_size[l]; r++)
         {
-          BASKER_MATRIX &myU = LU[l][r];
+          BASKER_MATRIX &myU = LU(l)(r);
 
           //over each nnz in column (k) of local U
           for(Int j = myU.col_ptr[k]; j < myU.col_ptr[k+1]; j++)
@@ -1186,7 +1213,7 @@ namespace BaskerNS
       Int nblks = btf_nblks-btf_tabs_offset;
       for(Int i =0; i < nblks; i++)
       {
-        BASKER_MATRIX &myU = UBTF[i];
+        BASKER_MATRIX &myU = UBTF(i);
         for(Int k = 0; k < myU.ncol; k++)
         {
           for(Int j = myU.col_ptr[k]; j< myU.col_ptr[k+1]; j++)
@@ -1220,14 +1247,14 @@ namespace BaskerNS
     for(Int l = 0; l < tree.nblks; l++)
     {
       //over each column
-      for(Int k = 0; k < LU[l][0].ncol; k++)
+      for(Int k = 0; k < LU(l)(0).ncol; k++)
       {
-        fprintf(fp, "k=%ld \n", (long)k+LU[l][0].scol);
+        fprintf(fp, "k=%ld \n", (long)k+LU(l)(0).scol);
 
         //over each row of U
         for(Int r = 0; r < LU_size[l]; r++)
         {
-          BASKER_MATRIX &myU = LU[l][r];
+          BASKER_MATRIX &myU = LU(l)(r);
 
           //over each nnz in column (k) of local U
           for(Int j = myU.col_ptr[k]; j < myU.col_ptr[k+1]; j++)
@@ -1251,7 +1278,7 @@ namespace BaskerNS
       Int nblks = btf_nblks-btf_tabs_offset;
       for(Int i =0; i < nblks; i++)
       {
-        BASKER_MATRIX &myU = UBTF[i];
+        BASKER_MATRIX &myU = UBTF(i);
         for(Int k = 0; k < myU.ncol; k++)
         {
           fprintf(fp, "k=%ld \n", (long)k+myU.scol);
@@ -1294,7 +1321,7 @@ namespace BaskerNS
     fprintf(fp, "%%%%MatrixMarket matrix coordinate real general\n");
     fprintf(fp, "%%Generated by **Basker** \n");
     fprintf(fp, "%%Starting Row %ld  Starting Col %ld \n",
-	    (long)M.srow, (long)M.scol);
+            (long)M.srow, (long)M.scol);
     fprintf(fp, "%ld %ld %ld \n", (long)M.nrow, (long)M.ncol, (long)M.nnz);
    
     Int bcol=M.scol;
@@ -1302,7 +1329,8 @@ namespace BaskerNS
     {
       for(Int j=M.col_ptr[k-bcol]; j<M.col_ptr[k-bcol+1]; j++)
       {
-        fprintf(fp, "%ld %ld %e \n", (long)M.row_idx[j]+1, (long)k-bcol+1, std::real(M.val[j])); 
+        fprintf(fp, "%ld %ld %.16e \n", (long)M.row_idx[j]+1, (long)k-bcol+1, std::real(M.val[j])); 
+        //fprintf(fp, "%ld %ld %e \n", (long)M.row_idx[j]+1, (long)k-bcol+1, std::real(M.val[j])); 
       }//over nnz in each column
     }//over each column
 
@@ -1323,7 +1351,7 @@ namespace BaskerNS
     fprintf(fp, "%%%%MatrixMarket matrix coordinate real general\n");
     fprintf(fp, "%%Generated by **Basker** \n");
     fprintf(fp, "%%Starting Row %d  Starting Col %d \n",
-	    M.srow, M.scol);
+            M.srow, M.scol);
     fprintf(fp, "%ld %ld %ld \n", (long)M.nrow, (long)M.ncol, (long)M.nnz);
    
     Int bcol=M.scol;
@@ -1334,12 +1362,14 @@ namespace BaskerNS
       {
         if(off == BASKER_FALSE)
         {
-          fprintf(fp, "%ld %ld %e \n", 
+          //fprintf(fp, "%ld %ld %e \n", 
+          fprintf(fp, "%ld %ld %.16e \n", 
               (long)M.row_idx[j]+1, (long)k-bcol+1, std::real(M.val[j]));
         }
         else
         {
-          fprintf(fp, "%ld %ld %e \n", 
+          //fprintf(fp, "%ld %ld %e \n", 
+          fprintf(fp, "%ld %ld %.16e \n", 
               (long)M.row_idx[j]+1-brow, (long)k-bcol+1, std::real(M.val[j]));
         }
       }//over nnz in each column
@@ -1441,60 +1471,6 @@ namespace BaskerNS
 
   }//end readMTX()
 
-
-  //Print out RHS  RHS.txt
-  template<class Int, class Entry, class Exe_Space>
-  int Basker<Int,Entry,Exe_Space>::printRHS()
-  {
-    if(solve_flag == false)
-    {return -1;}
-
-    FILE *fp;
-    fp = fopen("RHS.txt", "w");
-
-    //over each row
-    for(Int r = 0; r < A.nrow; r++)
-    {
-      //over each column NOTE: come back to
-      //for(Int k = 0; k < rhs.size(); k++)
-      for(Int k = 0; k < 1; k++)
-      {
-        fprintf(fp, "%ld %ld %f, ", (long)r, (long)gperm[r], rhs[k][r]);
-      }//end over each column
-      fprintf(fp, "\n");
-    }//end over each row
-
-    fclose(fp);
-
-    return 0;
-  }//end printRHS()
-
-  //Print solution SOL.txt
-  template <class Int, class Entry, class Exe_Space>
-  int Basker<Int,Entry,Exe_Space>::printSOL()
-  {
-    if(solve_flag == false)
-    {return -1;}
-
-    FILE *fp;
-    fp = fopen("SOL.txt", "w");
-    
-    //over each row
-    for(Int r = 0; r < A.nrow; r++)
-    {
-      //over each column Note: come back to
-      //for(Int k = 0; k < rhs.size(); k++)
-      for(Int k = 0 ; k < 1; k++)
-      {
-        fprintf(fp, "%ld %ld %f, ", (long)r, (long)gperm[r], sol[k][r]);
-      }//end over each column
-      fprintf(fp, "\n");
-    }//end over each row
-    
-    fclose(fp);
-
-    return 0;
-  }//end printSOL()
 
   //Prints the given tree into a file to analyze
   template<class Int, class Entry, class Exe_Space>
@@ -1707,7 +1683,7 @@ namespace BaskerNS
       {
         for(Int r = 0; r < LL_size(l); r++)
         {
-          BASKER_MATRIX &myL = LL[l][r];
+          BASKER_MATRIX &myL = LL(l)(r);
           Int brow = myL.srow;
           Int bcol = myL.scol;
 
@@ -2241,7 +2217,7 @@ namespace BaskerNS
 
     for(Int i = 0; i < n; i++)
     {
-      fprintf(fp, "%ld \n", (long)x(i));
+      fprintf(fp, "%ld\n", (long)x(i));
     }
 
     fclose(fp);
@@ -2262,7 +2238,8 @@ namespace BaskerNS
 
     for(Int i = 0; i < n; i++)
     {
-      fprintf(fp, "%f \n", x(i));
+      //fprintf(fp, "%lf\n", x(i));
+      fprintf(fp, "%.16e\n", x(i));
     }
 
     fclose(fp);
@@ -2277,14 +2254,14 @@ namespace BaskerNS
    Int n
   )
   {
-    printf("---VECTOR: %d ----\n", n);
+    printf("---VECTOR: %d ----\n", int(n));
 
     for(Int i = 0 ; i < n;  i++)
     {
       printf("%ld %ld, \n", (long)i, (long)x(i));
     }
 
-    printf("---END VECTOR %d --\n", n);
+    printf("---END VECTOR %d --\n", int(n));
   }//end printVec(Int)
 
 
@@ -2296,17 +2273,40 @@ namespace BaskerNS
    Int n
   )
   {
-    printf("---VECTOR: %d ----\n", n);
+    using STS = Teuchos::ScalarTraits<Entry>;
+    printf("---VECTOR: %d ----\n", int(n));
 
     for(Int i = 0; i< n; i++)
     {
       //printf("%ld %g, \n", (long)i, x[i]);
-      printf("%ld %.16e\n", (long)i, x[i]);
+      printf("%ld %.16e\n", (long)i, STS::real(x[i]));
     }
 
-    printf("---END VECTOR: %d ---\n", n);
+    printf("---END VECTOR: %d ---\n", int(n));
   }//end printVec Entry
 
+
+  template <class Int, class Entry, class Exe_Space>
+  BASKER_INLINE
+  void Basker<Int, Entry,Exe_Space>::printVec
+  (
+   std::string fname, 
+   BASKER_ENTRY* x, 
+   Int n
+  )
+  {
+    using STS = Teuchos::ScalarTraits<Entry>;
+    FILE *fp;
+    fp = fopen(fname.c_str(), "w");
+
+    for(Int i = 0; i < n; i++)
+    {
+      fprintf(fp, "%.16e\n", STS::real(x[i]));
+    }
+
+    fclose(fp);
+  }//end printVec(file,Int);
+   //
 
   template <class Int, class Entry, class Exe_Space>
   inline
@@ -2316,7 +2316,7 @@ namespace BaskerNS
   )
   {
     return (Int)(thread.league_rank()*thread.team_size()+
-		 thread.team_rank());
+                 thread.team_rank());
   }//end t_get_kid
  
 
@@ -2439,4 +2439,5 @@ namespace BaskerNS
  
 }//end namespace basker
 
+#undef BASKER_TIMER
 #endif //end basker_util_hpp

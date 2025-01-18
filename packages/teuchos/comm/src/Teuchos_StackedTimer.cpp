@@ -1,40 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //                    Teuchos: Common Tools Package
-//                 Copyright (2004) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// ***********************************************************************
+// Copyright 2004 NTESS and the Teuchos contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "Teuchos_StackedTimer.hpp"
@@ -42,6 +12,7 @@
 #include <ctime>
 #include <cctype>
 #include <algorithm>
+#include <iterator>
 #include <fstream>
 #include <sstream>
 
@@ -706,9 +677,7 @@ StackedTimer::printLevelXML (std::string prefix, int print_level, std::ostream& 
 
 void
 StackedTimer::report(std::ostream &os, Teuchos::RCP<const Teuchos::Comm<int> > comm, OutputOptions options) {
-  flatten();
-  merge(comm);
-  collectRemoteData(comm, options);
+  aggregateMpiData(comm, options);
   if (rank(*comm) == 0 ) {
     if (options.print_warnings) {
       os << "*** Teuchos::StackedTimer::report() - Remainder for a level will be ***"
@@ -741,10 +710,8 @@ StackedTimer::report(std::ostream &os, Teuchos::RCP<const Teuchos::Comm<int> > c
 void
 StackedTimer::reportXML(std::ostream &os, const std::string& datestamp, const std::string& timestamp, Teuchos::RCP<const Teuchos::Comm<int> > comm)
 {
-  flatten();
-  merge(comm);
   OutputOptions defaultOptions;
-  collectRemoteData(comm, defaultOptions);
+  aggregateMpiData(comm, defaultOptions);
   if (rank(*comm) == 0 ) {
     std::vector<bool> printed(flat_names_.size(), false);
     os << "<?xml version=\"1.0\"?>\n";
@@ -806,10 +773,8 @@ StackedTimer::reportWatchrXML(const std::string& name, Teuchos::RCP<const Teucho
       timestamp = buf;
     }
   }
-  flatten();
-  merge(comm);
   OutputOptions defaultOptions;
-  collectRemoteData(comm, defaultOptions);
+  aggregateMpiData(comm,defaultOptions);
   std::string fullFile;
   //only open the file on rank 0
   if(rank(*comm) == 0) {
@@ -864,5 +829,49 @@ void StackedTimer::disableTimers()
 
 void StackedTimer::enableTimers()
 {enable_timers_ = true;}
+
+void StackedTimer::aggregateMpiData(Teuchos::RCP<const Teuchos::Comm<int> > comm, OutputOptions options)
+{
+  flatten();
+  merge(comm);
+  collectRemoteData(comm, options);
+  global_mpi_aggregation_called_ = true;
+}
+
+double StackedTimer::getMpiAverageTime(const std::string& flat_timer_name)
+{
+  auto i = getFlatNameIndex(flat_timer_name);
+  return sum_[i] / active_[i];
+}
+
+double StackedTimer::getMpiAverageCount(const std::string& flat_timer_name)
+{
+  auto i = getFlatNameIndex(flat_timer_name);
+  return static_cast<double>(count_[i]) / static_cast<double>(active_[i]);
+}
+
+int StackedTimer::getFlatNameIndex(const std::string& flat_timer_name)
+{
+  TEUCHOS_TEST_FOR_EXCEPTION(!global_mpi_aggregation_called_, std::runtime_error,
+                             "ERROR: StackedTimer::getAverageMpiTime() - must call aggregateMpiData() first!");
+
+  auto search = std::find(flat_names_.begin(),flat_names_.end(),flat_timer_name);
+
+  TEUCHOS_TEST_FOR_EXCEPTION(search == flat_names_.end(),std::runtime_error,
+                             "ERROR: StackedTimer::getAverageMpiTime() - the timer named \""
+                             << flat_timer_name << "\" does not exist!");
+
+  auto i = std::distance(flat_names_.begin(),search);
+  return static_cast<int>(i);
+}
+
+bool StackedTimer::isTimer(const std::string& flat_timer_name)
+{
+  TEUCHOS_TEST_FOR_EXCEPTION(!global_mpi_aggregation_called_,std::runtime_error,
+                             "ERROR: StackedTimer::isTimer() - must call aggregateMpiData() before using this query!");
+
+  auto search = std::find(flat_names_.begin(),flat_names_.end(),flat_timer_name);
+  return (search == flat_names_.end()) ? false : true;
+}
 
 } //namespace Teuchos

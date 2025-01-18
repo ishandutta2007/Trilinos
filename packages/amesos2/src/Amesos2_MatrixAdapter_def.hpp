@@ -1,44 +1,10 @@
 // @HEADER
+// *****************************************************************************
+//           Amesos2: Templated Direct Sparse Solver Package
 //
-// ***********************************************************************
-//
-//           Amesos2: Templated Direct Sparse Solver Package 
-//                  Copyright 2011 Sandia Corporation
-//
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2011 NTESS and the Amesos2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 
@@ -75,7 +41,7 @@ namespace Amesos2 {
         KV_GO & colind,
         KV_GS & rowptr,
         typename MatrixAdapter<Matrix>::global_size_t& nnz,
-        const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t, global_ordinal_t, node_t> > rowmap,
+        const Teuchos::Ptr<const map_t> rowmap,
         EStorage_Ordering ordering,
         EDistribution distribution) const
   {
@@ -94,7 +60,7 @@ namespace Amesos2 {
         EDistribution distribution,
         EStorage_Ordering ordering) const
   {
-    const Teuchos::RCP<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > rowmap
+    const Teuchos::RCP<const map_t> rowmap
       = Util::getDistributionMap<local_ordinal_t,global_ordinal_t,global_size_t,node_t>(distribution,
                                                                                         this->getGlobalNumRows(),
                                                                                         this->getComm());
@@ -108,7 +74,7 @@ namespace Amesos2 {
         KV_GO & rowind,
         KV_GS & colptr,
         typename MatrixAdapter<Matrix>::global_size_t& nnz,
-        const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t, global_ordinal_t, node_t> > colmap,
+        const Teuchos::Ptr<const map_t> colmap,
         EStorage_Ordering ordering,
         EDistribution distribution) const
   {
@@ -127,7 +93,7 @@ namespace Amesos2 {
         EDistribution distribution,
         EStorage_Ordering ordering) const
   {
-    const Teuchos::RCP<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > colmap
+    const Teuchos::RCP<const map_t> colmap
       = Util::getDistributionMap<local_ordinal_t,global_ordinal_t,global_size_t,node_t>(distribution,
                                                                                         this->getGlobalNumCols(),
                                                                                         this->getComm());
@@ -210,7 +176,10 @@ namespace Amesos2 {
   void
   MatrixAdapter<Matrix>::describe(Teuchos::FancyOStream &out,
                                   const Teuchos::EVerbosityLevel verbLevel) const
-  {}
+  {
+    // (implemented for Epetra::CrsMatrix & Tpetra::CrsMatrix)
+    return static_cast<const adapter_t*>(this)->describe(out, verbLevel);
+  }
 
   template < class Matrix >
   template < class KV >
@@ -243,7 +212,7 @@ namespace Amesos2 {
              KV_GO & colind,
              KV_GS & rowptr,
              typename MatrixAdapter<Matrix>::global_size_t& nnz,
-             const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > rowmap,
+             const Teuchos::Ptr<const map_t> rowmap,
              EDistribution distribution,
              EStorage_Ordering ordering,
              no_special_impl nsi) const
@@ -263,7 +232,7 @@ namespace Amesos2 {
            KV_GO & colind,
            KV_GS & rowptr,
            typename MatrixAdapter<Matrix>::global_size_t& nnz,
-           const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > rowmap,
+           const Teuchos::Ptr<const map_t> rowmap,
            EDistribution distribution,
            EStorage_Ordering ordering,
            row_access ra) const
@@ -304,7 +273,7 @@ namespace Amesos2 {
     // TODO: There may be some more checking between the row map
     // compatibility, but things are working fine now.
 
-    RCP<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > rmap = get_mat->getRowMap();
+    RCP<const map_t> rmap = get_mat->getRowMap();
     ArrayView<const global_ordinal_t> node_elements = rmap->getLocalElementList();
     //if( node_elements.size() == 0 ) return; // no more contribution
     typename ArrayView<const global_ordinal_t>::iterator row_it, row_end;
@@ -418,7 +387,7 @@ namespace Amesos2 {
              KV_GO & rowind,
              KV_GS & colptr,
              typename MatrixAdapter<Matrix>::global_size_t& nnz,
-             const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > colmap,
+             const Teuchos::Ptr<const map_t> colmap,
              EDistribution distribution,
              EStorage_Ordering ordering,
              no_special_impl nsi) const
@@ -438,7 +407,7 @@ namespace Amesos2 {
            KV_GO & rowind,
            KV_GS & colptr,
            typename MatrixAdapter<Matrix>::global_size_t& nnz,
-           const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > colmap,
+           const Teuchos::Ptr<const map_t> colmap,
            EDistribution distribution,
            EStorage_Ordering ordering,
            row_access ra) const
@@ -539,9 +508,17 @@ namespace Amesos2 {
 
   template < class Matrix >
   Teuchos::RCP<const MatrixAdapter<Matrix> >
-  MatrixAdapter<Matrix>::get(const Teuchos::Ptr<const Tpetra::Map<local_ordinal_t,global_ordinal_t,node_t> > map, EDistribution distribution) const
+  MatrixAdapter<Matrix>::get(const Teuchos::Ptr<const map_t> map, EDistribution distribution) const
   {
     return static_cast<const adapter_t*>(this)->get_impl(map, distribution);
+  }
+
+
+  template < class Matrix >
+  Teuchos::RCP<const MatrixAdapter<Matrix> >
+  MatrixAdapter<Matrix>::reindex(Teuchos::RCP<const map_t> &contigRowMap, Teuchos::RCP<const map_t> &contigColMap) const
+  {
+    return static_cast<const adapter_t*>(this)->reindex_impl(contigRowMap, contigColMap);
   }
 
 

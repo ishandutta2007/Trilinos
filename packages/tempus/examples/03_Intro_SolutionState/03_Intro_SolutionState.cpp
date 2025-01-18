@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #include <iomanip>
 #include <iostream>
@@ -203,7 +204,7 @@ using Teuchos::RCP;
  *
  *  The remainder of 03_Intro_SolutionState.cpp is regression testing, etc.
  *
- *  \subsection example-02_Next Links
+ *  \subsection example-03_Next Links
  *
  *  - Back to: \ref tutorials
  *  - Previous: \ref example-02

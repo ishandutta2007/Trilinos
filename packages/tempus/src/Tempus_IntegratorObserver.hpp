@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_IntegratorObserver_hpp
 #define Tempus_IntegratorObserver_hpp
@@ -14,7 +15,8 @@
 
 // Forward declarations
 namespace Tempus {
-  template<typename Scalar> class Integrator;
+template <typename Scalar>
+class Integrator;
 }
 
 namespace Tempus {
@@ -38,42 +40,41 @@ namespace Tempus {
  *     solution state!  Developers need to be careful not to break the
  *     restart (checkpoint) capability.
  */
-template<class Scalar>
-class IntegratorObserver
-{
-public:
-
+template <class Scalar>
+class IntegratorObserver {
+ public:
   /// \name Basic IntegratorObserver methods
   //@{
-    /// Observe the beginning of the time integrator.
-    virtual void observeStartIntegrator(const Integrator<Scalar>& integrator) = 0;
+  /// Observe the beginning of the time integrator.
+  virtual void observeStartIntegrator(const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe the beginning of the time step loop.
-    virtual void observeStartTimeStep(const Integrator<Scalar>& integrator) = 0;
+  /// Observe the beginning of the time step loop.
+  virtual void observeStartTimeStep(const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe after the next time step size is selected. The
-    /// observer can choose to change the current integratorStatus.
-    virtual void observeNextTimeStep(const Integrator<Scalar>& integrator) = 0;
+  /// Observe after the next time step size is selected. The
+  /// observer can choose to change the current integratorStatus.
+  virtual void observeNextTimeStep(const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe before Stepper takes step.
-    virtual void observeBeforeTakeStep(const Integrator<Scalar>& integrator) = 0;
+  /// Observe before Stepper takes step.
+  virtual void observeBeforeTakeStep(const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe after Stepper takes step.
-    virtual void observeAfterTakeStep(const Integrator<Scalar>& integrator) = 0;
+  /// Observe after Stepper takes step.
+  virtual void observeAfterTakeStep(const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe after checking time step. Observer can still fail the time step here.
-    virtual void observeAfterCheckTimeStep(const Integrator<Scalar>& integrator) = 0;
+  /// Observe after checking time step. Observer can still fail the time step
+  /// here.
+  virtual void observeAfterCheckTimeStep(
+      const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe the end of the time step loop.
-    virtual void observeEndTimeStep(const Integrator<Scalar>& integrator) = 0;
+  /// Observe the end of the time step loop.
+  virtual void observeEndTimeStep(const Integrator<Scalar>& integrator) = 0;
 
-    /// Observe the end of the time integrator.
-    virtual void observeEndIntegrator(const Integrator<Scalar>& integrator) = 0;
+  /// Observe the end of the time integrator.
+  virtual void observeEndIntegrator(const Integrator<Scalar>& integrator) = 0;
 
-    /// default destructor
-    virtual ~IntegratorObserver() = default;
+  /// default destructor
+  virtual ~IntegratorObserver() = default;
   //@}
-
 };
-} // namespace Tempus
-#endif // Tempus_IntegratorObserver_hpp
+}  // namespace Tempus
+#endif  // Tempus_IntegratorObserver_hpp

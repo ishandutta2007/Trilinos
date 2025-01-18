@@ -1,40 +1,10 @@
 # @HEADER
-# ************************************************************************
-#
+# *****************************************************************************
 #            TriBITS: Tribal Build, Integrate, and Test System
-#                    Copyright 2013 Sandia Corporation
 #
-# Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-# the U.S. Government retains certain rights in this software.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are
-# met:
-#
-# 1. Redistributions of source code must retain the above copyright
-# notice, this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright
-# notice, this list of conditions and the following disclaimer in the
-# documentation and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the Corporation nor the names of the
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# ************************************************************************
+# Copyright 2013-2016 NTESS and the TriBITS contributors.
+# SPDX-License-Identifier: BSD-3-Clause
+# *****************************************************************************
 # @HEADER
 
 #############################################
@@ -171,7 +141,7 @@ tribits_project_read_version_file(${TRIBITS_PROJECT_ROOT})
 
 include(TribitsFindPythonInterp)
 tribits_find_python()
-message("PYTHON_EXECUTABLE = ${PYTHON_EXECUTABLE}")
+message("Python3_EXECUTABLE = ${Python3_EXECUTABLE}")
 
 #############################
 ### Do some initial setup ###
@@ -669,11 +639,11 @@ include(TribitsCTestDriverCoreHelpers)
 # **Setting variables in the inner CMake configure:**
 #
 # It is important to understand that none of the CMake vars that get set in
-# the other CTest -S program that calls ``tribits_ctest_driver()``
+# the outer CTest -S program that calls ``tribits_ctest_driver()``
 # automatically get passed into the inner configure of the TriBITS CMake
 # project using the ``ctest_configure()`` command by CMake.  From the
 # perspective of raw CTest and CMake, these are completely separate programs.
-# However, the ``tribits_ctest_driver()`` function will forward subset of
+# However, the ``tribits_ctest_driver()`` function will forward subset a of
 # variables documented below into the inner CMake configure.  The following
 # variables that are set in the outer CTest -S program will be passed into the
 # inner CMake configure by default (but their values they can be overridden by
@@ -684,7 +654,7 @@ include(TribitsCTestDriverCoreHelpers)
 #
 #     Missing extra repos are always ignored in the inner CMake configure.
 #     This is because any problems reading an extra repo will be caught in the
-#     outer CTest -S drivers script.
+#     outer CTest -S driver script.
 #
 #   ``-D${PROJECT_NAME}_ENABLE_ALL_OPTIONAL_PACKAGES:BOOL=ON``
 #
@@ -699,7 +669,7 @@ include(TribitsCTestDriverCoreHelpers)
 #     may be disabled.  (This set may be removed in the future for the
 #     all-at-once mode.)
 #
-# The following variables set in the CTest -S driver script will be passed
+# The following variables set in the outer CTest -S driver script will be passed
 # down into the inner CMake configure through the ``OPTIONS`` variable to the
 # ``ctest_configure()`` command:
 #
@@ -758,7 +728,7 @@ include(TribitsCTestDriverCoreHelpers)
 # These configure options are passed into the ``ctest_configure()`` command in
 # the order::
 #
-#  <initial options> ${EXTRA_SYSTEM_CONFIGURE_OPTIONS}} \
+#   <initial options> ${EXTRA_SYSTEM_CONFIGURE_OPTIONS}} \
 #     ${EXTRA_CONFIGURE_OPTIONS} ${${PROJECT_NAME}_EXTRA_CONFIGURE_OPTIONS}
 #
 # **WARNING:** The options listed in ``EXTRA_SYSTEM_CONFIGURE_OPTIONS``,

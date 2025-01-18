@@ -134,13 +134,14 @@ TEST(HostEvaluation, testFunctions)
   EXPECT_DOUBLE_EQ(evaluate("cosine_ramp(1/3, 0, 1)"),  0.25);
   EXPECT_DOUBLE_EQ(evaluate("cosine_ramp(1/3, 1)"),  0.25);
   EXPECT_DOUBLE_EQ(evaluate("cosine_ramp(1/3)"),  0.25);
+  EXPECT_DOUBLE_EQ(evaluate("linear_ramp(1/4, 0, 1)"),  0.25);
   EXPECT_DOUBLE_EQ(evaluate("haversine_pulse(1/6, 0, 1)"),  0.25);
   EXPECT_DOUBLE_EQ(evaluate("point2d(1, 0, 1, 1)"),   0.5);
   EXPECT_DOUBLE_EQ(evaluate("point3d(0, -1, 0, 1, 1)"),   0.5);
 }
 
 double reference_normal_pdf(double x, double mu, double sigma) {
-  return std::exp(-(x-mu)*(x-mu)/(2.0*sigma*sigma))/std::sqrt(2.0*stk::expreval::pi()*sigma*sigma);
+  return std::exp(-(x-mu)*(x-mu)/(2.0*sigma*sigma)) / std::sqrt(2.0*stk::expreval::pi()*sigma*sigma);
 }
 
 double reference_weibull_pdf(double x, double k, double lambda) {
@@ -162,3 +163,4 @@ TEST(HostEvaluation, testPDFFunctions)
 //-END
 
 } // namespace <unnamed>
+

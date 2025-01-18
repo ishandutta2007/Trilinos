@@ -59,7 +59,8 @@ HexFixture::HexFixture(MetaData& meta,
                        size_t ny,
                        size_t nz,
                        size_t nid_start,
-                       size_t eid_start)
+                       size_t eid_start,
+                       const std::string& elemPartAlias)
   : m_spatial_dimension(3),
     m_nx(nx),
     m_ny(ny),
@@ -70,11 +71,14 @@ HexFixture::HexFixture(MetaData& meta,
     m_bulk_data( bulk ),
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
     m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) ),
-    m_coord_field( m_meta.declare_field<CoordFieldType>(stk::topology::NODE_RANK, "Coordinates") ),
+    m_coord_field( &m_meta.declare_field<double>(stk::topology::NODE_RANK, "Coordinates") ),
     owns_mesh(false)
 {
+  if (!elemPartAlias.empty()) {
+    m_meta.add_part_alias(*m_elem_parts[0], elemPartAlias);
+  }
   //put coord-field on all nodes:
-  put_field_on_mesh(m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
+  put_field_on_mesh(*m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
 }
 
 HexFixture::HexFixture(stk::ParallelMachine pm,
@@ -93,13 +97,12 @@ HexFixture::HexFixture(stk::ParallelMachine pm,
     m_meta(m_bulk_p->mesh_meta_data()),
     m_bulk_data(*m_bulk_p),
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
-    m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) ),
-    m_coord_field( m_meta.declare_field<CoordFieldType>(stk::topology::NODE_RANK, "Coordinates") )
+    m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) )
 {
+  m_coord_field = &m_meta.declare_field<double>(stk::topology::NODE_RANK, "Coordinates");
 
   //put coord-field on all nodes:
-  put_field_on_mesh(m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
-
+  put_field_on_mesh(*m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
 }
 
 HexFixture::HexFixture(stk::ParallelMachine pm,
@@ -119,11 +122,12 @@ HexFixture::HexFixture(stk::ParallelMachine pm,
     m_meta(m_bulk_p->mesh_meta_data()),
     m_bulk_data(*m_bulk_p),
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
-    m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) ),
-    m_coord_field( m_meta.declare_field<CoordFieldType>(stk::topology::NODE_RANK, coordinate_name) )
+    m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) )
 {
+  m_coord_field = &m_meta.declare_field<double>(stk::topology::NODE_RANK, coordinate_name);
+
   //put coord-field on all nodes:
-  put_field_on_mesh(m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
+  put_field_on_mesh(*m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
 }
 
 HexFixture::HexFixture(stk::ParallelMachine pm,
@@ -143,13 +147,30 @@ HexFixture::HexFixture(stk::ParallelMachine pm,
     m_meta(m_bulk_p->mesh_meta_data()),
     m_bulk_data(*m_bulk_p),
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
-    m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) ),
-    m_coord_field( m_meta.declare_field<CoordFieldType>(stk::topology::NODE_RANK, "Coordinates") )
+    m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) )
 {
+  m_coord_field = &m_meta.declare_field<double>(stk::topology::NODE_RANK, "Coordinates");
 
   //put coord-field on all nodes:
-  put_field_on_mesh(m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
+  put_field_on_mesh(*m_coord_field, m_meta.universal_part(), m_spatial_dimension, nullptr);
+}
 
+void HexFixture::fill_mesh(size_t nx,
+                           size_t ny,
+                           size_t nz,
+                           BulkData& bulk,
+                           const std::string& elemPartAlias)
+{
+  size_t nidStart = 1;
+  size_t eidStart = 1;
+  if (!bulk.mesh_meta_data().is_initialized()) {
+    const size_t spatialDim = 3;
+    const std::string coordFieldName("Coordinates");
+    bulk.mesh_meta_data().initialize(spatialDim, stk::mesh::entity_rank_names(), coordFieldName);
+  }
+  HexFixture hexFixture(bulk.mesh_meta_data(), bulk, nx, ny, nz, nidStart, eidStart, elemPartAlias);
+  hexFixture.m_meta.commit();
+  hexFixture.generate_mesh();
 }
 
 HexFixture::~HexFixture()
@@ -249,7 +270,7 @@ void HexFixture::fill_node_map( int p_rank)
     elem_node[7] = node_id( ix   , iy+1 , iz+1 );
 
     for (int ien = 0; ien < 8; ++ien) {
-      AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], p_rank);
+      stk::mesh::fixtures::AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], p_rank);
     }
   }
 }
@@ -284,7 +305,7 @@ void HexFixture::fill_node_map(const std::map<int,std::vector<EntityId> > &paral
       elem_node[7] = node_id( ix   , iy+1 , iz+1 );
 
       for (int ien = 0; ien < 8; ++ien) {
-        AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], proc);
+        stk::mesh::fixtures::AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], proc);
       }
     }
   }
@@ -331,7 +352,7 @@ void HexFixture::generate_mesh(std::vector<EntityId> & element_ids_on_this_proce
         stk::mesh::Entity const node = m_bulk_data.get_entity( stk::topology::NODE_RANK , node_id );
         m_bulk_data.change_entity_parts(node, m_node_parts);
 
-        DoAddNodeSharings(m_bulk_data, m_nodes_to_procs, node_id, node);
+        stk::mesh::fixtures::DoAddNodeSharings(m_bulk_data, m_nodes_to_procs, node_id, node);
 
         STK_ThrowRequireMsg( m_bulk_data.is_valid(node),
           "This process should know about the nodes that make up its element");
@@ -340,7 +361,7 @@ void HexFixture::generate_mesh(std::vector<EntityId> & element_ids_on_this_proce
         size_t nx = 0, ny = 0, nz = 0;
         node_x_y_z(elem_nodes[i], nx, ny, nz);
 
-        Scalar * data = stk::mesh::field_data( m_coord_field , node );
+        Scalar * data = stk::mesh::field_data( *m_coord_field , node );
 
         coordMap.getNodeCoordinates(data, nx, ny, nz);
       }
@@ -394,7 +415,6 @@ HexFixture::HexFixture(stk::ParallelMachine pm,
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
     m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) )
 {
-  m_meta.use_simple_fields();
   m_coord_field = &m_meta.declare_field<double>(stk::topology::NODE_RANK, "Coordinates");
 
   //put coord-field on all nodes:
@@ -420,7 +440,6 @@ HexFixture::HexFixture(stk::ParallelMachine pm,
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
     m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) )
 {
-  m_meta.use_simple_fields();
   m_coord_field = &m_meta.declare_field<double>(stk::topology::NODE_RANK, coordinate_name);
 
   //put coord-field on all nodes:
@@ -446,7 +465,6 @@ HexFixture::HexFixture(stk::ParallelMachine pm,
     m_elem_parts( 1, &m_meta.declare_part_with_topology("hex_part", stk::topology::HEX_8) ),
     m_node_parts( 1, &m_meta.declare_part_with_topology("node_part", stk::topology::NODE) )
 {
-  m_meta.use_simple_fields();
   m_coord_field = &m_meta.declare_field<double>(stk::topology::NODE_RANK, "Coordinates");
 
   //put coord-field on all nodes:
@@ -550,7 +568,7 @@ void HexFixture::fill_node_map( int p_rank)
     elem_node[7] = node_id( ix   , iy+1 , iz+1 );
 
     for (int ien = 0; ien < 8; ++ien) {
-      AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], p_rank);
+      stk::mesh::fixtures::AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], p_rank);
     }
   }
 }
@@ -585,7 +603,7 @@ void HexFixture::fill_node_map(const std::map<int,std::vector<EntityId> > &paral
       elem_node[7] = node_id( ix   , iy+1 , iz+1 );
 
       for (int ien = 0; ien < 8; ++ien) {
-        AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], proc);
+        stk::mesh::fixtures::AddToNodeProcsMMap(m_nodes_to_procs, elem_node[ien], proc);
       }
     }
   }
@@ -632,7 +650,7 @@ void HexFixture::generate_mesh(std::vector<EntityId> & element_ids_on_this_proce
         stk::mesh::Entity const node = m_bulk_data.get_entity( stk::topology::NODE_RANK , node_id );
         m_bulk_data.change_entity_parts(node, m_node_parts);
 
-        DoAddNodeSharings(m_bulk_data, m_nodes_to_procs, node_id, node);
+        stk::mesh::fixtures::DoAddNodeSharings(m_bulk_data, m_nodes_to_procs, node_id, node);
 
         STK_ThrowRequireMsg( m_bulk_data.is_valid(node),
           "This process should know about the nodes that make up its element");

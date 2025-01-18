@@ -1,43 +1,11 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //           Panzer: A partial differential equation assembly
 //       engine for strongly coupled complex multiphysics systems
-//                 Copyright (2011) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Roger P. Pawlowski (rppawlo@sandia.gov) and
-// Eric C. Cyr (eccyr@sandia.gov)
-// ***********************************************************************
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include <vector>
@@ -121,6 +89,8 @@ void panzer::FieldManagerBuilder::setupVolumeFieldManagers(
   using Teuchos::RCP;
   using Teuchos::rcp;
 
+  PANZER_FUNC_TIME_MONITOR_DIFF("panzer::FieldManagerBuilder::setupVolumeFieldManagers",setup_field_managers);
+
   TEUCHOS_TEST_FOR_EXCEPTION(getWorksetContainer()==Teuchos::null,std::logic_error,
                             "panzer::FMB::setupVolumeFieldManagers: method function getWorksetContainer() returns null. "
                             "Plase call setWorksetContainer() before calling this method");
@@ -136,8 +106,14 @@ void panzer::FieldManagerBuilder::setupVolumeFieldManagers(
     const WorksetDescriptor wd = wkstDesc[blkInd];
 
     Traits::SD setupData;
-    setupData.worksets_ = getWorksetContainer()->getWorksets(wd);
-    setupData.orientations_ = getWorksetContainer()->getOrientations();
+    {
+      PANZER_FUNC_TIME_MONITOR_DIFF("getWorksets()",get_worksets);
+      { setupData.worksets_ = getWorksetContainer()->getWorksets(wd); }
+    }
+    {
+      PANZER_FUNC_TIME_MONITOR_DIFF("getOrientations()",get_orientations);
+      { setupData.orientations_ = getWorksetContainer()->getOrientations(); }
+    }
     if(setupData.worksets_->size()==0)
       continue;
 
@@ -150,17 +126,35 @@ void panzer::FieldManagerBuilder::setupVolumeFieldManagers(
 
     // use the physics block to register active evaluators
     pb->setActiveEvaluationTypes(active_evaluation_types_);
-    pb->buildAndRegisterEquationSetEvaluators(*fm, user_data);
-    if(!physicsBlockGatherDisabled())
-      pb->buildAndRegisterGatherAndOrientationEvaluators(*fm,lo_factory,user_data);
-    pb->buildAndRegisterDOFProjectionsToIPEvaluators(*fm,Teuchos::ptrFromRef(lo_factory),user_data);
-    if(!physicsBlockScatterDisabled())
-      pb->buildAndRegisterScatterEvaluators(*fm,lo_factory,user_data);
 
-    if(closureModelByEBlock)
+    {
+      PANZER_FUNC_TIME_MONITOR_DIFF("pb->buildAndRegisterEquationSetEvaluators()",build_and_reg_eq_set_eval);
+      { pb->buildAndRegisterEquationSetEvaluators(*fm, user_data); }
+    }
+
+    if(!physicsBlockGatherDisabled()) {
+      PANZER_FUNC_TIME_MONITOR_DIFF("pb->buildAndRegisterGatherAndOrientationEvaluators()",build_and_reg_gath_and_orient_eval);
+      pb->buildAndRegisterGatherAndOrientationEvaluators(*fm,lo_factory,user_data);
+    }
+
+    {
+      PANZER_FUNC_TIME_MONITOR_DIFF("pb->buildAndRegisterDOFProjectionsToIPEvaluators()",build_and_reg_dof_proj_eval);
+      pb->buildAndRegisterDOFProjectionsToIPEvaluators(*fm,Teuchos::ptrFromRef(lo_factory),user_data);
+    }
+
+    if(!physicsBlockScatterDisabled()) {
+      PANZER_FUNC_TIME_MONITOR_DIFF("pb->buildAndRegisterScatterEvaluators()",build_and_reg_scatter_eval);
+      pb->buildAndRegisterScatterEvaluators(*fm,lo_factory,user_data);
+    }
+
+    if(closureModelByEBlock) {
+      PANZER_FUNC_TIME_MONITOR_DIFF("pb->buildAndRegisterClosureModelEvaluators(): closureModelByEBlock==true",build_and_reg_closure_model_eval_if);
       pb->buildAndRegisterClosureModelEvaluators(*fm,cm_factory,pb->elementBlockID(),closure_models,user_data);
-    else
+    }
+    else {
+      PANZER_FUNC_TIME_MONITOR_DIFF("pb->buildAndRegisterClosureModelEvaluators(): closureModelByEBlock==false",build_and_reg_closure_model_eval_else);
       pb->buildAndRegisterClosureModelEvaluators(*fm,cm_factory,closure_models,user_data);
+    }
 
     // Reset active evaluation types
     pb->activateAllEvaluationTypes();

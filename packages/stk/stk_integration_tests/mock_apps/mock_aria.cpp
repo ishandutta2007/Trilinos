@@ -41,7 +41,6 @@ public:
     m_finalTime(),
     m_iWasToldToStop(),
     m_iWantToStop(false),
-    m_step(),
     m_sendTransfer(),
     m_recvTransfer1(),
     m_recvTransfer2(),
@@ -89,7 +88,7 @@ public:
 
     m_splitComms = stk::coupling::SplitComms(commWorld, color);
     m_splitComms.set_free_comms_in_destructor(true);
-    stk::util::impl::set_coupling_version(coupling_version_override);
+    stk::util::impl::set_coupling_version(commWorld, coupling_version_override);
     MPI_Comm splitComm = m_splitComms.get_split_comm();
     int myAppRank = stk::parallel_machine_rank(splitComm);
     int numAppRanks = stk::parallel_machine_size(splitComm);
@@ -357,7 +356,6 @@ private:
   double m_finalTime;
   bool m_iWasToldToStop;
   bool m_iWantToStop;
-  int m_step;
   std::shared_ptr<SendTransfer> m_sendTransfer;
   std::shared_ptr<RecvTransfer> m_recvTransfer1;
   std::shared_ptr<RecvTransfer> m_recvTransfer2;

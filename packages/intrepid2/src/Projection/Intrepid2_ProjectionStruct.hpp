@@ -1,48 +1,14 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //                           Intrepid2 Package
-//                 Copyright (2007) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Mauro Perego  (mperego@sandia.gov), or
-//                    Nate Roberts  (nvrober@sandia.gov)
-//
-//
-// ************************************************************************
+// Copyright 2007 NTESS and the Intrepid2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 /** \file   Intrepid2_ProjectionStruct.hpp
-    \brief  Header file for the Intrepid2::Experimental::ProjectionStruct.
+    \brief  Header file for the Intrepid2::ProjectionStruct.
     \author Created by Mauro Perego
  */
 #ifndef __INTREPID2_PROJECTIONSTRUCT_HPP__
@@ -56,11 +22,8 @@
 #include <array>
 
 namespace Intrepid2 {
-#ifdef HAVE_INTREPID2_EXPERIMENTAL_NAMESPACE
-namespace Experimental {
-#endif
 
-/** \class  Intrepid2::Experimental::ProjectionStruct
+/** \class  Intrepid2::ProjectionStruct
     \brief  An helper class to compute the evaluation points and weights needed for performing projections
 
     In order to perform projections, the basis functions and the target function need to be evaluated
@@ -528,9 +491,7 @@ public:
   ordinal_type maxNumBasisDerivEvalPoints;
   ordinal_type maxNumTargetDerivEvalPoints;
 };
-#ifdef HAVE_INTREPID2_EXPERIMENTAL_NAMESPACE
-}
-#endif
+
 } // Intrepid2 namespace
 #include "Intrepid2_ProjectionStructDef.hpp"
 #endif

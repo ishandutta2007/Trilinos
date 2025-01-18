@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_ORDER_SCOTCH_HPP
 #define SHYLUBASKER_ORDER_SCOTCH_HPP
 
@@ -226,7 +235,9 @@ namespace BaskerNS
 
         // id of the first leaf node (BF order, post_order maps from BF to ND)
         Int leaves_id = pow(2.0, (double)(num_levels)) - 1;
-        //printf( " num_levels = %d, num_doms = %d, leves_id = %d\n",num_levels,num_doms,leaves_id );
+        if (Options.verbose == BASKER_TRUE) {
+          printf( " num_domains = %d: num_levels = %d, num_doms = %d, leves_id = %d\n",num_domains,num_levels,num_doms,leaves_id );
+        }
 
         // > insert root
         Int num_queued = 0;
@@ -288,11 +299,14 @@ namespace BaskerNS
           // level goes to num_leaves so that we can call ND on the final leaf nodes
           last_level = num_levels;
         }
-        if (Options.verbose == BASKER_TRUE) {
-          if (run_nd_on_leaves) {
+        if (run_nd_on_leaves) {
+          if (Options.verbose == BASKER_TRUE) {
             std::cout << std::endl << " + Using ND on leaves + " << std::endl;
-          } else if (run_amd_on_leaves) {
-            std::cout << std::endl << " + Using AMD on leaves + " << std::endl;
+          }
+        } else if (run_amd_on_leaves) {
+          MALLOC_INT_1DARRAY(BT.leaf_nnz, num_doms);
+          if (Options.verbose == BASKER_TRUE) {
+            std::cout << std::endl << " + Using AMD on leaves (# doms = " << num_doms << ") + " << std::endl;
           }
         }
         // -------------------------------------------------- //
@@ -358,13 +372,14 @@ namespace BaskerNS
 
             if (level_k < num_levels) {
               Int num_leaves_k = pow(2.0, (double)(level_k));       // number of leaves at this level
+              //printf(" num_leaves(%d) = %d\n",level_k,num_leaves_k );
               for (Int leaf_id = 0; leaf_id < num_leaves_k; leaf_id++) {
                 Int dom_id = 2 * leaf_id + first_leaf1;
                 Int dom_id1 = dom_id;     // id of left-child after bisection
                 Int dom_id2 = dom_id + 1; // id of right-child after bisection
                 Int sep_id = (dom_id1)/2; // id of this domain before bisection (becomes separator after bisection)
 
-                //printf( " + %d: %d,%d(%d,%d) -> %d(%d)\n",level_k, post_iorder(dom_id1),post_iorder(dom_id2),dom_id1,dom_id2,post_iorder(sep_id),sep_id );
+                //printf( " + level=%d: post(%d)=%d,post(%d)=%d -> post(%d)=%d\n",level_k, dom_id1,post_iorder(dom_id1),dom_id2,post_iorder(dom_id2),sep_id,post_iorder(sep_id) );
                 dom_id1 = post_iorder(dom_id1);  // id of left-child after bisection
                 dom_id2 = post_iorder(dom_id2);  // id of right-child after bisection
                 sep_id  = post_iorder(sep_id);   // id of this domain before bisection (becomes separator after bisection)
@@ -401,11 +416,12 @@ namespace BaskerNS
         {
           // -------------------------------------------------- //
           for (; level <= last_level; level++) {
+            //printf( "\n ================== (level = %d) =========================\n",level );
             Int num_leaves = pow(2.0, (double)(level));       // number of leaves at this level
             Int first_sep  = pow(2.0, (double)(level)) - 1;   // id of the first leaf at this level
             Int first_leaf = pow(2.0, (double)(1+level)) - 1; // id of the first new leaf at the next level
+            //printf( "  num_leaves = %d, first_sep = %d, first_leaf = %d\n",num_leaves,first_sep,first_leaf );
 
-            //printf( "\n ===========================================\n" );
             for (Int leaf_id = 0; leaf_id < num_leaves; leaf_id++) {
               // extract k-th interoior
               Int dom_id = 2 * leaf_id + first_leaf;
@@ -417,7 +433,7 @@ namespace BaskerNS
               // trying to figure out which block comes right before me
               Int sep_left_sibling = 0;
               if (sep_id == first_sep) {
-                // this iis the first leaf
+                // this is the first leaf
                 sep_left_sibling = 0;
               } else if (leaf_id%2 == 1) {
                 // this is right-child, so assign to left-sibling
@@ -432,14 +448,17 @@ namespace BaskerNS
               }
               //printf( "  -> level = %d, sep_left_sibling = %d (sep_id = %d, first_sep = %d)\n",level,sep_left_sibling,sep_id,first_sep );
 
-              // post order
-              dom_id1 = post_iorder(dom_id1);
-              dom_id2 = post_iorder(dom_id2);
-              sep_id  = post_iorder(sep_id);
-              //printf( "  -> level = %d, dom_id1 = %d, dom_id2 = %d, sep_id = %d\n",level,dom_id1,dom_id2,sep_id );
-              //printf( "  -> level = %d, rantab[%d] = %d, rangtab[%d] = %d, rangtab[%d] = %d\n",level,dom_id1,sg.rangtab[dom_id1],dom_id2,sg.rangtab[dom_id2],sep_id,sg.rangtab[sep_id] );
-              //printf( "  -> level = %d, dom = %d -> %d (nrow = %d)\n",level,dom_id,sep_id,M.nrow );
-
+              if (level < num_levels) 
+              {
+                // post order
+                //printf( " * level = %d, dom_id1 = %d, dom_id2 = %d, sep_id = %d\n",level,dom_id1,dom_id2,sep_id );
+                dom_id1 = post_iorder(dom_id1);
+                dom_id2 = post_iorder(dom_id2);
+                //printf( "  -> level = %d, dom_id1 = %d, dom_id2 = %d, sep_id = %d\n",level,dom_id1,dom_id2,sep_id );
+                //printf( "  -> level = %d, rantab[%d] = %d, rangtab[%d] = %d, rangtab[%d] = %d\n",level,dom_id1,sg.rangtab[dom_id1],dom_id2,sg.rangtab[dom_id2],sep_id,sg.rangtab[sep_id] );
+                //printf( "  -> level = %d, dom = %d -> %d (nrow = %d)\n",level,dom_id,sep_id,M.nrow );
+              }
+              sep_id = post_iorder(sep_id);
               Int frow = sg.rangtab[sep_left_sibling];
               Int metis_offset_k = frow + metis_offset;
               //printf( "frow = rangtab[%d] = %d\n",sep_left_sibling,frow );
@@ -470,7 +489,7 @@ namespace BaskerNS
                 }
               }
 
-              //printf( " metis_size = %d, n = %d\n",metis_size_k,M.nrow );
+              //printf( " metis_size = %d (sizeof = %d), n = %d (sizeof = %d)\n",metis_size_k,sizeof(idx_t),M.nrow,sizeof(Int) );
               /*printf( " Ke = [\n" );
               for(Int i = metis_offset; i < M.nrow; i++)
               {
@@ -537,11 +556,16 @@ namespace BaskerNS
                     for(Int i = 0; i < metis_size_k; i++) {
                       metis_iperm_k(metis_perm_k(i)) = i;
                     }
+                    if (Options.verbose == BASKER_TRUE) {
+                      std::cout << std::endl << " > Basker AMD on leaf : estimated nnz(L(" << leaf_id << ") = " << l_nnz
+                                << " <" << std::endl << std::endl;
+                    }
                     info = METIS_OK;
                   } else {
                     std::cout << std::endl << " > Basker AMD failed < " << std::endl << std::endl;
                     return BASKER_ERROR; // TODO: what to do here?
                   }
+                  BT.leaf_nnz(leaf_id) = l_nnz;
                 }
 
                 // update perm/
@@ -860,7 +884,7 @@ namespace BaskerNS
           {
             if(M.row_idx(k) != i)
             {
-              ASSERT(sptr < M.nnz);
+              BASKER_ASSERT(sptr < M.nnz);
               sg.Ai[sptr++] = M.row_idx(k);
               sj++;
             }
@@ -874,7 +898,7 @@ namespace BaskerNS
         sg.nz = sg.Ap[sg.m];
 
         //printf("num self_edge: %d sg.m: %d \n",
-        //	   self_edge, sg.m);
+        //        self_edge, sg.m);
         if(self_edge != (sg.m))
         {
           BASKER_ASSERT(self_edge == (sg.m-1), 
@@ -976,11 +1000,11 @@ namespace BaskerNS
     #ifdef BASKER_DEBUG_ORDER_SCOTCH
      printf("FIX SCOTCH PRINT OUT\n");
      printf("SCOTCH: NUM_LEVELS ASKED = %d,  NUM DOMS GOT = %d, NUM TREES = %d \n",
-	    num_levels, sg.cblk, num_trees);
+         num_levels, sg.cblk, num_trees);
      printf("\n");
      printf("%d %d should blks: %f \n",
-	    2, ((Int)num_levels+1),
-	    pow(2.0,((double)num_levels+1))-1);
+         2, ((Int)num_levels+1),
+         pow(2.0,((double)num_levels+1))-1);
     #endif
      
      if(((sg.cblk) != pow(2.0,((double)num_levels+1))-1) || (num_trees != 1))
@@ -1014,7 +1038,7 @@ namespace BaskerNS
        #ifdef BASKER_DEBUG_ORDER_SCOTCH
        printf("\n\n Starting DEBUG COMPLETE OUT \n\n");
        printf("Tree: ");
-       `	for(Int i = 0; i < iblks+1; i++)
+       for(Int i = 0; i < iblks+1; i++)
        {
          printf("%d, ", ttree(i));
        }
@@ -1203,11 +1227,11 @@ namespace BaskerNS
     Int mynum = iblks-1;
     otree(iblks) = -1;
     rec_build_tree(lvl, 
-		   lpos,rpos, 
-		   mynum,
-		   otree);
+             lpos,rpos, 
+             mynum,
+             otree);
 
-		 
+           
     INT_1DARRAY ws;
     BASKER_ASSERT((iblks+1)>0, "scotch iblks 2");
     MALLOC_INT_1DARRAY(ws, iblks+1);
@@ -1472,7 +1496,7 @@ namespace BaskerNS
   )
   {
     //printf("assign, lpos: %d rpos: %d  number: %d\n",
-    //	   lpos, rpos, mynum);
+    //        lpos, rpos, mynum);
     
     if(lvl > 0)
     {

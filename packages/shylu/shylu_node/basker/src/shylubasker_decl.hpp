@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef SHYLUBASKER_DECL_HPP
 #define SHYLUBASKER_DECL_HPP
 
@@ -77,19 +86,16 @@ namespace BaskerNS
     int Factor_Inc(Int option);
 
     BASKER_INLINE
-    int Solve(Entry *b, Entry *x);
+    int Solve(Entry *b, Entry *x, bool transpose = false);
 
     BASKER_INLINE
-    int Solve(Int nrhs, Entry *b, Entry *x);
+    int Solve(Int nrhs, Entry *b, Entry *x, bool transpose = false);
 
     BASKER_INLINE
-    int Solve(ENTRY_1DARRAY b, ENTRY_1DARRAY x);
+    int Solve(ENTRY_1DARRAY b, ENTRY_1DARRAY x, bool transpose = false);
 
     BASKER_INLINE
-    int Solve(Int nrhs, Entry *b, Entry *x, Int option);
-
-    BASKER_INLINE
-    int SolveTest();
+    int Solve(Int nrhs, Entry *b, Entry *x, Int option, bool transpose = false);
 
     BASKER_INLINE
     int SetThreads(Int nthreads);
@@ -299,6 +305,11 @@ namespace BaskerNS
     int permute(INT_1DARRAY, INT_1DARRAY, Int);
 
     BASKER_INLINE
+    int permute_array_with_workspace(Entry * vec,
+                                     INT_1DARRAY & p,
+                                     Int n);
+
+    BASKER_INLINE
     int permute_with_workspace(INT_1DARRAY & vec,
                                INT_1DARRAY & p,
                                Int n,
@@ -319,6 +330,9 @@ namespace BaskerNS
     int permute_inv_with_workspace(ENTRY_1DARRAY&, INT_1DARRAY&, Int);
 
     BASKER_INLINE
+    int permute_inv_array_with_workspace(Entry*, INT_1DARRAY&, Int);
+
+    BASKER_INLINE
     int permute_inv_and_init_for_solve
     (
      Entry* ,
@@ -326,6 +340,26 @@ namespace BaskerNS
      ENTRY_1DARRAY &,
      INT_1DARRAY &,
      Int 
+    );
+
+    BASKER_INLINE
+    int permute_and_init_for_solve
+    (
+     Entry* y,
+     ENTRY_1DARRAY &xcon,
+     ENTRY_1DARRAY &ycon,
+     INT_1DARRAY  &p, 
+     Int n
+    );
+
+    BASKER_INLINE
+    int permute_inv_and_finalcopy_after_solve
+    (
+     Entry* x,
+     ENTRY_1DARRAY &xconv,
+     ENTRY_1DARRAY &yconv,
+     INT_1DARRAY  &p,
+     Int n
     );
 
     BASKER_INLINE
@@ -492,25 +526,6 @@ namespace BaskerNS
      INT_1DARRAY gcol,
      INT_1DARRAY grow, 
      Int off_diag
-    );
-
-    BASKER_INLINE
-    void L_blk_sfactor
-    (
-     BASKER_MATRIX &MV,
-     BASKER_SYMBOLIC_TREE &ST, 
-     INT_1DARRAY gcol, 
-     INT_1DARRAY grow
-    );
-
-    //old
-    BASKER_INLINE
-    void L_blk_sfactor
-    (
-     BASKER_MATRIX_VIEW &MV,
-     BASKER_SYMBOLIC_TREE &ST, 
-     INT_1DARRAY gcol, 
-     INT_1DARRAY grow
     );
 
     BASKER_INLINE
@@ -1126,8 +1141,6 @@ namespace BaskerNS
     void printMTX(std::string fname, BASKER_MATRIX &M);
     void printMTX(std::string fname, BASKER_MATRIX &M, BASKER_BOOL  off);
     void readMTX(std::string fname, BASKER_MATRIX &M);
-    int printRHS();
-    int printSOL();
     void printTree();
 
     BASKER_INLINE
@@ -1150,6 +1163,9 @@ namespace BaskerNS
 
     BASKER_INLINE
     void printVec(std::string, ENTRY_1DARRAY, Int);
+
+    BASKER_INLINE
+    void printVec(std::string, BASKER_ENTRY*, Int);
 
     void get_total_perm(INT_1DARRAY, INT_1DARRAY);
 
@@ -1193,9 +1209,6 @@ namespace BaskerNS
         INT_1DARRAY &vals_transpose_local);
 
     //basker_solve_rhs.hpp
-    BASKER_INLINE
-    int test_solve();
-
     BASKER_INLINE
     int solve_interface(Entry *, Entry*);
 
@@ -1251,6 +1264,58 @@ namespace BaskerNS
                  ENTRY_1DARRAY &y,
                  bool full = true);
 
+
+    BASKER_INLINE
+    int solve_interfacetr(Entry *, Entry*);
+
+    //BASKER_INLINE
+    int solve_interfacetr(Int, Entry *, Entry*);
+
+    BASKER_INLINE
+    int solve_interfacetr(ENTRY_1DARRAY &, ENTRY_1DARRAY &);
+
+    BASKER_INLINE
+    int serial_btf_solve_tr(ENTRY_1DARRAY &, ENTRY_1DARRAY &);
+
+    BASKER_INLINE
+    int l_tran_brfa_solve(ENTRY_1DARRAY &, ENTRY_1DARRAY &);
+
+    BASKER_INLINE
+    int u_tran_btfa_solve(ENTRY_1DARRAY &, ENTRY_1DARRAY &);
+
+    BASKER_INLINE
+    int neg_spmv_tr(BASKER_MATRIX &M,
+                 ENTRY_1DARRAY x,
+                 ENTRY_1DARRAY y,
+                 Int offset = 0);
+
+    BASKER_INLINE
+    int neg_spmv_perm_tr(BASKER_MATRIX &M,
+                      ENTRY_1DARRAY &y,
+                      ENTRY_1DARRAY &x,
+                      Int offset = 0);
+
+    BASKER_INLINE
+    int lower_tri_solve_tr(BASKER_MATRIX &M,
+                        ENTRY_1DARRAY &x,
+                        ENTRY_1DARRAY &y,
+                        Int offset = 0);
+
+    BASKER_INLINE
+    int upper_tri_solve_tr(BASKER_MATRIX &M,
+                        ENTRY_1DARRAY &x,
+                        ENTRY_1DARRAY &y,
+                        Int offset = 0);
+
+    BASKER_INLINE
+    int spmv_BTF_tr(Int tab,
+                 BASKER_MATRIX &M,
+                 ENTRY_1DARRAY &x, // modified rhs
+                 ENTRY_1DARRAY &y,
+                 bool full = true);
+
+
+
     //basker_stats.hpp
     BASKER_INLINE
     void print_local_time_stats();
@@ -1297,7 +1362,6 @@ namespace BaskerNS
     MATRIX_2DARRAY LU;   // view of views of 2D blocks; stores CCS factored AVM
     INT_1DARRAY LL_size; // tracks the number of 2D blocks ('rows') in a given 'column'
     INT_1DARRAY LU_size;
-
 
     //Used for BTF
 #define BASKER_SPLIT_A
@@ -1409,13 +1473,6 @@ namespace BaskerNS
 
     //end NDE
 
-
-    //RHS and solutions (These are not used anymore)
-    ENTRY_2DARRAY rhs;
-    ENTRY_2DARRAY sol;
-    Int nrhs;
-
-    
     BASKER_TREE   part_tree;
     BASKER_TREE   tree;
     BASKER_SYMBOLIC_TREE stree;

@@ -1,52 +1,11 @@
-// $Id$
-// $Source$
-
-//@HEADER
-// ************************************************************************
-//
+// @HEADER
+// *****************************************************************************
 //            NOX: An Object-Oriented Nonlinear Solver Package
-//                 Copyright (2002) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Roger Pawlowski (rppawlo@sandia.gov) or
-// Eric Phipps (etphipp@sandia.gov), Sandia National Laboratories.
-// ************************************************************************
-//  CVS Information
-//  $Source$
-//  $Author$
-//  $Date$
-//  $Revision$
-// ************************************************************************
-//@HEADER
+// Copyright 2002 NTESS and the NOX contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
 
 #include "NOX_Direction_Newton.H" // class definition
 #include "NOX_Common.H"
@@ -56,7 +15,7 @@
 #include "NOX_Solver_LineSearchBased.H"
 #include "NOX_Utils.H"
 #include "NOX_GlobalData.H"
-
+#include "Teuchos_StandardParameterEntryValidators.hpp"
 
 NOX::Direction::Newton::
 Newton(const Teuchos::RCP<NOX::GlobalData>& gd,
@@ -80,23 +39,47 @@ reset(const Teuchos::RCP<NOX::GlobalData>& gd,
 
   Teuchos::ParameterList& p = params.sublist("Newton");
 
-  doRescue = p.get("Rescue Bad Newton Solve", true);
-  if (!p.sublist("Linear Solver").isParameter("Tolerance"))
+  // Validate and set defaults
+  {
+    Teuchos::ParameterList validParams;
+    validParams.sublist("Linear Solver").disableRecursiveValidation();
+    validParams.sublist("Stratimikos Linear Solver").disableRecursiveValidation();
+    validParams.set<std::string>("Forcing Term Method", "Constant",
+      "Choice of forcing term used by the linear solver",
+      Teuchos::rcp(new Teuchos::StringValidator(Teuchos::tuple<std::string>("Constant", "Type 1", "Type 2"))));
+    validParams.set("Forcing Term Minimum Tolerance", 1.0e-4);
+    validParams.set("Forcing Term Maximum Tolerance", 0.9);
+    validParams.set("Forcing Term Initial Tolerance", 0.01);
+    validParams.set("Forcing Term Alpha", 1.5);
+    validParams.set("Forcing Term Gamma", 0.9);
+    validParams.set("Rescue Bad Newton Solve", true);
+
+    // Not used in this direction object, but needed in the Inexact
+    // Newton Utils which uses the same parameter list. Need to
+    // consolidate the two objects eventually.
+    validParams.set("Set Tolerance in Parameter List",true);
+
+    p.validateParametersAndSetDefaults(validParams);
+  }
+
+  doRescue = p.get<bool>("Rescue Bad Newton Solve");
+
+  if (!p.sublist("Linear Solver").isType<double>("Tolerance"))
     p.sublist("Linear Solver").get("Tolerance", 1.0e-10);
 
+  method = p.get<std::string>("Forcing Term Method");
 
-  if ( p.get("Forcing Term Method", "Constant") == "Constant" ) {
+  if ( method == "Constant" ) {
     useAdjustableForcingTerm = false;
-    eta_k = p.sublist("Linear Solver").get("Tolerance", 1.0e-4);
+    eta_k = p.sublist("Linear Solver").get<double>("Tolerance");
   }
   else {
     useAdjustableForcingTerm = true;
-    method = p.get("Forcing Term Method", "Type 1");
-    eta_min = p.get("Forcing Term Minimum Tolerance", 1.0e-4);
-    eta_max = p.get("Forcing Term Maximum Tolerance", 0.9);
-    eta_initial = p.get("Forcing Term Initial Tolerance", 0.01);
-    alpha = p.get("Forcing Term Alpha", 1.5);
-    gamma = p.get("Forcing Term Gamma", 0.9);
+    eta_min = p.get<double>("Forcing Term Minimum Tolerance");
+    eta_max = p.get<double>("Forcing Term Maximum Tolerance");
+    eta_initial = p.get<double>("Forcing Term Initial Tolerance");
+    alpha = p.get<double>("Forcing Term Alpha");
+    gamma = p.get<double>("Forcing Term Gamma");
     eta_k = eta_min;
   }
 
@@ -117,7 +100,7 @@ bool NOX::Direction::Newton::compute(NOX::Abstract::Vector& dir,
   // Reset the linear solver tolerance.
   if (useAdjustableForcingTerm) {
     resetForcingTerm(soln, solver.getPreviousSolutionGroup(),
-             solver.getNumIterations(), solver);
+                     solver.getNumIterations(), solver);
   }
   else {
     if (utils->isPrintType(Utils::Details)) {

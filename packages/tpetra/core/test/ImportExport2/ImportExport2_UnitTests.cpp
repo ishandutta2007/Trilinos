@@ -1,42 +1,10 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //          Tpetra: Templated Linear Algebra Services Package
-//                 Copyright (2008) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2008 NTESS and the Tpetra contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include <unistd.h>
@@ -196,7 +164,17 @@ namespace {
     return parameterList (* (getCrsGraphParameterList ())); // For now.
   }
 
+  template<class GO>
+  void
+  getFirstGID(GO &first_gid) {
+    first_gid  = 0;
+  }
 
+  template<>
+  void
+  getFirstGID<long long>(long long &first_gid) {
+    first_gid  = 3000000000L;
+  }
 
   //
   // UNIT TESTS
@@ -461,20 +439,6 @@ namespace {
       }
       src_mat->fillComplete ();
 
-      RCP<Teuchos::FancyOStream> fos = Teuchos::fancyOStream(Teuchos::rcpFromRef(std::cout));
-      fos->setOutputToRootOnly(-1);
-
-#if 0
-      fflush(stdout);
-      sleep(1); comm->barrier();
-      if (comm->getRank() == 0) std::cout << "========\nsrc_mat\n========" << std::endl;
-      sleep(1); comm->barrier();
-      src_mat->describe(*fos,Teuchos::VERB_EXTREME);
-      sleep(1); comm->barrier();
-      if (comm->getRank() == 0) std::cout << "========\nend of src_mat\n========\n\n" << std::endl;
-      sleep(1); comm->barrier();
-#endif
-
       // Create the importer
       Import<LO, GO> importer (src_map, tgt_map, getImportParameterList ());
       // Do the import, and fill-complete the target matrix.
@@ -541,25 +505,6 @@ namespace {
       typedef typename CrsMatrix<Scalar, LO, GO>::nonconst_local_inds_host_view_type lids_type;
       typedef typename CrsMatrix<Scalar,LO,GO>::nonconst_values_host_view_type vals_type;
 
-#if 0
-      fflush(stdout);
-      sleep(1); comm->barrier();
-      if (comm->getRank() == 0) std::cout << "tgt_mat\n========" << std::endl;
-      sleep(1); comm->barrier();
-      A_tgt2->describe(*fos,Teuchos::VERB_EXTREME);
-      sleep(1); comm->barrier();
-      if (comm->getRank() == 0) std::cout << "=======\nend of tgt_mat\n========\n\n" << std::endl;
-      sleep(1); comm->barrier();
-
-      sleep(1); comm->barrier();
-      if (comm->getRank() == 0) std::cout << "A_tgt2\n========" << std::endl;
-      sleep(1); comm->barrier();
-      A_tgt2->describe(*fos,Teuchos::VERB_EXTREME);
-      sleep(1); comm->barrier();
-      if (comm->getRank() == 0) std::cout << "=======\nend of A_tgt2\n========" << std::endl;
-      sleep(1); comm->barrier();
- #endif
- 
       lids_type tgtRowInds;
       vals_type tgtRowVals;
       lids_type tgt2RowInds;
@@ -785,7 +730,7 @@ namespace {
         // MV::imports_ and MV::view_ have the same memory space, the
         // imports_ view is aliased to the data view of the target MV.
         if ((myImageID == collectRank) && (myImageID == 0)) {
-          if (mv_type::dual_view_type::impl_dualview_is_single_device::value)
+          if (std::is_same_v<typename mv_type::dual_view_type::t_dev::device_type, typename mv_type::dual_view_type::t_host::device_type>)
             TEUCHOS_ASSERT(tgt_mv->importsAreAliased());
           // else {
           //   We do not know if copyAndPermute was run on host or device.
@@ -855,7 +800,7 @@ namespace {
         // MV::imports_ and MV::view_ have the same memory space, the
         // imports_ view is aliased to the data view of the target MV.
         if ((myImageID == collectRank) && (myImageID == 0)) {
-          if (mv_type::dual_view_type::impl_dualview_is_single_device::value)
+          if (std::is_same_v<typename mv_type::dual_view_type::t_dev::device_type, typename mv_type::dual_view_type::t_host::device_type>)
             TEUCHOS_ASSERT(tgt_mv->importsAreAliased());
           // else {
           //   We do not know if copyAndPermute was run on host or device.
@@ -983,7 +928,7 @@ void build_matrix_unfused_import(const MatrixType & SourceMatrix, ImportType & R
 
 // ===============================================================================
 template <class CrsMatrixType>
-double test_with_matvec(const CrsMatrixType &A, const CrsMatrixType &B){
+double test_with_matvec(const CrsMatrixType &A, const CrsMatrixType &B) {
   using Teuchos::RCP;
   using Teuchos::rcp;
 
@@ -1123,14 +1068,22 @@ build_test_matrix (const RCP<const Teuchos::Comm<int>>& Comm,
   const int MyPID   = Comm->getRank ();
 
   // Case 1: Tridiagonal
+  // Construct a Map that puts approximately the same Number of equations on each processor
   LO NumMyEquations = 100;
+  int myoffset = MyPID*NumMyEquations + ( MyPID<3 ? MyPID : 3 );
   GO NumGlobalEquations = (NumMyEquations * NumProc) + (NumProc < 3 ? NumProc : 3);
   if (MyPID < 3) {
     ++NumMyEquations;
   }
 
-  // Construct a Map that puts approximately the same Number of equations on each processor
-  RCP<const map_type> MyMap = rcp(new map_type(NumGlobalEquations, NumMyEquations, 0, Comm));
+  GO indexBase=0;
+  GO FIRST_GID;
+  getFirstGID(FIRST_GID);
+  Teuchos::Array<GO> mygids(NumMyEquations);
+  for(int i=0; i<NumMyEquations; i++)
+    mygids[i] = FIRST_GID + myoffset + i;
+
+  RCP<const map_type> MyMap = rcp(new map_type(NumGlobalEquations, mygids(), indexBase, Comm));
 
   // Create the matrix
   A = rcp(new CrsMatrixType(MyMap,3));
@@ -1147,12 +1100,12 @@ build_test_matrix (const RCP<const Teuchos::Comm<int>>& Comm,
 
   for (LO i = 0; i < NumMyEquations; i++) {
     GO GID = MyMap->getGlobalElement(i);
-    if(GID == 0){
-      Indices[0] = 1;
+    if(GID == FIRST_GID){
+      Indices[0] = FIRST_GID+1;
       NumEntries = 1;
     }
-    else if (GID == NumGlobalEquations-1) {
-      Indices[0] = NumGlobalEquations-2;
+    else if (GID == FIRST_GID+NumGlobalEquations-1) {
+      Indices[0] = FIRST_GID+NumGlobalEquations-2;
       NumEntries = 1;
     }
     else {
@@ -1384,27 +1337,43 @@ build_test_map (const Teuchos::RCP<const MapType>& oldMap, Teuchos::RCP<MapType>
 {
   using Teuchos::rcp;
   typedef Tpetra::global_size_t GST;
+  typedef typename MapType::global_ordinal_type GO;
+
+  GO FIRST_GID;
+  getFirstGID(FIRST_GID);
 
   const int NumProc = oldMap->getComm()->getSize();
   const int MyPID   = oldMap->getComm()->getRank();
 
   if (NumProc < 3) {
-    // Dump everything onto -proc 0
+    // Dump everything onto proc 0
     GST num_global = oldMap->getGlobalNumElements();
     size_t num_local = MyPID==0 ? num_global : 0;
-    newMap = rcp(new MapType(num_global,num_local,0,oldMap->getComm()));
+    Teuchos::Array<GO> mygids(num_local);
+    for(size_t i=0; i<num_global; i++)
+      mygids[i] = FIRST_GID + i;
+    newMap = rcp(new MapType(num_global,mygids(),0,oldMap->getComm()));
   }
   else {
     // Split everything between procs 0 and 2 (leave proc 1 empty)
     GST num_global = oldMap->getGlobalNumElements();
+    Teuchos::Array<GO> mygids;
+    GO offset=0;
     size_t num_local=0;
     if (MyPID == 0) {
       num_local = num_global/2;
+      mygids.resize(num_local);
+      for(size_t i=0; i<num_local; i++)
+        mygids[i] = FIRST_GID + i;
     }
     else if (MyPID == 2) {
       num_local =  num_global - ((size_t)num_global/2);
+      offset = (size_t)num_global/2;
+      mygids.resize(num_local);
+      for(size_t i=0; i<num_local; i++)
+        mygids[i] = FIRST_GID + offset + i;
     }
-    newMap = rcp(new MapType(num_global,num_local,0,oldMap->getComm()));
+    newMap = rcp(new MapType(num_global,mygids(),0,oldMap->getComm()));
   }
 }
 
@@ -1832,8 +1801,15 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( FusedImportExport, doImport, LO, GO, Scalar )
     GST num_global = A->getRowMap()->getGlobalNumElements();
 
     // New map with all on Proc1
-    if(MyPID==0) Map1 = rcp(new map_type(num_global,(size_t)num_global,0,Comm));
-    else Map1 = rcp(new map_type(num_global,(size_t)0,0,Comm));
+    Teuchos::Array<GO> mygids;
+    if(MyPID==0) {
+      GO FIRST_GID;
+      getFirstGID(FIRST_GID);
+      mygids.resize(num_global);
+      for(size_t i=0; i<num_global; i++)
+        mygids[i] = FIRST_GID + i;
+    }
+    Map1 = rcp(new map_type(num_global,mygids(),0,Comm));
 
     // Parameters
     Teuchos::ParameterList params;
@@ -2380,8 +2356,14 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( Import_Util, UnpackAndCombineWithOwningPIDs, 
       os << *prefix << "Calling 4-arg doPostsAndWaits" << std::endl;
       std::cerr << os.str ();
     }
+
+    // NOTE: This test is run entirely on host.  Trying to run this on
+    // device is trickier, since we don't allow sending from CudaUVM buffers, but
+    // do allow sends from HIP Unified Memory
     Kokkos::View<char*, Kokkos::HostSpace> importsView(imports.data(), imports.size());
-    distor.doPostsAndWaits(exports.view_host(),numExportPackets(),importsView,numImportPackets());
+    auto exportsView_h = create_mirror_view(Kokkos::HostSpace(),exports.view_host());
+    deep_copy(exportsView_h,exports.view_host());
+    distor.doPostsAndWaits(exportsView_h,numExportPackets(),importsView,numImportPackets());
     auto importsView_d = Kokkos::create_mirror_view(Node::device_type::memory_space(), importsView);
     deep_copy(importsView_d,importsView);
     if (verbose) {
@@ -2398,7 +2380,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( Import_Util, UnpackAndCombineWithOwningPIDs, 
     Teuchos::ArrayRCP<size_t>  rowptr;
     Teuchos::ArrayRCP<GO>      colind;
     Teuchos::ArrayRCP<Scalar>  vals;
-    Teuchos::Array<int>        TargetPids;
+    Kokkos::View<int*,Node::device_type> TargetPids_d;
 
     if (verbose) {
       std::ostringstream os;
@@ -2432,7 +2414,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( Import_Util, UnpackAndCombineWithOwningPIDs, 
       colind_d,
       vals_d,
       SourcePids (),
-      TargetPids);
+      TargetPids_d);
 
     auto rowptr_h = create_mirror_view_and_copy(Kokkos::HostSpace(), rowptr_d);
     auto colind_h = create_mirror_view_and_copy(Kokkos::HostSpace(), colind_d);
@@ -2538,7 +2520,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_2_DECL( Import_Util,LowCommunicationMakeColMapAndRein
   // it will), in which case we can remove the persistingView call.
   auto rowptr = Kokkos::Compat::persistingView(A->getLocalRowPtrsHost());
   auto colind = Kokkos::Compat::persistingView(A->getLocalIndicesHost());
-  
+
   Acolmap = A->getColMap();
   Adomainmap = A->getDomainMap();
 

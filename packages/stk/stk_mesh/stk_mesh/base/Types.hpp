@@ -83,18 +83,8 @@ typedef std::vector< unsigned >     PermutationIndexVector;
 typedef std::vector<Entity>         EntityVector;
 typedef std::vector<EntityKey>      EntityKeyVector;
 
-template< typename Scalar = void ,
-          class Tag1 = void , class Tag2 = void ,
-          class Tag3 = void , class Tag4 = void ,
-          class Tag5 = void , class Tag6 = void ,
-          class Tag7 = void >
-  class Field ;
-
-/** \brief Maximum
- *  \ref "multi-dimensional array" dimension of a
- *  \ref stk::mesh::Field "field"
- */
-enum { MaximumFieldDimension = 7 };
+template <typename Scalar = void>
+class Field;
 
 enum class Operation
 {
@@ -118,29 +108,15 @@ enum EntityState : char { Unchanged = 0 ,
                    Created  = 1 ,
                    Modified = 2 ,
                    Deleted  = 3 };
-inline
-std::ostream& operator<<(std::ostream& os, EntityState state)
-{
-  switch(state) {
-  case Unchanged: os<<"Unchanged"; break;
-  case Created: os<<"Created"; break;
-  case Modified: os<<"Modified"; break;
-  case Deleted: os<<"Deleted"; break;
-  default: break;
-  };
-  return os;
-}
-
-template< class FieldType > struct FieldTraits ;
-
+//
 //MeshIndex describes an Entity's location in the mesh, specifying which bucket,
 //and the offset (ordinal) into that bucket.
-//Ultimately we want this struct to contain two ints rather than a pointer and an int...
 struct MeshIndex
 {
   Bucket* bucket;
   unsigned bucket_ordinal;
 
+  STK_FUNCTION
   MeshIndex(Bucket *bucketIn, size_t ordinal) : bucket(bucketIn), bucket_ordinal(ordinal) {}
 };
 
@@ -151,6 +127,16 @@ struct FastMeshIndex
   unsigned bucket_id;
   unsigned bucket_ord;
 };
+
+inline bool operator<(const FastMeshIndex& lhs, const FastMeshIndex& rhs)
+{
+  return lhs.bucket_id == rhs.bucket_id ? lhs.bucket_ord < rhs.bucket_ord : lhs.bucket_id < rhs.bucket_id;
+}
+
+inline bool operator==(const FastMeshIndex& lhs, const FastMeshIndex& rhs)
+{
+  return lhs.bucket_id == rhs.bucket_id && lhs.bucket_ord == rhs.bucket_ord;
+}
 
 NAMED_PAIR(BucketInfo, unsigned, bucket_id, unsigned, num_entities_this_bucket)
 
@@ -267,9 +253,11 @@ typedef PairIter<const EntityCommInfo*>  PairIterEntityComm ;
  *  a stencil function returns a non-negative integer;
  *  otherwise a stencil function returns a negative value.
  */
-typedef int ( * relation_stencil_ptr )( EntityRank  from_type ,
+#ifndef STK_HIDE_DEPRECATED_CODE // Delete after July 31 2024
+STK_DEPRECATED typedef int ( * relation_stencil_ptr )( EntityRank  from_type ,
                                         EntityRank  to_type ,
                                         unsigned  identifier );
+#endif
 
 //----------------------------------------------------------------------
 /** \brief  Span of a sorted relations for a given domain entity.
@@ -302,7 +290,15 @@ using ConnectivityOrdinal = uint16_t;
 constexpr ConnectivityOrdinal INVALID_CONNECTIVITY_ORDINAL = 65535;
 #else
 using ConnectivityOrdinal = uint32_t;
-constexpr ConnectivityOrdinal INVALID_CONNECTIVITY_ORDINAL = ~0U;
+constexpr ConnectivityOrdinal INVALID_CONNECTIVITY_ORDINAL = std::numeric_limits<ConnectivityOrdinal>::max();
+#endif
+
+#ifdef STK_16BIT_UPWARDCONN_INDEX_TYPE
+using UpwardConnIndexType = uint16_t;
+constexpr UpwardConnIndexType INVALID_UPWARDCONN_INDEX = 65535;
+#else
+using UpwardConnIndexType = uint32_t;
+constexpr UpwardConnIndexType INVALID_UPWARDCONN_INDEX = std::numeric_limits<UpwardConnIndexType>::max();
 #endif
 
 enum Permutation : unsigned char

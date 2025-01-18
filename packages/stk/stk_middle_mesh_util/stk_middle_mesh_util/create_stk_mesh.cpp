@@ -1,9 +1,7 @@
-#ifdef STK_BUILT_IN_SIERRA
-
+#include "stk_io/WriteMesh.hpp"
 #include "create_stk_mesh.hpp"
 #include "stk_middle_mesh/field.hpp"
 #include "constants.hpp"
-#include <stk_mesh/base/FEMHelpers.hpp>
 #include <stk_topology/topology.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/FEMHelpers.hpp>
@@ -11,6 +9,8 @@
 #include <stk_io/StkMeshIoBroker.hpp>
 #include <stk_util/parallel/CommSparse.hpp>
 #include <stk_util/util/ReportHandler.hpp>
+#include "Ioss_Property.h"
+
 
 namespace stk {
 namespace middle_mesh {
@@ -30,6 +30,10 @@ void StkMeshCreator::declare_stk_vert_field()
 void StkMeshCreator::load_mesh(const std::string& fname)
 {
   stk::io::StkMeshIoBroker reader(m_bulkDataPtr->parallel());
+  if (m_autodecompMethod != "NONE")
+  {
+    reader.property_add(Ioss::Property("DECOMPOSITION_METHOD", m_autodecompMethod));
+  }
   reader.set_bulk_data(*m_bulkDataPtr);
   reader.add_mesh_database(fname, stk::io::READ_MESH);
   reader.create_input_mesh();
@@ -284,20 +288,20 @@ void StkMeshCreator::setup_edge_sharing(std::shared_ptr<mesh::Mesh> mesh, MeshFi
     constexpr unsigned maxNumEdgeNodes = 3;
     std::vector<stk::mesh::Entity> edgeNodes(maxNumEdgeNodes);
     std::vector<mesh::MeshEntityPtr> edgeVerts(maxNumEdgeNodes);
-    
+
     const std::vector<mesh::MeshEntityPtr>& surfaceElems = mesh->get_elements();
     for(const mesh::MeshEntityPtr& elem : surfaceElems) {
       if (elem) {
         const stk::mesh::SideSetEntry& ssetEntry = (*stkElsField)(elem, 0, 0);
         stk::mesh::Entity stkEl = ssetEntry.element;
-        
+
         const bool stkElemIsFace = ssetEntry.side != stk::mesh::INVALID_CONNECTIVITY_ORDINAL;
         if (stkElemIsFace) {
           stkEl = stk::mesh::get_side_entity_for_elem_side_pair(bulk, stkEl, ssetEntry.side);
         }
-        
+
         stk::topology stkTopo = bulk.bucket(stkEl).topology();
-        
+
         const stk::mesh::Entity* nodes = bulk.begin_nodes(stkEl);
 
         for(int dn=0; dn<elem->count_down(); ++dn) {
@@ -305,7 +309,7 @@ void StkMeshCreator::setup_edge_sharing(std::shared_ptr<mesh::Mesh> mesh, MeshFi
           STK_ThrowRequire((edgeEnt && edgeEnt->get_type() == mesh::MeshEntityType::Edge));
           edgeNodes.resize(edgeEnt->count_down());
           stkTopo.edge_nodes(nodes, dn, edgeNodes.data());
-          
+
           edgeVerts.resize(edgeEnt->count_down());
 
           for(int n=0; n<edgeEnt->count_down(); ++n) {
@@ -342,8 +346,10 @@ void StkMeshCreator::setup_edge_sharing(std::shared_ptr<mesh::Mesh> mesh, MeshFi
       buf.unpack<int>(remoteEdge);
 
       mesh::MeshEntityPtr edge = mesh::get_common_edge(verts[vert1], verts[vert2]);
-      STK_ThrowRequireMsg(edge, "StkMeshCreator::setup_edge_sharing failed to find common edge for verts from P"<<p);
-      edge->add_remote_shared_entity({p, remoteEdge});
+      if (edge)
+      {
+        edge->add_remote_shared_entity({p, remoteEdge});
+      }
     }
   }
 }
@@ -351,4 +357,4 @@ void StkMeshCreator::setup_edge_sharing(std::shared_ptr<mesh::Mesh> mesh, MeshFi
 } // namespace stk_interface
 } // namespace middle_mesh
 } // namespace stk
-#endif
+

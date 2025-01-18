@@ -1,27 +1,19 @@
 // clang-format off
-/* =====================================================================================
-Copyright 2022 National Technology & Engineering Solutions of Sandia, LLC (NTESS).
-Under the terms of Contract DE-NA0003525 with NTESS, the U.S. Government retains
-certain rights in this software.
-
-SCR#:2790.0
-
-This file is part of Tacho. Tacho is open source software: you can redistribute it
-and/or modify it under the terms of BSD 2-Clause License
-(https://opensource.org/licenses/BSD-2-Clause). A copy of the licese is also
-provided under the main directory
-
-Questions? Kyungjoo Kim at <kyukim@sandia.gov,https://github.com/kyungjoo-kim>
-
-Sandia National Laboratories, Albuquerque, NM, USA
-===================================================================================== */
+// @HEADER
+// *****************************************************************************
+//                            Tacho package
+//
+// Copyright 2022 NTESS and the Tacho contributors.
+// SPDX-License-Identifier: BSD-2-Clause
+// *****************************************************************************
+// @HEADER
 // clang-format on
 /// \file Tacho_GraphTools_Metis.cpp
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
 #include "Tacho_Util.hpp"
 
-#if defined(TACHO_HAVE_METIS)
+#if defined(TACHO_HAVE_METIS) || defined(TACHO_HAVE_TRILINOS_SS)
 #include "Tacho_GraphTools_Metis.hpp"
 
 namespace Tacho {
@@ -47,8 +39,15 @@ GraphTools_Metis::GraphTools_Metis(const Graph &g) {
   for (ordinal_type i = 0; i < static_cast<ordinal_type>(_adjncy.extent(0)); ++i)
     _adjncy(i) = g_col_idx(i);
 
+#if defined(TACHO_HAVE_METIS)
+  _algo = 2;
   METIS_SetDefaultOptions(_options);
   _options[METIS_OPTION_NUMBERING] = 0;
+#elif defined(TACHO_HAVE_TRILINOS_SS)
+  _algo = 1;
+#else
+  _algo = 0;
+#endif
 
   _perm_t = idx_t_array(do_not_initialize_tag("idx_t_perm"), _nvts);
   _peri_t = idx_t_array(do_not_initialize_tag("idx_t_peri"), _nvts);
@@ -60,39 +59,94 @@ GraphTools_Metis::GraphTools_Metis(const Graph &g) {
 GraphTools_Metis::~GraphTools_Metis() {}
 
 void GraphTools_Metis::setVerbose(const bool verbose) { _verbose = verbose; }
-void GraphTools_Metis::setOption(const int id, const idx_t value) { _options[id] = value; }
+void GraphTools_Metis::setOption(const int id, const idx_t value) {
+#if defined(TACHO_HAVE_METIS)
+  _options[id] = value;
+#endif
+}
+void GraphTools_Metis::setAlgorithm(const int algo) { _algo = algo; }
 
 ///
-/// reorder by metis
+/// reorder by amd
+///
+template <typename ordering_type>
+ordering_type GraphTools_Metis::amd_order (ordering_type n, const ordering_type *xadj, const ordering_type *adjncy, ordering_type *perm, double *control, double *info) {
+  if constexpr (std::is_same_v<ordering_type, long>) {
+    // trilinos_amd_l_order requires integral type UF_long==long
+    return trilinos_amd_l_order(n, xadj, adjncy, perm, control, info);
+  }
+  else if constexpr (std::is_same_v<ordering_type, int>) {
+    // trilinos_amd_order requires integral type int
+    return trilinos_amd_order(n, xadj, adjncy, perm, control, info);
+  }
+  else {
+    // integral types different from int and long are not currently supported
+    return TRILINOS_AMD_INVALID;
+  }
+}
+
+///
+/// reorder by metis or amd
 ///
 
 void GraphTools_Metis::reorder(const ordinal_type verbose) {
   Kokkos::Timer timer;
   double t_metis = 0;
 
-  int ierr = 0;
+  if (_algo == 0) {
+    for (ordinal_type i = 0; i < _nvts; ++i) {
+      _perm(i) = i;
+      _peri(i) = i;
+    }
+  } else if (_algo == 1) {
+    int ierr = 0;
+    double amd_info[TRILINOS_AMD_INFO];
 
-  idx_t *xadj = (idx_t *)_xadj.data();
-  idx_t *adjncy = (idx_t *)_adjncy.data();
-  idx_t *vwgt = (idx_t *)_vwgt.data();
+    timer.reset();
+    ierr = GraphTools_Metis::amd_order(_nvts, _xadj.data(), _adjncy.data(), _perm_t.data(), NULL, amd_info);
+    t_metis = timer.seconds();
 
-  idx_t *perm = (idx_t *)_perm_t.data();
-  idx_t *peri = (idx_t *)_peri_t.data();
+    for (idx_t i = 0; i < _nvts; ++i) {
+      _perm(i) = _perm_t(i);
+      _peri(_perm(i)) = i;
+    }
 
-  timer.reset();
-  ierr = METIS_NodeND(&_nvts, xadj, adjncy, vwgt, _options, perm, peri);
-  t_metis = timer.seconds();
+    // ierr != TRILINOS_AMD_OK && ierr != TRILINOS_AMD_OK_BUT_JUMBLED
+    TACHO_TEST_FOR_EXCEPTION(ierr < TRILINOS_AMD_OK, std::runtime_error, "Failed in trilinos_amd");
+  } else {
+#if defined(TACHO_HAVE_METIS)
+    int ierr = 0;
 
-  for (idx_t i = 0; i < _nvts; ++i) {
-    _perm(i) = _perm_t(i);
-    _peri(i) = _peri_t(i);
+    idx_t *xadj = (idx_t *)_xadj.data();
+    idx_t *adjncy = (idx_t *)_adjncy.data();
+    idx_t *vwgt = (idx_t *)_vwgt.data();
+
+    idx_t *perm = (idx_t *)_perm_t.data();
+    idx_t *peri = (idx_t *)_peri_t.data();
+
+    timer.reset();
+    ierr = METIS_NodeND(&_nvts, xadj, adjncy, vwgt, _options, perm, peri);
+    t_metis = timer.seconds();
+
+    for (idx_t i = 0; i < _nvts; ++i) {
+      _perm(i) = _perm_t(i);
+      _peri(i) = _peri_t(i);
+    }
+
+    TACHO_TEST_FOR_EXCEPTION(ierr != METIS_OK, std::runtime_error, "Failed in METIS_NodeND");
+#else
+    TACHO_TEST_FOR_EXCEPTION(true, std::runtime_error, "METIS is not enabled");
+#endif
   }
-
-  TACHO_TEST_FOR_EXCEPTION(ierr != METIS_OK, std::runtime_error, "Failed in METIS_NodeND");
   _is_ordered = true;
 
   if (verbose) {
-    printf("Summary: GraphTools (Metis)\n");
+    if (_algo == 0)
+      printf("Summary: GraphTools (Natural)\n");
+    else if (_algo == 1)
+      printf("Summary: GraphTools (AMD)\n");
+    else
+      printf("Summary: GraphTools (Metis)\n");
     printf("===========================\n");
 
     switch (verbose) {

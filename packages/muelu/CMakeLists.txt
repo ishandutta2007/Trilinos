@@ -239,7 +239,7 @@ IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
 
   # <double, int, long>
   IF(Tpetra_INST_DOUBLE AND Tpetra_INST_INT_LONG)
-    GLOBAL_SET(${PACKAGE_NAME}_HAVE_GO_INT ON)
+    GLOBAL_SET(${PACKAGE_NAME}_HAVE_GO_LONG ON)
     GLOBAL_SET(${PACKAGE_NAME}_INST_DOUBLE_INT_LONGINT ON)
     GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_DOUBLE_INT_LONGINT ON)
   ELSE()
@@ -280,7 +280,7 @@ IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
 
   # <float, int, int>
   IF(Tpetra_INST_FLOAT AND Tpetra_INST_INT_INT)
-    GLOBAL_SET(${PACKAGE_NAME}_HAVE_GO_LONG ON)
+    GLOBAL_SET(${PACKAGE_NAME}_HAVE_GO_INT ON)
     GLOBAL_SET(${PACKAGE_NAME}_INST_FLOAT_INT_INT ON)
     GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_FLOAT_INT_INT ON)
   ELSE()
@@ -339,6 +339,16 @@ IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
   MESSAGE(STATUS "   HAVE_${PACKAGE_NAME_UC}_SYCL         : ${HAVE_${PACKAGE_NAME_UC}_SYCL}")
 ELSE()
   # ETI is turned off
+  GLOBAL_SET(${PACKAGE_NAME}_INST_DOUBLE_INT_LONGLONGINT OFF)
+  GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_DOUBLE_INT_LONGLONGINT OFF)
+  GLOBAL_SET(${PACKAGE_NAME}_INST_COMPLEX_INT_INT OFF)
+  GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_COMPLEX_INT_INT OFF)
+  GLOBAL_SET(${PACKAGE_NAME}_INST_COMPLEX_INT_LONG_LONG OFF)
+  GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_COMPLEX_INT_LONG_LONG OFF)
+  GLOBAL_SET(${PACKAGE_NAME}_INST_FLOAT_INT_INT OFF)
+  GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_FLOAT_INT_INT OFF)
+  GLOBAL_SET(${PACKAGE_NAME}_INST_FLOAT_INT_LONG_LONG OFF)
+  GLOBAL_SET(HAVE_${PACKAGE_NAME_UC}_INST_FLOAT_INT_LONG_LONG OFF)
 
   # If Epetra only is enabled, ETI is off by default. We have to make sure that
   # the HAVE_MUELU_SERIAL variable is set such that the IfpackSmoother and other
@@ -394,17 +404,6 @@ ENDIF ()
 # C) Add the libraries, tests, and examples
 #
 
-# The build has to be in a very specific order because of the existence of Matlab interface:
-#   1. Build the majority of the code in src/   [except src/Interface; src/CMakeLists.txt is responsible for ignoring that]
-#   2. Build matlab factories                   [located in matlab/; matlab/bin is ignored in matlab/CMakeLists.txt]
-#   3. Build the interpreter                    [requires all factories]
-#   4. Build the adapters                       [required for Matlab]
-#   5. Build the rest of matlab code
-# This order required splitting of the src/ library into two: muelu and muelu-interface, as steps 1. and 3. are separated.
-# A simple diagram explains this:
-#                                               /  muelu
-# matlab/bin - muelu-adapters - muelu-interface      |
-#                                               \  matlab
 ADD_SUBDIRECTORY(src)
 
 if(TPL_ENABLE_MATLAB)
@@ -415,18 +414,12 @@ if(TPL_ENABLE_MATLAB)
   IF (NOT ${PROJECT_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
     MESSAGE(FATAL_ERROR "Muemex interfaces require \"-D${PROJECT_NAME}_ENABLE_EXPLICIT_INSTANTIATION:BOOL=ON\".")
   ENDIF()
-
-  IF(NOT ${PACKAGE_NAME}_ENABLE_Epetra)
-    MESSAGE(FATAL_ERROR "Muemex interfaces require \"-D${PACKAGE_NAME}_ENABLE_Epetra:BOOL=ON\".")
-  ENDIF()
 ENDIF()
 
-if(TPL_ENABLE_MATLAB)
-  ADD_SUBDIRECTORY(matlab)
-ENDIF()
-ADD_SUBDIRECTORY(src/Interface)
+# Not: adapters needs to come before matlab
 ADD_SUBDIRECTORY(adapters)
 if(TPL_ENABLE_MATLAB)
+  ADD_SUBDIRECTORY(matlab)
   ADD_SUBDIRECTORY(matlab/bin)
   ADD_SUBDIRECTORY(matlab/tests)
 ENDIF()

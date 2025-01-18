@@ -13,8 +13,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //@HEADER
-#ifndef __KOKKOSBATCHED_QR_FORM_Q_SERIAL_INTERNAL_HPP__
-#define __KOKKOSBATCHED_QR_FORM_Q_SERIAL_INTERNAL_HPP__
+#ifndef KOKKOSBATCHED_QR_FORM_Q_SERIAL_INTERNAL_HPP
+#define KOKKOSBATCHED_QR_FORM_Q_SERIAL_INTERNAL_HPP
 
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
@@ -34,13 +34,10 @@ namespace KokkosBatched {
 struct SerialQR_FormQ_Internal {
   template <typename ValueType>
   KOKKOS_INLINE_FUNCTION static int invoke(const int m, const int k,
-                                           /* */ ValueType* A, const int as0,
-                                           const int as1,
+                                           /* */ ValueType* A, const int as0, const int as1,
                                            /* */ ValueType* t, const int ts,
-                                           /* */ ValueType* Q, const int qs0,
-                                           const int qs1,
-                                           /* */ ValueType* w,
-                                           const bool is_Q_zero = false) {
+                                           /* */ ValueType* Q, const int qs0, const int qs1,
+                                           /* */ ValueType* w, const bool is_Q_zero = false) {
     typedef ValueType value_type;
 
     /// Given a matrix A that includes QR factorization
@@ -57,8 +54,7 @@ struct SerialQR_FormQ_Internal {
     else
       SerialSetIdentityInternal::invoke(m, Q, qs0, qs1);
 
-    return SerialApplyQ_LeftNoTransForwardInternal ::invoke(
-        m, m, k, A, as0, as1, t, ts, Q, qs0, qs1, w);
+    return SerialApplyQ_LeftNoTransForwardInternal ::invoke(m, m, k, A, as0, as1, t, ts, Q, qs0, qs1, w);
   }
 };
 

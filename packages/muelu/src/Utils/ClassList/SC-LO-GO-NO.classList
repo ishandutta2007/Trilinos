@@ -1,3 +1,4 @@
+AdaptiveSaMLParameterListInterpreter
 AggregationExportFactory
 AggregateQualityEstimateFactory
 AmalgamationFactory
@@ -32,7 +33,11 @@ DemoFactory
 DirectSolver
 DropNegativeEntriesFactory
 EminPFactory
+FacadeBGS2x2
+FacadeClassBase
 FacadeClassFactory
+FacadeSimple
+FactoryFactory
 FactoryManager
 FakeSmootherPrototype
 FilteredAFactory
@@ -62,8 +67,8 @@ MergedSmoother
 MultiVectorTransferFactory
 NotayAggregationFactory
 NullspaceFactory
-NullspaceFactory_kokkos
 NullspacePresmoothFactory
+ParameterListInterpreter
 PatternFactory
 PerfUtils
 PerfModels
@@ -91,7 +96,7 @@ RepartitionHeuristicFactory - #ifdef HAVE_MPI
 ReplicatePFactory
 RigidBodyModeFactory
 SaPFactory
-SaPFactory_kokkos
+SaPFactory_kokkos - #if defined(HAVE_MUELU_DEPRECATED_CODE)
 ScaledNullspaceFactory
 SchurComplementFactory
 SegregatedAFactory
@@ -141,3 +146,6 @@ RefMaxwell
 Maxwell1
 MultiPhys
 Maxwell_Utils
+SingleLevelMatlabFactory - #if defined(HAVE_MUELU_MATLAB)
+TwoLevelMatlabFactory - #if defined(HAVE_MUELU_MATLAB)
+MatlabSmoother - #if defined(HAVE_MUELU_MATLAB)

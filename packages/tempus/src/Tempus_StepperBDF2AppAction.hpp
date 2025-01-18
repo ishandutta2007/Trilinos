@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperBDF2AppAction_hpp
 #define Tempus_StepperBDF2AppAction_hpp
@@ -12,16 +13,16 @@
 #include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
 
-
 namespace Tempus {
 
 // Forward Declaration
-template<class Scalar> class StepperBDF2;
+template <class Scalar>
+class StepperBDF2;
 
 /** \brief Application Action for StepperBDF2.
  *
- *  This class provides a means to apply various actions with the BDF2 time step.
- *  The data available to this class is solution variables (through
+ *  This class provides a means to apply various actions with the BDF2 time
+ * step. The data available to this class is solution variables (through
  *  SolutionHistory), and stepper data (through the Stepper).  It allows
  *  the application to just observe this data, i.e., use but not change
  *  any of it (USER BEWARE!).
@@ -30,11 +31,9 @@ template<class Scalar> class StepperBDF2;
  *  (StepperBDF2AppAction::ACTION_LOCATION) are shown in the
  *  algorithm documentation of the StepperBDF2.
  */
-template<class Scalar>
-class StepperBDF2AppAction
-{
-public:
-
+template <class Scalar>
+class StepperBDF2AppAction {
+ public:
   /// Indicates the location of application action (see algorithm).
   enum ACTION_LOCATION {
     BEGIN_STEP,    ///< At the beginning of the step.
@@ -44,18 +43,18 @@ public:
   };
 
   /// Constructor
-  StepperBDF2AppAction(){}
+  StepperBDF2AppAction() {}
 
   /// Destructor
-  virtual ~StepperBDF2AppAction(){}
+  virtual ~StepperBDF2AppAction() {}
 
   /// Execute application action for BDF2 Stepper.
   virtual void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperBDF2<Scalar> > stepper,
-    const typename StepperBDF2AppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperBDF2<Scalar> > stepper,
+      const typename StepperBDF2AppAction<Scalar>::ACTION_LOCATION actLoc) = 0;
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperBDF2AppAction_hpp
+#endif  // Tempus_StepperBDF2AppAction_hpp

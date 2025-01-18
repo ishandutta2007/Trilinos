@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperHHTAlphaModifierXBase_hpp
 #define Tempus_StepperHHTAlphaModifierXBase_hpp
@@ -12,7 +13,6 @@
 #include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
 #include "Tempus_StepperHHTAlphaAppAction.hpp"
-
 
 namespace Tempus {
 
@@ -28,12 +28,10 @@ namespace Tempus {
  *  affecting the Stepper correctness, performance, accuracy and stability
  *  (i.e., USER BEWARE!!).
  */
-template<class Scalar>
+template <class Scalar>
 class StepperHHTAlphaModifierXBase
-  : virtual public Tempus::StepperHHTAlphaAppAction<Scalar>
-{
-private:
-
+  : virtual public Tempus::StepperHHTAlphaAppAction<Scalar> {
+ private:
   /* \brief Adaptor execute function
    *
    *  This is an adaptor function to bridge between the AppAction
@@ -48,39 +46,35 @@ private:
    *  function.
    */
   void execute(
-    Teuchos::RCP<SolutionHistory<Scalar> > sh,
-    Teuchos::RCP<StepperHHTAlpha<Scalar> > stepper,
-    const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc)
+      Teuchos::RCP<SolutionHistory<Scalar> > sh,
+      Teuchos::RCP<StepperHHTAlpha<Scalar> > stepper,
+      const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc)
   {
     using Teuchos::RCP;
 
-    MODIFIER_TYPE modType = X_BEGIN_STEP;
+    MODIFIER_TYPE modType                    = X_BEGIN_STEP;
     RCP<SolutionState<Scalar> > workingState = sh->getWorkingState();
-    const Scalar time = workingState->getTime();
-    const Scalar dt   = workingState->getTimeStep();
+    const Scalar time                        = workingState->getTime();
+    const Scalar dt                          = workingState->getTimeStep();
     RCP<Thyra::VectorBase<Scalar> > x;
 
-    switch(actLoc) {
-      case StepperHHTAlphaAppAction<Scalar>::BEGIN_STEP:
-      {
+    switch (actLoc) {
+      case StepperHHTAlphaAppAction<Scalar>::BEGIN_STEP: {
         modType = X_BEGIN_STEP;
-        x = workingState->getX();
+        x       = workingState->getX();
         break;
       }
-      case StepperHHTAlphaAppAction<Scalar>::BEFORE_SOLVE:
-      {
+      case StepperHHTAlphaAppAction<Scalar>::BEFORE_SOLVE: {
         modType = X_BEFORE_SOLVE;
-        x = workingState->getX();
+        x       = workingState->getX();
         break;
       }
-      case StepperHHTAlphaAppAction<Scalar>::AFTER_SOLVE:
-      {
+      case StepperHHTAlphaAppAction<Scalar>::AFTER_SOLVE: {
         modType = X_AFTER_SOLVE;
-        x = workingState->getX();
+        x       = workingState->getX();
         break;
       }
-      case StepperHHTAlphaAppAction<Scalar>::END_STEP:
-      {
+      case StepperHHTAlphaAppAction<Scalar>::END_STEP: {
         modType = X_END_STEP;
         if (workingState->getX() != Teuchos::null)
           x = workingState->getX();
@@ -90,30 +84,27 @@ private:
       }
       default:
         TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Error - unknown action location.\n");
+                                   "Error - unknown action location.\n");
     }
 
     this->modify(x, time, dt, modType);
   }
 
-public:
-
+ public:
   /// Indicates the location of application action (see algorithm).
   enum MODIFIER_TYPE {
-    X_BEGIN_STEP,     ///< Modify \f$x\f$ at the beginning of the step.
-    X_BEFORE_SOLVE,   ///< Modify \f$x\f$ before the implicit solve.
-    X_AFTER_SOLVE,    ///< Modify \f$x\f$ after the implicit solve.
-    X_END_STEP        ///< Modify \f$x\f$ at the end of the step.
+    X_BEGIN_STEP,    ///< Modify \f$x\f$ at the beginning of the step.
+    X_BEFORE_SOLVE,  ///< Modify \f$x\f$ before the implicit solve.
+    X_AFTER_SOLVE,   ///< Modify \f$x\f$ after the implicit solve.
+    X_END_STEP       ///< Modify \f$x\f$ at the end of the step.
   };
 
   /// Modify solution based on the MODIFIER_TYPE.
-  virtual void modify(
-    Teuchos::RCP<Thyra::VectorBase<Scalar> > /* x */,
-    const Scalar /* time */, const Scalar /* dt */,
-    const MODIFIER_TYPE modType) = 0;
-
+  virtual void modify(Teuchos::RCP<Thyra::VectorBase<Scalar> > /* x */,
+                      const Scalar /* time */, const Scalar /* dt */,
+                      const MODIFIER_TYPE modType) = 0;
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperHHTAlphaModifierXBase_hpp
+#endif  // Tempus_StepperHHTAlphaModifierXBase_hpp

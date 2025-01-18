@@ -1,7 +1,5 @@
-#ifdef STK_BUILT_IN_SIERRA
-
-#ifndef CREATE_STK_MESH
-#define CREATE_STK_MESH
+#ifndef STK_MIDDLE_MESH_UTILS_CREATE_STK_MESH
+#define STK_MIDDLE_MESH_UTILS_CREATE_STK_MESH
 
 #include "stk_io/DatabasePurpose.hpp"
 #include "stk_io/StkMeshIoBroker.hpp"
@@ -40,11 +38,12 @@ class StkMeshCreator
     using MeshFieldPtr = MeshPart::MeshFieldPtr;
     static std::string vertex_field_name();
 
-    explicit StkMeshCreator(const std::string& fname, MPI_Comm comm = MPI_COMM_WORLD)
+    explicit StkMeshCreator(const std::string& fname, const std::string& autodecompMethod="NONE",
+                            MPI_Comm comm = MPI_COMM_WORLD) // CHECK: ALLOW MPI_COMM_WORLD
         : m_bulkDataPtr(::stk::mesh::MeshBuilder(comm).set_spatial_dimension(3).create()),
-          m_metaDataPtr(m_bulkDataPtr->mesh_meta_data_ptr())
+          m_metaDataPtr(m_bulkDataPtr->mesh_meta_data_ptr()),
+          m_autodecompMethod(autodecompMethod)
     {
-      m_metaDataPtr->use_simple_fields();
       declare_stk_vert_field();
       load_mesh(fname);
     }
@@ -97,6 +96,7 @@ class StkMeshCreator
     std::shared_ptr<::stk::mesh::MetaData> m_metaDataPtr;
     stk::mesh::Part* m_part;
     FieldType* m_stkNodeField;
+    std::string m_autodecompMethod;
 };
 
 
@@ -105,4 +105,3 @@ class StkMeshCreator
 } // namespace stk
 #endif
 
-#endif

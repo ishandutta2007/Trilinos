@@ -1,45 +1,11 @@
-/*
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //                    Teuchos: Common Tools Package
-//                 Copyright (2004) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
+// Copyright 2004 NTESS and the Teuchos contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
-*/
 
 #include "Array_UnitTest_helpers.hpp"
 #include "Teuchos_Tuple.hpp"
@@ -181,7 +147,8 @@ TEUCHOS_UNIT_TEST( Array, stringToArray_string_hyphens )
 
   {
     std::string arrayString="{,}";
-    TEST_THROW(Array<std::string> arrayVal = fromStringToArray<std::string>(arrayString),
+    TEST_THROW(
+      [[maybe_unused]] Array<std::string> arrayVal = fromStringToArray<std::string>(arrayString),
       Teuchos::InvalidArrayStringRepresentation);
   }
 
@@ -336,6 +303,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, Array_to_ArrayRCP_dangling, T )
   }
 #ifdef TEUCHOS_DEBUG
   TEST_THROW(a_arcp[0], DanglingReferenceError);
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -349,6 +318,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, constArray_to_ArrayRCP_dangling, T )
   }
 #ifdef TEUCHOS_DEBUG
   TEST_THROW(a_arcp[0], DanglingReferenceError);
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -415,6 +386,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayView_implicit, T )
   { Array<T> a(n); av = a; }
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0] = 0, DanglingReferenceError );
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -425,6 +398,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayView_implicit_const, T )
   { Array<T> a(n); av = getConst(a); }
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0], DanglingReferenceError );
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -435,6 +410,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayView_explicit, T )
   { Array<T> a(n); av = a(); }
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0] = 0, DanglingReferenceError );
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -445,6 +422,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayView_explicit_const, T )
   { Array<T> a(n); av = getConst(a)(); }
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0], DanglingReferenceError );
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -455,6 +434,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayView_subview, T )
   { Array<T> a(n); av = a(0,1); }
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0] = 0, DanglingReferenceError );
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -465,6 +446,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayView_subview_const, T )
   { Array<T> a(n); av = getConst(a)(0,1); }
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0], DanglingReferenceError );
+#else
+  (void)out; (void)success;
 #endif
 }
 
@@ -479,7 +462,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayViewIter, T )
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( *iter = 0, DanglingReferenceError );
 #else
-  (void)iter;
+  (void)iter; (void)out; (void)success;
 #endif
 }
 
@@ -495,7 +478,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, danglingArrayViewIter_const, T )
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( *iter, DanglingReferenceError );
 #else
-  (void)iter;
+  (void)iter; (void)out; (void)success;
 #endif
 }
 
@@ -516,6 +499,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, structuralChangeArrayView, T )
   a.push_back(a[0]);
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0] = 0, DanglingReferenceError );
+#else
+  (void)av; (void)out; (void)success;
 #endif
 }
 
@@ -527,7 +512,19 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, structuralChangeArrayView_const, T )
   a.push_back(a[0]);
 #ifdef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
   TEST_THROW( av[0], DanglingReferenceError );
+#else
+  (void)av; (void)out; (void)success;
 #endif
+}
+
+
+TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, initializerList, T )
+{
+  const Array<T> a2{as<T>(1),as<T>(2),as<T>(3),as<T>(4)};
+  TEST_EQUALITY( a2.size(), 4);
+  for (typename Array<T>::size_type i=0; i < a2.size(); ++i) {
+    TEST_EQUALITY( a2[i], as<T>(i+1) );
+  }
 }
 
 
@@ -578,6 +575,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_1_DECL( Array, structuralChangeArrayView_const, T )
   TEUCHOS_UNIT_TEST_TEMPLATE_1_INSTANT( Array, erase_empty, T ) \
   TEUCHOS_UNIT_TEST_TEMPLATE_1_INSTANT( Array, structuralChangeArrayView, T ) \
   TEUCHOS_UNIT_TEST_TEMPLATE_1_INSTANT( Array, structuralChangeArrayView_const, T ) \
+  TEUCHOS_UNIT_TEST_TEMPLATE_1_INSTANT( Array, initializerList, T ) \
   DEBUG_UNIT_TEST_GROUP( T )
 
 UNIT_TEST_GROUP(int)

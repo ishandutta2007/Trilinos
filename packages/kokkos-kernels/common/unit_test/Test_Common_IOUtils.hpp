@@ -42,7 +42,7 @@ class ViewPrintHelper {
 
 template <typename exec_space>
 void testPrintView() {
-  using scalar_t   = default_scalar;
+  using scalar_t   = KokkosKernels::default_scalar;
   using Unmanaged  = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
   using rank0_view = Kokkos::View<scalar_t, Kokkos::HostSpace, Unmanaged>;
   using rank1_view = Kokkos::View<scalar_t *, Kokkos::HostSpace, Unmanaged>;
@@ -70,6 +70,6 @@ void testPrintView() {
             "[2x2 multi-vector]\n");
 }
 
-TEST_F(TestCategory, common_print_view) { testPrintView<TestExecSpace>(); }
+TEST_F(TestCategory, common_print_view) { testPrintView<TestDevice>(); }
 
 #endif  // KOKKOSKERNELS_IOTEST_HPP

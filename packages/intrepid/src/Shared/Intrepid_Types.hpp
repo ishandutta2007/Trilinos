@@ -203,7 +203,7 @@ namespace Intrepid {
               reconstructed functions or basis functions. Pairs of primitive operators are used to 
               specify what kind of local weak operator should be constructed.
   */
-  enum EOperator{
+  enum EOperator : int {
     OPERATOR_VALUE = 0,
     OPERATOR_GRAD,      // 1
     OPERATOR_CURL,      // 2
@@ -732,3 +732,10 @@ namespace Intrepid {
   
 
 #endif
+
+#if defined(Intrepid_SHOW_DEPRECATED_WARNINGS)
+#ifdef __GNUC__
+#warning "The Intrepid package is deprecated"
+#endif
+#endif
+

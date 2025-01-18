@@ -24,10 +24,8 @@
 #include <HIP/Kokkos_HIP_Space.hpp>
 
 #include <HIP/Kokkos_HIP_DeepCopy.hpp>
-#include <HIP/Kokkos_HIP_SharedAllocationRecord.hpp>
 
 #include <impl/Kokkos_Error.hpp>
-#include <impl/Kokkos_MemorySpace.hpp>
 #include <impl/Kokkos_DeviceManagement.hpp>
 #include <impl/Kokkos_ExecSpaceManager.hpp>
 
@@ -41,18 +39,11 @@
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
+
 namespace {
 
 static std::atomic<bool> is_first_hip_managed_allocation(true);
 
-bool hip_driver_check_page_migration(int deviceId) {
-  // check with driver if page migrating memory is available
-  // this driver query is copied from the hip documentation
-  int hasManagedMemory = 0;  // false by default
-  KOKKOS_IMPL_HIP_SAFE_CALL(hipDeviceGetAttribute(
-      &hasManagedMemory, hipDeviceAttributeManagedMemory, deviceId));
-  return static_cast<bool>(hasManagedMemory);
-}
 }  // namespace
 
 /*--------------------------------------------------------------------------*/
@@ -60,39 +51,63 @@ bool hip_driver_check_page_migration(int deviceId) {
 
 namespace Kokkos {
 
-HIPSpace::HIPSpace() : m_device(HIP().hip_device()) {}
+HIPSpace::HIPSpace()
+    : m_device(HIP().hip_device()), m_stream(HIP().hip_stream()) {}
 
 HIPHostPinnedSpace::HIPHostPinnedSpace() {}
 
 HIPManagedSpace::HIPManagedSpace() : m_device(HIP().hip_device()) {}
 
+#ifndef KOKKOS_IMPL_HIP_UNIFIED_MEMORY
+void* HIPSpace::allocate(const HIP& exec_space,
+                         const size_t arg_alloc_size) const {
+  return allocate(exec_space, "[unlabeled]", arg_alloc_size);
+}
+
+void* HIPSpace::allocate(const HIP& exec_space, const char* arg_label,
+                         const size_t arg_alloc_size,
+                         const size_t arg_logical_size) const {
+  return impl_allocate(exec_space.hip_stream(), arg_label, arg_alloc_size,
+                       arg_logical_size, true);
+}
+#endif
+
 void* HIPSpace::allocate(const size_t arg_alloc_size) const {
   return allocate("[unlabeled]", arg_alloc_size);
 }
-void* HIPSpace::allocate(
 
-    const char* arg_label, const size_t arg_alloc_size,
-    const size_t arg_logical_size) const {
-  return impl_allocate(arg_label, arg_alloc_size, arg_logical_size);
+void* HIPSpace::allocate(const char* arg_label, const size_t arg_alloc_size,
+                         const size_t arg_logical_size) const {
+  return impl_allocate(m_stream, arg_label, arg_alloc_size, arg_logical_size,
+                       false);
 }
-void* HIPSpace::impl_allocate(
 
-    const char* arg_label, const size_t arg_alloc_size,
-    const size_t arg_logical_size,
-    const Kokkos::Tools::SpaceHandle arg_handle) const {
+void* HIPSpace::impl_allocate(
+    [[maybe_unused]] const hipStream_t stream, const char* arg_label,
+    const size_t arg_alloc_size, const size_t arg_logical_size,
+    [[maybe_unused]] const bool stream_sync_only) const {
   void* ptr = nullptr;
 
+#ifdef KOKKOS_ENABLE_IMPL_HIP_MALLOC_ASYNC
+  auto const error_code = hipMallocAsync(&ptr, arg_alloc_size, stream);
+  if (stream_sync_only) {
+    KOKKOS_IMPL_HIP_SAFE_CALL(hipStreamSynchronize(stream));
+  } else {
+    KOKKOS_IMPL_HIP_SAFE_CALL(hipDeviceSynchronize());
+  }
+#else
   auto const error_code = hipMalloc(&ptr, arg_alloc_size);
+#endif
+
   if (error_code != hipSuccess) {
     // This is the only way to clear the last error, which we should do here
     // since we're turning it into an exception here
     (void)hipGetLastError();
-    throw Experimental::HIPRawMemoryAllocationFailure(
-        arg_alloc_size, error_code,
-        Experimental::RawMemoryAllocationFailure::AllocationMechanism::
-            HIPMalloc);
+    Kokkos::Impl::throw_bad_alloc(name(), arg_alloc_size, arg_label);
   }
   if (Kokkos::Profiling::profileLibraryLoaded()) {
+    const Kokkos::Tools::SpaceHandle arg_handle =
+        Kokkos::Tools::make_space_handle(name());
     const size_t reported_size =
         (arg_logical_size > 0) ? arg_logical_size : arg_alloc_size;
     Kokkos::Profiling::allocateData(arg_handle, arg_label, ptr, reported_size);
@@ -121,10 +136,7 @@ void* HIPHostPinnedSpace::impl_allocate(
     // This is the only way to clear the last error, which we should do here
     // since we're turning it into an exception here
     (void)hipGetLastError();
-    throw Experimental::HIPRawMemoryAllocationFailure(
-        arg_alloc_size, error_code,
-        Experimental::RawMemoryAllocationFailure::AllocationMechanism::
-            HIPHostMalloc);
+    Kokkos::Impl::throw_bad_alloc(name(), arg_alloc_size, arg_label);
   }
   if (Kokkos::Profiling::profileLibraryLoaded()) {
     const size_t reported_size =
@@ -153,7 +165,7 @@ void* HIPManagedSpace::impl_allocate(
     if (is_first_hip_managed_allocation.exchange(false) &&
         Kokkos::show_warnings()) {
       do {  // hack to avoid spamming users with too many warnings
-        if (!hip_driver_check_page_migration(m_device)) {
+        if (!impl_hip_driver_check_page_migration()) {
           std::cerr << R"warning(
 Kokkos::HIP::allocation WARNING: The combination of device and system configuration
                                  does not support page migration between device and host.
@@ -188,10 +200,7 @@ Kokkos::HIP::runtime WARNING: Kokkos did not find an environment variable 'HSA_X
       // This is the only way to clear the last error, which we should do here
       // since we're turning it into an exception here
       (void)hipGetLastError();
-      throw Experimental::HIPRawMemoryAllocationFailure(
-          arg_alloc_size, error_code,
-          Experimental::RawMemoryAllocationFailure::AllocationMechanism::
-              HIPMallocManaged);
+      Kokkos::Impl::throw_bad_alloc(name(), arg_alloc_size, arg_label);
     }
     KOKKOS_IMPL_HIP_SAFE_CALL(hipMemAdvise(
         ptr, arg_alloc_size, hipMemAdviseSetCoarseGrain, m_device));
@@ -204,6 +213,19 @@ Kokkos::HIP::runtime WARNING: Kokkos did not find an environment variable 'HSA_X
   }
 
   return ptr;
+}
+bool HIPManagedSpace::impl_hip_driver_check_page_migration() const {
+  // check with driver if page migrating memory is available
+  // this driver query is copied from the hip documentation
+  int hasManagedMemory = 0;  // false by default
+  KOKKOS_IMPL_HIP_SAFE_CALL(hipDeviceGetAttribute(
+      &hasManagedMemory, hipDeviceAttributeManagedMemory, m_device));
+  if (!static_cast<bool>(hasManagedMemory)) return false;
+  // next, check pageableMemoryAccess
+  int hasPageableMemory = 0;  // false by default
+  KOKKOS_IMPL_HIP_SAFE_CALL(hipDeviceGetAttribute(
+      &hasPageableMemory, hipDeviceAttributePageableMemoryAccess, m_device));
+  return static_cast<bool>(hasPageableMemory);
 }
 
 void HIPSpace::deallocate(void* const arg_alloc_ptr,
@@ -225,7 +247,12 @@ void HIPSpace::impl_deallocate(
     Kokkos::Profiling::deallocateData(arg_handle, arg_label, arg_alloc_ptr,
                                       reported_size);
   }
+#ifdef KOKKOS_ENABLE_IMPL_HIP_MALLOC_ASYNC
+  KOKKOS_IMPL_HIP_SAFE_CALL(hipFreeAsync(arg_alloc_ptr, m_stream));
+  KOKKOS_IMPL_HIP_SAFE_CALL(hipDeviceSynchronize());
+#else
   KOKKOS_IMPL_HIP_SAFE_CALL(hipFree(arg_alloc_ptr));
+#endif
 }
 
 void HIPHostPinnedSpace::deallocate(void* const arg_alloc_ptr,
@@ -282,22 +309,3 @@ void HIPManagedSpace::impl_deallocate(
 }
 
 }  // namespace Kokkos
-
-/*--------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------*/
-
-#include <impl/Kokkos_SharedAlloc_timpl.hpp>
-
-namespace Kokkos {
-namespace Impl {
-
-// To avoid additional compilation cost for something that's (mostly?) not
-// performance sensitive, we explicity instantiate these CRTP base classes here,
-// where we have access to the associated *_timpl.hpp header files.
-template class HostInaccessibleSharedAllocationRecordCommon<HIPSpace>;
-template class SharedAllocationRecordCommon<HIPSpace>;
-template class SharedAllocationRecordCommon<HIPHostPinnedSpace>;
-template class SharedAllocationRecordCommon<HIPManagedSpace>;
-
-}  // end namespace Impl
-}  // end namespace Kokkos

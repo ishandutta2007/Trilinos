@@ -1,43 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //        Piro: Strategy package for embedded analysis capabilitites
-//                  Copyright (2010) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Andy Salinger (agsalin@sandia.gov), Sandia
-// National Laboratories.
-//
-// ************************************************************************
+// Copyright 2010 NTESS and the Piro contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef MASSSPRINGDAMPERMODEL_H
@@ -63,12 +30,32 @@ typedef Tpetra::CrsMatrix<double,LO,GO>  Tpetra_CrsMatrix;
 typedef Thyra::TpetraOperatorVectorExtraction<
     double, LO, GO> ConverterT;
 
-/** \brief Mass-spring-damper model problem from Tempus.
-  * This is a mass-spring-damper differential equation
-  *   \f[
-  *   m \ddot{x} + 2 \sqrt{m\,k} \dot{x} + k x - F = 0
-  *   \f]
-  * . 
+/** \brief Mass-spring-damper model problem for transient PDE constrained optimization.
+ * 
+ * This problem is subject to the constraint of a mass-spring-damper differential equation
+ *   \f[
+ *   m \ddot{x} + 2 \sqrt{m\,k} \dot{x} + k x - F = 0
+ *   \f]
+ * where \f$k\f$ and \f$m\f$ are respectivelly the first and second parameter.
+ * 
+ * Those parameters have initial values set to \f$1.\f$ for both of them and there 
+ * are bound constraints that prevent them from leaving the \f$\left[0.5, 1.5\right]\f$ range 
+ * for both of them.
+ * 
+ * The objective function that we try to minimize is:
+ *   \f[
+ *   s_{g_x} * (( x - t_x )^2 + s ( \dot{x} - t_{\dot{x}} )^2) + s_{g_p} * (( k - t_k )^2 + ( m - t_m )^2)
+ *   \f]
+ * where \f$s_{g_x}\f$, \f$s\f$, and \f$s_{g_p}\f$ are scaling factors and 
+ * where \f$t_x\f$, \f$t_{\dot{x}}\f$, \f$t_k\f$, and \f$t_m\f$ are targeted
+ * values for \f$x\f$, \f$\dot{x}\f$, \f$k\f$, and \f$m\f$ respecivelly.
+ * 
+ * The second order in time equation is solved by writing the residual 
+ * using \f$\boldsymbol{u}=\left[ x, \dot{x}\right]\f$.
+ * 
+ * Therefore, the objective function can either uses \f$u_1\f$ or \f$\dot{u}_0\f$ to 
+ * represent \f$\dot{x}\f$. Both of these options can be used and can be selected by choosing
+ * use_x_dot_in_g = false or true respectively during the construction of the problem class.
 */
 
 class MassSpringDamperModel
@@ -80,7 +67,7 @@ class MassSpringDamperModel
   //@{
 
   /** \brief Takes the number of elements in the discretization . */
-  MassSpringDamperModel(const Teuchos::RCP<const Teuchos::Comm<int> >  appComm, bool adjoint = false, const Teuchos::RCP<Teuchos::ParameterList>& problemList = Teuchos::null, bool hessianSupport = false);
+  MassSpringDamperModel(const Teuchos::RCP<const Teuchos::Comm<int> >  appComm, bool adjoint = false, const Teuchos::RCP<Teuchos::ParameterList>& problemList = Teuchos::null, bool hessianSupport = false, bool use_x_dot_in_g = false);
 
   //@}
 
@@ -179,7 +166,7 @@ class MassSpringDamperModel
   Thyra::ModelEvaluatorBase::InArgs<double> upperBounds;
 
   //whether hessian is supported 
-  bool hessSupport, adjoint_;
+  bool hessSupport, adjoint_, use_x_dot_in_g_;
 
   //Problem parameter list
   Teuchos::RCP<Teuchos::ParameterList> probList_;

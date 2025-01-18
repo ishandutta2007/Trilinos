@@ -945,11 +945,16 @@ IF (Stokhos_ENABLE_Sacado)
       SET(STOKHOS_XPETRA_DEPLIBS "")
 
       # Load list of Xpetra ETI classes
+      #
+      # CAG: We make sure that no Thyra classes are used since Stokhos currently does not ETI them.
+      #      We disabled the Xpetra-Thyra interface in
+      #       src/sacado/kokkos/pce/xpetra
+      #       src/sacado/kokkos/vector/xpetra
       GLOBAL_SET(XPETRA_SC_LO_GO_NO_ETI_CLASSES  )
       IF (Xpetra_ENABLE_EXPLICIT_INSTANTIATION)
         INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/../../xpetra/src/Utils/ExplicitInstantiation/ETI_SC_LO_GO_NO_classes.cmake)
-        INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/../../xpetra/sup/Utils/ExplicitInstantiation/ETI_SC_LO_GO_NO_classes.cmake)
         INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/../../xpetra/src/Utils/ExplicitInstantiation/ETI_MULTIVECTOR_classes.cmake)
+        LIST(REMOVE_ITEM XPETRA_SC_LO_GO_NO_ETI_CLASSES Xpetra::ThyraUtils-.?if.defined[HAVE_XPETRA_THYRA])
         SET(XPETRA_ALL_ETI_CLASSES ${XPETRA_SC_LO_GO_NO_ETI_CLASSES} ${XPETRA_MULTIVECTOR_ETI_CLASSES})
       ENDIF()
 
@@ -1106,13 +1111,10 @@ IF (Stokhos_ENABLE_Sacado)
       GLOBAL_SET(MUELU_SC_LO_GO_NO_ETI_CLASSES  )
       IF (MueLu_ENABLE_EXPLICIT_INSTANTIATION)
         INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/../../muelu/src/Utils/ExplicitInstantiation/ETI_SC_LO_GO_NO_classes.cmake)
-        # Add some classes that aren't in the list for some reason
-        LIST(APPEND MUELU_SC_LO_GO_NO_ETI_CLASSES MueLu::FacadeClassBase)
-        LIST(APPEND MUELU_SC_LO_GO_NO_ETI_CLASSES MueLu::FactoryFactory)
-        LIST(APPEND MUELU_SC_LO_GO_NO_ETI_CLASSES MueLu::ParameterListInterpreter)
-        LIST(APPEND MUELU_SC_LO_GO_NO_ETI_CLASSES MueLu::MLParameterListInterpreter)
-        LIST(APPEND MUELU_SC_LO_GO_NO_ETI_CLASSES MueLu::RefMaxwell)
-        LIST(APPEND MUELU_SC_LO_GO_NO_ETI_CLASSES MueLu::Maxwell_Utils)
+
+        # We've deprecated MueLu::MLParameterListInterpreter, so we'll drop Stokhos Support
+        LIST(REMOVE_ITEM MUELU_SC_LO_GO_NO_ETI_CLASSES "MueLu::MLParameterListInterpreter-.?if.defined[HAVE_MUELU_DEPRECATED_CODE]" )
+
       ENDIF()
 
       IF(Stokhos_ENABLE_Ensemble_Scalar_Type)

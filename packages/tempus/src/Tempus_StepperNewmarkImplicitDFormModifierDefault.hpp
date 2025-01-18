@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperNewmarkImplicitDFormModifierDefault_hpp
 #define Tempus_StepperNewmarkImplicitDFormModifierDefault_hpp
@@ -16,7 +17,6 @@
 // if they need access to the stepper methods.
 //#include "Tempus_StepperNewmarkImplicitDForm.hpp"
 
-
 namespace Tempus {
 
 /** \brief Default modifier for StepperNewmarkImplicitDForm.
@@ -27,41 +27,38 @@ namespace Tempus {
  *  Applications can copy this implementation, rename, implement their
  *  action, and set on the stepper to get app-specific functionality.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperNewmarkImplicitDFormModifierDefault
-  : virtual public Tempus::StepperNewmarkImplicitDFormModifierBase<Scalar>
-{
-public:
-
+  : virtual public Tempus::StepperNewmarkImplicitDFormModifierBase<Scalar> {
+ public:
   /// Constructor
-  StepperNewmarkImplicitDFormModifierDefault(){}
+  StepperNewmarkImplicitDFormModifierDefault() {}
 
   /// Destructor
-  virtual ~StepperNewmarkImplicitDFormModifierDefault(){}
+  virtual ~StepperNewmarkImplicitDFormModifierDefault() {}
 
   /// Modify NewmarkImplicitDForm Stepper.
   virtual void modify(
-    Teuchos::RCP<SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<StepperNewmarkImplicitDForm<Scalar> > /* stepper */,
-    const typename StepperNewmarkImplicitDFormAppAction<Scalar>::ACTION_LOCATION actLoc)
+      Teuchos::RCP<SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<StepperNewmarkImplicitDForm<Scalar> > /* stepper */,
+      const typename StepperNewmarkImplicitDFormAppAction<
+          Scalar>::ACTION_LOCATION actLoc)
   {
-    switch(actLoc) {
+    switch (actLoc) {
       case StepperNewmarkImplicitDFormAppAction<Scalar>::BEGIN_STEP:
       case StepperNewmarkImplicitDFormAppAction<Scalar>::BEFORE_SOLVE:
       case StepperNewmarkImplicitDFormAppAction<Scalar>::AFTER_SOLVE:
-      case StepperNewmarkImplicitDFormAppAction<Scalar>::END_STEP:
-      {
+      case StepperNewmarkImplicitDFormAppAction<Scalar>::END_STEP: {
         // No-op.
         break;
       }
       default:
         TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Error - unknown action location.\n");
+                                   "Error - unknown action location.\n");
     }
   }
-
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperNewmarkImplicitDFormModifierDefault_hpp
+#endif  // Tempus_StepperNewmarkImplicitDFormModifierDefault_hpp

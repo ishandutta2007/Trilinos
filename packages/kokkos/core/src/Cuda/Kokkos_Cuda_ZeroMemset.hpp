@@ -23,20 +23,12 @@
 namespace Kokkos {
 namespace Impl {
 
-template <class T, class... P>
-struct ZeroMemset<Kokkos::Cuda, View<T, P...>> {
-  ZeroMemset(const Kokkos::Cuda& exec_space_instance, const View<T, P...>& dst,
-             typename View<T, P...>::const_value_type&) {
-    KOKKOS_IMPL_CUDA_SAFE_CALL(cudaMemsetAsync(
-        dst.data(), 0, dst.size() * sizeof(typename View<T, P...>::value_type),
-        exec_space_instance.cuda_stream()));
-  }
-
-  ZeroMemset(const View<T, P...>& dst,
-             typename View<T, P...>::const_value_type&) {
+template <>
+struct ZeroMemset<Kokkos::Cuda> {
+  ZeroMemset(const Kokkos::Cuda& exec_space_instance, void* dst, size_t cnt) {
     KOKKOS_IMPL_CUDA_SAFE_CALL(
-        cudaMemset(dst.data(), 0,
-                   dst.size() * sizeof(typename View<T, P...>::value_type)));
+        (exec_space_instance.impl_internal_space_instance()
+             ->cuda_memset_async_wrapper(dst, 0, cnt)));
   }
 };
 

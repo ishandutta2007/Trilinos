@@ -1,23 +1,22 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef TEMPUS_UNIT_TEST_MAIN_UTILS_HPP
 #define TEMPUS_UNIT_TEST_MAIN_UTILS_HPP
 
 #if defined(__linux__) && defined(__GNUC__) && !defined(__INTEL_COMPILER)
-  #include <fenv.h>
+#include <fenv.h>
 #elif defined(__APPLE__) && defined(__GNUC__) && defined(__SSE__)
-  #include <xmmintrin.h>
+#include <xmmintrin.h>
 #endif
 
-
 namespace Tempus_Test {
-
 
 /** \brief Enable Floating Point Exceptions.
  *
@@ -37,11 +36,11 @@ void enableFPE(bool enableFPE)
     feenableexcept(FE_DIVBYZERO | FE_OVERFLOW | FE_INVALID);
 #elif defined(__APPLE__) && defined(__GNUC__) && defined(__SSE__)
     eMask = _MM_GET_EXCEPTION_MASK();  // Save current eMask so we can disable.
-    _MM_SET_EXCEPTION_MASK(eMask & ~_MM_MASK_DIV_ZERO
-                                 & ~_MM_MASK_OVERFLOW
-                                 & ~_MM_MASK_INVALID);
+    _MM_SET_EXCEPTION_MASK(eMask & ~_MM_MASK_DIV_ZERO & ~_MM_MASK_OVERFLOW &
+                           ~_MM_MASK_INVALID);
 #endif
-  } else {
+  }
+  else {
 #if defined(__linux__) && defined(__GNUC__) && !defined(__INTEL_COMPILER)
     fedisableexcept(FE_DIVBYZERO | FE_OVERFLOW | FE_INVALID);
 #elif defined(__APPLE__) && defined(__GNUC__) && defined(__SSE__)
@@ -50,7 +49,6 @@ void enableFPE(bool enableFPE)
   }
 }
 
-} // namespace Tempus_Test
+}  // namespace Tempus_Test
 
-#endif // TEMPUS_UNIT_TEST_MAIN_UTILS_HPP
-
+#endif  // TEMPUS_UNIT_TEST_MAIN_UTILS_HPP

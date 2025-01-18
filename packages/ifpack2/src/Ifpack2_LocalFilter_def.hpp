@@ -1,44 +1,11 @@
-/*@HEADER
-// ***********************************************************************
-//
+// @HEADER
+// *****************************************************************************
 //       Ifpack2: Templated Object-Oriented Algebraic Preconditioner Package
-//                 Copyright (2009) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
-//@HEADER
-*/
+// Copyright 2009 NTESS and the Ifpack2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
 
 #ifndef IFPACK2_LOCALFILTER_DEF_HPP
 #define IFPACK2_LOCALFILTER_DEF_HPP
@@ -62,13 +29,13 @@ bool
 LocalFilter<MatrixType>::
 mapPairsAreFitted (const row_matrix_type& A)
 {
-  const map_type& rangeMap = * (A.getRangeMap ());
-  const map_type& rowMap = * (A.getRowMap ());
-  const bool rangeAndRowFitted = mapPairIsFitted (rowMap, rangeMap);
+  const auto rangeMap = A.getRangeMap();
+  const auto rowMap = A.getRowMap();
+  const bool rangeAndRowFitted = mapPairIsFitted (*rowMap, *rangeMap);
 
-  const map_type& domainMap = * (A.getDomainMap ());
-  const map_type& columnMap = * (A.getColMap ());
-  const bool domainAndColumnFitted = mapPairIsFitted (columnMap, domainMap);
+  const auto domainMap = A.getDomainMap();
+  const auto columnMap = A.getColMap();
+  const bool domainAndColumnFitted = mapPairIsFitted (*columnMap, *domainMap);
 
   //Note BMK 6-22: Map::isLocallyFitted is a local-only operation, not a collective.
   //This means that it can return different values on different ranks. This can cause MPI to hang,
@@ -291,10 +258,28 @@ Teuchos::RCP<const Tpetra::RowGraph<typename MatrixType::local_ordinal_type,
                                      typename MatrixType::node_type> >
 LocalFilter<MatrixType>::getGraph () const
 {
-  // FIXME (mfh 20 Nov 2013) This is not what the documentation says
-  // this method should do!  It should return the graph of the locally
-  // filtered matrix, not the original matrix's graph.
-  return A_->getGraph ();
+  if (local_graph_ == Teuchos::null) {
+    local_ordinal_type numRows = this->getLocalNumRows();
+    Teuchos::Array<size_t> entriesPerRow(numRows);
+    for(local_ordinal_type i = 0; i < numRows; i++) {
+      entriesPerRow[i] = this->getNumEntriesInLocalRow(i);
+    }
+    Teuchos::RCP<crs_graph_type> local_graph_nc =
+      Teuchos::rcp (new crs_graph_type (this->getRowMap (),
+                                        this->getColMap (),
+                                        entriesPerRow()));
+    // copy local indexes into local graph
+    nonconst_local_inds_host_view_type indices("indices",this->getLocalMaxNumRowEntries());
+    nonconst_values_host_view_type values("values",this->getLocalMaxNumRowEntries());
+    for(local_ordinal_type i = 0; i < numRows; i++) {
+      size_t numEntries = 0;
+      this->getLocalRowCopy(i, indices, values, numEntries); // get indices & values
+      local_graph_nc->insertLocalIndices (i, numEntries, indices.data());
+    }
+    local_graph_nc->fillComplete (this->getDomainMap (), this->getRangeMap ());
+    local_graph_ = Teuchos::rcp_const_cast<const crs_graph_type> (local_graph_nc);
+  }
+  return local_graph_;
 }
 
 

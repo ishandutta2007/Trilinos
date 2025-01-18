@@ -47,14 +47,13 @@ if $(RTenv-arg) = "user" {
 project votd
   : requirements
     $(sierra-warnings)
-    <define>STK_BUILT_IN_SIERRA
+    <define>STK_BUILT_FOR_SIERRA
+    <define>STK_BUILT_WITH_BJAM
     <define>STK_SHOW_DEPRECATED_WARNINGS
     <define>STK_HIDE_DEPRECATED_CODE
-    <define>STK_USE_SIMPLE_FIELDS
     <define>SIERRA_MIGRATION
     <include>$(stk_mesh-root-inc)
   : usage-requirements
-    <define>STK_USE_SIMPLE_FIELDS
     <define>SIERRA_MIGRATION
     <include>$(stk_mesh-root-inc)
   : build-dir $(stk_mesh-builddir)
@@ -72,7 +71,6 @@ local installed-end-user-files =
 # be installed for end-users. (This is only intended to be used for testing.)
 local installed-developer-files = 
   stk_mesh_utest
-  stk_mesh_utest_field_blas
   stk_mesh_docs_tests 
   ;
 
@@ -83,8 +81,8 @@ local installed-developer-files =
 local xml-files =
   ;
 
-explicit install-serial-targets ;
-alias install-serial-targets ;
+
+
 
 # Dependencies listed in this target are installed in the developer's project.
 # This should include all executables and any other files needed for developer use.
@@ -167,16 +165,6 @@ exe stk_mesh_utest
   : <tag>@sierra-exec-tag
     <include>$(stk_mesh-root)/../stk_unit_tests/stk_mesh
   ;
-
-exe stk_mesh_utest_field_blas
-  :
-    [ glob $(stk_mesh-root)/../stk_unit_tests/stk_mesh/FieldBlas/*.cpp ]
-    /sierra/stk_unit_test_utils//stk_unit_main
-    /sierra/stk_unit_test_utils//stk_mesh_fixtures
-  : <tag>@sierra-exec-tag
-    <include>$(stk_mesh-root)/../stk_unit_tests/stk_mesh
-  ;
-
 
 exe stk_mesh_docs_tests
   :

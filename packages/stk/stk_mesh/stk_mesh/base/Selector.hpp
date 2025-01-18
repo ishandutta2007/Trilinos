@@ -47,9 +47,6 @@ namespace stk { namespace mesh { class BulkData; } }
 namespace stk { namespace mesh { class Bucket; } }
 namespace stk { namespace mesh { class FieldBase; } }
 
-
-
-
 namespace stk { namespace mesh {
 
 // Specify what can be in the expression tree of a selector
@@ -75,6 +72,7 @@ struct SelectorNode
   SelectorNode(Part const* arg_part = nullptr)
    : m_type(SelectorNodeType::PART),
      m_partOrds(),
+     m_subsetPartOrds(),
      m_field_ptr(nullptr),
      left_offset(0)
   {
@@ -86,13 +84,26 @@ struct SelectorNode
    : m_type(SelectorNodeType::FIELD),
      m_partOrd(InvalidPartOrdinal),
      m_partOrds(),
+     m_subsetPartOrds(),
      m_partIsRanked(false),
      left_offset(0)
   {
     m_field_ptr = arg_field;
   }
+
+  SelectorNode(SelectorNodeType::node_type selectorNodeType, const OrdinalVector& partOrdinals, const OrdinalVector& subsetPartOrdinals)
+   : m_type(selectorNodeType),
+     m_partOrd(InvalidPartOrdinal),
+     m_partOrds(partOrdinals),
+     m_subsetPartOrds(subsetPartOrdinals),
+     m_partIsRanked(false),
+     m_field_ptr(nullptr),
+     left_offset(0)
+  {
+  }
+
   //
-  //  Data structure deisgn:
+  //  Data structure design:
   //
   //  Selector is orgainzed such that the right most (back) entry of the selector is the root node.
   //
@@ -102,7 +113,7 @@ struct SelectorNode
   //    right_offset   = R
   //    uranary_offset = U 
   //
-  //  Uranary selector:  !(S1)
+  //  Unary selector:  !(S1)
   //
   //     +--U--+<--(Root Node)
   //     |     |
@@ -171,6 +182,7 @@ struct SelectorNode
   SelectorNodeType::node_type  m_type;
   Ordinal                      m_partOrd;
   OrdinalVector                m_partOrds;
+  OrdinalVector                m_subsetPartOrds;
   bool                         m_partIsRanked;
   FieldBase const*             m_field_ptr;
   unsigned left_offset; // for binary op
@@ -200,6 +212,11 @@ public:
 
   /** \brief  Bucket has field */
   Selector(const FieldBase & field);
+
+  Selector(SelectorNodeType::node_type selectorNodeType,
+           const MetaData* metaPtr,
+           const OrdinalVector& partOrdinals,
+           const OrdinalVector& subsetPartOrdinals);
 
   bool operator == (const Selector & rhs) const
   { return m_expr == rhs.m_expr; }
@@ -270,7 +287,8 @@ public:
 
   bool is_all_unions() const;
 
-  void get_parts(PartVector& parts) const;
+  template<typename PARTVECTOR>
+  void get_parts(PARTVECTOR& parts) const;
 
   BucketVector const& get_buckets(EntityRank entity_rank) const;
 
@@ -304,11 +322,6 @@ public:
 
   friend std::ostream & operator << ( std::ostream & out, const Selector & selector);
 
-private:
-  bool select_bucket_impl(Bucket const& bucket, impl::SelectorNode const* root) const;
-
-  const BulkData* find_mesh() const;
-
   bool is_null() const {
     if(m_expr.size() > 1) return false;
     if(m_expr.back().m_type == SelectorNodeType::PART  && m_expr.back().part()  == InvalidPartOrdinal) {
@@ -319,58 +332,13 @@ private:
     return false;
   }
 
-  Selector& add_binary_op(SelectorNodeType::node_type type, const Selector& rhs)
-  {
-    impl::SelectorNode& lhsNode = m_expr.back();
-    const impl::SelectorNode& rhsNode = rhs.m_expr.back();
-    if (type == SelectorNodeType::INTERSECTION && rhs.m_expr.size() == 1 &&
-        (rhsNode.m_type == SelectorNodeType::PART || rhsNode.m_type == SelectorNodeType::PART_INTERSECTION) &&
-        (lhsNode.m_type == SelectorNodeType::PART || lhsNode.m_type == SelectorNodeType::PART_INTERSECTION)) {
-      if (lhsNode.m_type == SelectorNodeType::PART) {
-        lhsNode.m_partOrds.push_back(lhsNode.m_partOrd);
-        lhsNode.m_partOrd = InvalidPartOrdinal;
-      }
-      if (rhsNode.m_type == SelectorNodeType::PART) {
-        stk::util::insert_keep_sorted_and_unique(rhsNode.m_partOrd, lhsNode.m_partOrds);
-      }
-      if (rhsNode.m_type == SelectorNodeType::PART_INTERSECTION) {
-        stk::util::insert_keep_sorted_and_unique(rhsNode.m_partOrds, lhsNode.m_partOrds);
-      }
-      lhsNode.m_type = SelectorNodeType::PART_INTERSECTION;
+private:
+  bool select_part_impl(Part const& part, impl::SelectorNode const* root) const;
+  bool select_bucket_impl(Bucket const& bucket, impl::SelectorNode const* root) const;
 
-      return *this;
-    }
+  const BulkData* find_mesh() const;
 
-    if (type == SelectorNodeType::UNION && rhs.m_expr.size() == 1 &&
-        (rhsNode.m_type == SelectorNodeType::PART || rhsNode.m_type == SelectorNodeType::PART_UNION) &&
-        (lhsNode.m_type == SelectorNodeType::PART || lhsNode.m_type == SelectorNodeType::PART_UNION)) {
-      if (lhsNode.m_type == SelectorNodeType::PART) {
-        lhsNode.m_partOrds.push_back(lhsNode.m_partOrd);
-        lhsNode.m_partOrd = InvalidPartOrdinal;
-      }
-      if (rhsNode.m_type == SelectorNodeType::PART) {
-        stk::util::insert_keep_sorted_and_unique(rhsNode.m_partOrd, lhsNode.m_partOrds);
-      }
-      if (rhsNode.m_type == SelectorNodeType::PART_UNION) {
-        stk::util::insert_keep_sorted_and_unique(rhsNode.m_partOrds, lhsNode.m_partOrds);
-      }
-      lhsNode.m_type = SelectorNodeType::PART_UNION;
-
-      return *this;
-    }
-
-    impl::SelectorNode root;
-    root.m_type = type;
-    root.left_offset = 1 + rhs.m_expr.size();
-
-    m_expr.insert(m_expr.end(), rhs.m_expr.begin(), rhs.m_expr.end());
-    m_expr.push_back(root);
-    if (m_meta == nullptr && rhs.m_meta != nullptr) {
-      m_meta = rhs.m_meta;
-    }
-
-    return *this;
-  }
+  Selector& add_binary_op(SelectorNodeType::node_type type, const Selector& rhs);
 
   std::vector<impl::SelectorNode> m_expr;
   mutable const MetaData* m_meta;

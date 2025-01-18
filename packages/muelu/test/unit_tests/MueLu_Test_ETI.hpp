@@ -1,48 +1,12 @@
 // @HEADER
-//
-// ***********************************************************************
-//
+// *****************************************************************************
 //        MueLu: A package for multigrid based preconditioning
-//                  Copyright 2012 Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact
-//                    Jonathan Hu       (jhu@sandia.gov)
-//                    Andrey Prokopenko (aprokop@sandia.gov)
-//                    Ray Tuminaro      (rstumin@sandia.gov)
-//
-// ***********************************************************************
-//
+// Copyright 2012 NTESS and the MueLu contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
+
 #ifndef MUELU_TEST_ETI_H
 #define MUELU_TEST_ETI_H
 
@@ -69,7 +33,6 @@
 #error "The macro MUELU_AUTOMATIC_TEST_ETI_NAME was not defined"
 #endif
 
-
 // This function serves to manage the ETI (or not) for tests that are *not* unit tests.  This
 // allows us to isolate this particular bit of functionality, rather than have it cut-and-paste
 // duplicated over half of the testing tree.  See documentation at
@@ -79,9 +42,9 @@
 //              and only one instantiation (depending on the choice of --instantiation).
 //              It does NOT test all enabled configurations as the unit tests would do.
 bool Automatic_Test_ETI(int argc, char *argv[]) {
+  using MueLu::Exceptions::RuntimeError;
   using Teuchos::RCP;
   using Teuchos::rcp;
-  using MueLu::Exceptions::RuntimeError;
 
   // MPI initialization using Teuchos
   Teuchos::GlobalMPISession mpiSession(&argc, &argv, NULL);
@@ -107,39 +70,44 @@ bool Automatic_Test_ETI(int argc, char *argv[]) {
   // created on the first call to these libraries, and that can mess
   // up timings.
   KokkosKernels::Experimental::Controls controls;
-# ifdef KOKKOSKERNELS_ENABLE_TPL_CUBLAS
+#ifdef KOKKOSKERNELS_ENABLE_TPL_CUBLAS
   controls.getCublasHandle();
-# endif
-# ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
+#endif
+#ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
   controls.getCusparseHandle();
-# endif
+#endif
   Kokkos::fence();
   bool success = true;
   bool verbose = true;
   try {
     // Parameters
     Teuchos::CommandLineProcessor clp(false);
-    std::string node   = "";    clp.setOption("node",               &node,   "node type (serial | openmp | cuda | hip)");
-    bool        config = false; clp.setOption("config", "noconfig", &config, "display kokkos configuration");
+    std::string node = "";
+    clp.setOption("node", &node, "node type (serial | openmp | cuda | hip)");
+    bool config = false;
+    clp.setOption("config", "noconfig", &config, "display kokkos configuration");
 #ifdef HAVE_TEUCHOS_STACKTRACE
-    bool stacktrace = true;     clp.setOption("stacktrace", "nostacktrace", &stacktrace, "display stacktrace");
+    bool stacktrace = true;
+    clp.setOption("stacktrace", "nostacktrace", &stacktrace, "display stacktrace");
 #endif
 
-    bool timedeepcopy = false;   clp.setOption("timedeepcopy", "notimedeepcopy", &timedeepcopy, "instrument Kokkos::deep_copy() with Teuchos timers.  This can also be done with by setting the environment variable TPETRA_TIME_KOKKOS_DEEP_COPY=ON");
-    bool timefence = false;   clp.setOption("timefence", "notimefence", &timefence, "instrument Kokkos::fence() with Teuchos timers.  This can also be done with by setting the environment variable TPETRA_TIME_KOKKOS_FENCE=ON");
+    bool timedeepcopy = false;
+    clp.setOption("timedeepcopy", "notimedeepcopy", &timedeepcopy, "instrument Kokkos::deep_copy() with Teuchos timers.  This can also be done with by setting the environment variable TPETRA_TIME_KOKKOS_DEEP_COPY=ON");
+    bool timefence = false;
+    clp.setOption("timefence", "notimefence", &timefence, "instrument Kokkos::fence() with Teuchos timers.  This can also be done with by setting the environment variable TPETRA_TIME_KOKKOS_FENCE=ON");
     Xpetra::Parameters xpetraParameters(clp);
 
     clp.recogniseAllOptions(false);
     switch (clp.parse(argc, argv, NULL)) {
-      case Teuchos::CommandLineProcessor::PARSE_ERROR:                return EXIT_FAILURE;
+      case Teuchos::CommandLineProcessor::PARSE_ERROR: return EXIT_FAILURE;
       case Teuchos::CommandLineProcessor::PARSE_UNRECOGNIZED_OPTION:
       case Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL:
-      case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED:         break;
+      case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED: break;
     }
 
-    if(timedeepcopy)
+    if (timedeepcopy)
       Tpetra::Details::AddKokkosDeepCopyToTimeMonitor(true);
-    if(timefence)
+    if (timefence)
       Tpetra::Details::AddKokkosFenceToTimeMonitor(true);
 
 #ifdef HAVE_TEUCHOS_STACKTRACE
@@ -155,52 +123,52 @@ bool Automatic_Test_ETI(int argc, char *argv[]) {
       //      We might need a feature that allows to run Epetra/Tpetra only
       //      We still need to make sure that the test compiles (i.e., we
       //      need some preprocessor flags/macros RUN_WITH_EPETRA and RUN_WITH_TPETRA
-#  if defined(HAVE_MUELU_INST_DOUBLE_INT_INT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_INT)
+#if defined(HAVE_MUELU_INST_DOUBLE_INT_INT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_INT)
       // Both Epetra and Tpetra (with double, int, int) enabled
-      return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Xpetra::EpetraNode>(clp, lib, argc, argv);
-#  else
+      return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Xpetra::EpetraNode>(clp, lib, argc, argv);
+#else
       *out << "Skip running with Epetra since both Epetra and Tpetra are enabled but Tpetra is not instantiated on double, int, int." << std::endl;
-#  endif // end Tpetra instantiated on double, int, int
+#endif  // end Tpetra instantiated on double, int, int
 #else
       throw RuntimeError("Epetra is not available");
 #endif
     }
 
     if (lib == Xpetra::UseTpetra) {
-# ifdef HAVE_MUELU_EXPLICIT_INSTANTIATION
+#ifdef HAVE_MUELU_EXPLICIT_INSTANTIATION
       auto inst = xpetraParameters.GetInstantiation();
-# endif
+#endif
       if (node == "") {
         typedef Tpetra::KokkosClassic::DefaultNode::DefaultNodeType Node;
 
         if (config) {
           *out << "Node type: " << Node::execution_space::name() << std::endl;
-          Node::execution_space().print_configuration(*out, true/*details*/);
+          Node::execution_space().print_configuration(*out, true /*details*/);
         }
 
 #ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
-        return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
+        return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
 #else
-#  if defined(HAVE_MUELU_INST_DOUBLE_INT_INT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_INT)
+#if defined(HAVE_MUELU_INST_DOUBLE_INT_INT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_INT)
         if (inst == Xpetra::DOUBLE_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Node> (clp,  lib, argc, argv);
-#  endif
-#  if defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_LONG)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_LONG)
         if (inst == Xpetra::DOUBLE_INT_LONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp,  lib, argc, argv);
-#  endif
-#  if defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_LONG_LONG)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT) || defined(HAVE_TPETRA_INST_DOUBLE) && defined(HAVE_TPETRA_INST_INT_LONG_LONG)
         if (inst == Xpetra::DOUBLE_INT_LONGLONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long long,Node>(clp,  lib, argc, argv);
-#  endif
-#  if defined(HAVE_MUELU_INST_COMPLEX_INT_INT) || defined(HAVE_TPETRA_INST_COMPLEX_DOUBLE) && defined(HAVE_TPETRA_INST_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_MUELU_INST_COMPLEX_INT_INT) || defined(HAVE_TPETRA_INST_COMPLEX_DOUBLE) && defined(HAVE_TPETRA_INST_INT_INT)
         if (inst == Xpetra::COMPLEX_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>,int,int,Node>(clp,  lib, argc, argv);
-#  endif
-#  if defined(HAVE_MUELU_INST_FLOAT_INT_INT) || defined(HAVE_TPETRA_INST_FLOAT) && defined(HAVE_TPETRA_INST_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_MUELU_INST_FLOAT_INT_INT) || defined(HAVE_TPETRA_INST_FLOAT) && defined(HAVE_TPETRA_INST_INT_INT)
         if (inst == Xpetra::FLOAT_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<float,int,int,Node>(clp,  lib, argc, argv);
-#  endif
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<float, int, int, Node>(clp, lib, argc, argv);
+#endif
         throw RuntimeError("Found no suitable Default instantiation");
 #endif
       } else if (node == "serial") {
@@ -209,34 +177,34 @@ bool Automatic_Test_ETI(int argc, char *argv[]) {
 
         if (config) {
           *out << "Node type: " << Node::execution_space::name() << std::endl;
-          Kokkos::Serial().print_configuration(*out, true/*details*/);
+          Kokkos::Serial().print_configuration(*out, true /*details*/);
         }
 
-#  ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
-        return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp,  lib, argc, argv);
-#  else
-#    if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
+#ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
+        return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#else
+#if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
         if (inst == Xpetra::DOUBLE_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Node> (clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGLONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long long,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
         if (inst == Xpetra::COMPLEX_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>,int,int,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SERIAL) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
         if (inst == Xpetra::FLOAT_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<float,int,int,Node>(clp,  lib, argc, argv);
-#    endif
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<float, int, int, Node>(clp, lib, argc, argv);
+#endif
         throw RuntimeError("Found no suitable Serial instantiation");
-#  endif
+#endif
 #else
         throw RuntimeError("Serial node type is disabled");
 #endif
@@ -246,35 +214,35 @@ bool Automatic_Test_ETI(int argc, char *argv[]) {
 
         if (config) {
           *out << "Node type: " << Node::execution_space::name() << std::endl;
-          Kokkos::OpenMP().print_configuration(*out, true/*details*/);
+          Kokkos::OpenMP().print_configuration(*out, true /*details*/);
           *out << "OpenMP Max Threads = " << omp_get_max_threads() << std::endl;
         }
 
-#  ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
-        return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp,  lib, argc, argv);
-#  else
-#    if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
+#ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
+        return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#else
+#if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
         if (inst == Xpetra::DOUBLE_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Node> (clp, lib,  argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGLONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long long,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
         if (inst == Xpetra::COMPLEX_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>,int,int,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_OPENMP) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
         if (inst == Xpetra::FLOAT_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<float,int,int,Node>(clp,  lib, argc, argv);
-#    endif
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<float, int, int, Node>(clp, lib, argc, argv);
+#endif
         throw RuntimeError("Found no suitable OpenMP instantiation");
-#  endif
+#endif
 #else
         throw RuntimeError("OpenMP node type is disabled");
 #endif
@@ -284,111 +252,111 @@ bool Automatic_Test_ETI(int argc, char *argv[]) {
 
         if (config) {
           *out << "Node type: " << Node::execution_space::name() << std::endl;
-          Kokkos::Cuda().print_configuration(*out, true/*details*/);
+          Kokkos::Cuda().print_configuration(*out, true /*details*/);
         }
 
-#  ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
-        return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
-#  else
-#    if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
+#ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
+        return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#else
+#if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
         if (inst == Xpetra::DOUBLE_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Node> (clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGLONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long long,Node>(clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
         if (inst == Xpetra::COMPLEX_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>,int,int,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_CUDA) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
         if (inst == Xpetra::FLOAT_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<float,int,int,Node>(clp,  lib, argc, argv);
-#    endif
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<float, int, int, Node>(clp, lib, argc, argv);
+#endif
         throw RuntimeError("Found no suitable Cuda instantiation");
-#  endif
+#endif
 #else
         throw RuntimeError("CUDA node type is disabled");
 #endif
       } else if (node == "hip") {
 #ifdef KOKKOS_ENABLE_HIP
-	typedef Tpetra::KokkosCompat::KokkosHIPWrapperNode Node;
+        typedef Tpetra::KokkosCompat::KokkosHIPWrapperNode Node;
 
         if (config) {
           *out << "Node type: " << Node::execution_space::name() << std::endl;
-          Kokkos::HIP().print_configuration(*out, true/*details*/);
+          Kokkos::HIP().print_configuration(*out, true /*details*/);
         }
 
-#  ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
-        return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
-#  else
-#    if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
+#ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
+        return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#else
+#if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
         if (inst == Xpetra::DOUBLE_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Node> (clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGLONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long long,Node>(clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
         if (inst == Xpetra::COMPLEX_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>,int,int,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_HIP) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
         if (inst == Xpetra::FLOAT_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<float,int,int,Node>(clp,  lib, argc, argv);
-#    endif
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<float, int, int, Node>(clp, lib, argc, argv);
+#endif
         throw RuntimeError("Found no suitable HIP instantiation");
-#  endif
+#endif
 #else
         throw RuntimeError("HIP node type is disabled");
 #endif
       } else if (node == "sycl") {
 #ifdef KOKKOS_ENABLE_SYCL
-	typedef Tpetra::KokkosCompat::KokkosSYCLWrapperNode Node;
+        typedef Tpetra::KokkosCompat::KokkosSYCLWrapperNode Node;
 
         if (config) {
           *out << "Node type: " << Node::execution_space::name() << std::endl;
-          Kokkos::Experimental::SYCL().print_configuration(*out, true/*details*/);
+          Kokkos::Experimental::SYCL().print_configuration(*out, true /*details*/);
         }
 
-#  ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
-        return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
-#  else
-#    if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
+#ifndef HAVE_MUELU_EXPLICIT_INSTANTIATION
+        return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#else
+#if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_DOUBLE_INT_INT)
         if (inst == Xpetra::DOUBLE_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,int,Node> (clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long,Node>(clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_DOUBLE_INT_LONGLONGINT)
         if (inst == Xpetra::DOUBLE_INT_LONGLONGINT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<double,int,long long,Node>(clp, lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<double, int, long long, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_COMPLEX_INT_INT)
         if (inst == Xpetra::COMPLEX_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>,int,int,Node>(clp,  lib, argc, argv);
-#    endif
-#    if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<std::complex<double>, int, int, Node>(clp, lib, argc, argv);
+#endif
+#if defined(HAVE_TPETRA_INST_SYCL) && defined(HAVE_MUELU_INST_FLOAT_INT_INT)
         if (inst == Xpetra::FLOAT_INT_INT)
-          return MUELU_AUTOMATIC_TEST_ETI_NAME<float,int,int,Node>(clp,  lib, argc, argv);
-#    endif
+          return MUELU_AUTOMATIC_TEST_ETI_NAME<float, int, int, Node>(clp, lib, argc, argv);
+#endif
         throw RuntimeError("Found no suitable SYCL instantiation");
-#  endif
+#endif
 #else
         throw RuntimeError("SYCL node type is disabled");
-#endif	
+#endif
       } else {
         throw RuntimeError("Unrecognized node type");
       }
@@ -398,7 +366,7 @@ bool Automatic_Test_ETI(int argc, char *argv[]) {
 
   Kokkos::finalize();
 
-  return ( success ? EXIT_SUCCESS : EXIT_FAILURE );
+  return (success ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
 // Undefine the function macro

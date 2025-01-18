@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_ExplicitTemplateInstantiation_hpp
 #define Tempus_ExplicitTemplateInstantiation_hpp
@@ -26,7 +27,7 @@
 #define TEMPUS_INSTANTIATE_TEMPLATE_CLASS_ON_COMPLEX_DOUBLE(name)
 #endif
 
-#define TEMPUS_INSTANTIATE_TEMPLATE_CLASS(name) \
+#define TEMPUS_INSTANTIATE_TEMPLATE_CLASS(name)     \
   TEMPUS_INSTANTIATE_TEMPLATE_CLASS_ON_DOUBLE(name) \
   TEMPUS_INSTANTIATE_TEMPLATE_CLASS_ON_COMPLEX_DOUBLE(name)
 

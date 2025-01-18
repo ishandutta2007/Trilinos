@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #ifndef Tempus_StepperHHTAlphaModifierDefault_hpp
 #define Tempus_StepperHHTAlphaModifierDefault_hpp
@@ -16,7 +17,6 @@
 // if they need access to the stepper methods.
 //#include "Tempus_StepperHHTAlpha.hpp"
 
-
 namespace Tempus {
 
 /** \brief Default modifier for StepperHHTAlpha.
@@ -27,41 +27,37 @@ namespace Tempus {
  *  Applications can copy this implementation, rename, implement their
  *  action, and set on the stepper to get app-specific functionality.
  */
-template<class Scalar>
+template <class Scalar>
 class StepperHHTAlphaModifierDefault
-  : virtual public Tempus::StepperHHTAlphaModifierBase<Scalar>
-{
-public:
-
+  : virtual public Tempus::StepperHHTAlphaModifierBase<Scalar> {
+ public:
   /// Constructor
-  StepperHHTAlphaModifierDefault(){}
+  StepperHHTAlphaModifierDefault() {}
 
   /// Destructor
-  virtual ~StepperHHTAlphaModifierDefault(){}
+  virtual ~StepperHHTAlphaModifierDefault() {}
 
   /// Modify HHTAlpha Stepper.
   virtual void modify(
-    Teuchos::RCP<SolutionHistory<Scalar> > /* sh */,
-    Teuchos::RCP<StepperHHTAlpha<Scalar> > /* stepper */,
-    const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc)
+      Teuchos::RCP<SolutionHistory<Scalar> > /* sh */,
+      Teuchos::RCP<StepperHHTAlpha<Scalar> > /* stepper */,
+      const typename StepperHHTAlphaAppAction<Scalar>::ACTION_LOCATION actLoc)
   {
-    switch(actLoc) {
+    switch (actLoc) {
       case StepperHHTAlphaAppAction<Scalar>::BEGIN_STEP:
       case StepperHHTAlphaAppAction<Scalar>::BEFORE_SOLVE:
       case StepperHHTAlphaAppAction<Scalar>::AFTER_SOLVE:
-      case StepperHHTAlphaAppAction<Scalar>::END_STEP:
-      {
+      case StepperHHTAlphaAppAction<Scalar>::END_STEP: {
         // No-op.
         break;
       }
       default:
         TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Error - unknown action location.\n");
+                                   "Error - unknown action location.\n");
     }
   }
-
 };
 
-} // namespace Tempus
+}  // namespace Tempus
 
-#endif // Tempus_StepperHHTAlphaModifierDefault_hpp
+#endif  // Tempus_StepperHHTAlphaModifierDefault_hpp

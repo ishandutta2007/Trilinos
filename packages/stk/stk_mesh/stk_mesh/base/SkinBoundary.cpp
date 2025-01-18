@@ -58,6 +58,8 @@ namespace mesh
 
 void create_exposed_block_boundary_sides(BulkData &bulkData, const Selector& blocksToSkin, const stk::mesh::PartVector& partToPutSidesInto, const stk::mesh::Selector& air)
 {
+    STK_ThrowRequireMsg(bulkData.in_synchronized_state(), "Cannot use create_exposed_block_boundary_sides while in another mod cycle.");
+
     std::vector<SideSetEntry> skinnedSideSetVector = SkinMeshUtil::get_skinned_sideset_excluding_region(bulkData, blocksToSkin, air);
     SideSet sideSet(bulkData, skinnedSideSetVector);
     FaceCreator(bulkData, bulkData.get_face_adjacent_element_graph()).create_side_entities_given_sideset(sideSet, partToPutSidesInto);
@@ -65,13 +67,35 @@ void create_exposed_block_boundary_sides(BulkData &bulkData, const Selector& blo
 
 void create_exposed_block_boundary_sides(BulkData &bulkData, const Selector& blocksToSkin, const stk::mesh::PartVector& partToPutSidesInto)
 {
+    STK_ThrowRequireMsg(bulkData.in_synchronized_state(), "Cannot use create_exposed_block_boundary_sides while in another mod cycle.");
+
     std::vector<SideSetEntry> skinnedSideSetVector = SkinMeshUtil::get_skinned_sideset(bulkData, blocksToSkin);
     SideSet sideSet(bulkData, skinnedSideSetVector);
     FaceCreator(bulkData, bulkData.get_face_adjacent_element_graph()).create_side_entities_given_sideset(sideSet, partToPutSidesInto);
 }
 
+void create_all_block_boundary_sides(BulkData &bulkData, const Selector& blocksToSkin, const stk::mesh::PartVector& partToPutSidesInto, const stk::mesh::PartVector* separatePartForInteriorSides)
+{
+    STK_ThrowRequireMsg(bulkData.in_synchronized_state(), "Cannot use create_all_block_boundary_sides while in another mod cycle.");
+
+    std::vector<SideSetEntry> skinnedSideSetVector = SkinMeshUtil::get_skinned_sideset(bulkData, blocksToSkin);
+    std::vector<SideSetEntry> interiorSideSetVector = SkinMeshUtil::get_interior_sideset(bulkData, blocksToSkin);
+
+    SideSet sideSet(bulkData, skinnedSideSetVector);
+    bulkData.modification_begin();
+    bool doLocalModCycle = false;
+    FaceCreator(bulkData, bulkData.get_face_adjacent_element_graph()).create_side_entities_given_sideset(sideSet, partToPutSidesInto, doLocalModCycle);
+
+    const stk::mesh::PartVector& interiorSkinPart = separatePartForInteriorSides == nullptr ? partToPutSidesInto : *separatePartForInteriorSides;
+    SideSet interiorSideSet(bulkData, interiorSideSetVector);
+    doLocalModCycle = true;
+    FaceCreator(bulkData, bulkData.get_face_adjacent_element_graph()).create_side_entities_given_sideset(interiorSideSet, interiorSkinPart, doLocalModCycle);
+}
+
 void create_interior_block_boundary_sides(stk::mesh::BulkData &bulkData, const stk::mesh::Selector &blocksToConsider, const stk::mesh::PartVector& partToPutSidesInto)
 {
+    STK_ThrowRequireMsg(bulkData.in_synchronized_state(), "Cannot use create_interior_block_boundary_sides while in another mod cycle.");
+
     std::vector<SideSetEntry> skinnedSideSetVector = SkinMeshUtil::get_interior_sideset(bulkData, blocksToConsider);
     SideSet sideSet(bulkData, skinnedSideSetVector);
     FaceCreator(bulkData, bulkData.get_face_adjacent_element_graph()).create_side_entities_given_sideset(sideSet, partToPutSidesInto);
@@ -79,6 +103,8 @@ void create_interior_block_boundary_sides(stk::mesh::BulkData &bulkData, const s
 
 void create_all_sides(stk::mesh::BulkData &bulkData, const stk::mesh::Selector &blocksToConsider, const stk::mesh::PartVector& partToPutSidesInto, bool connect_faces_to_edges)
 {
+    STK_ThrowRequireMsg(bulkData.in_synchronized_state(), "Cannot use create_all_sides while in another mod cycle.");
+
     std::vector<SideSetEntry> sideSetVector = SkinMeshUtil::get_all_sides_sideset(bulkData, blocksToConsider);
     SideSet sideSet(bulkData, sideSetVector);
     FaceCreator(bulkData, bulkData.get_face_adjacent_element_graph()).create_side_entities_given_sideset(sideSet, partToPutSidesInto);

@@ -1,3 +1,12 @@
+// @HEADER
+// *****************************************************************************
+//               ShyLU: Scalable Hybrid LU Preconditioner and Solver
+//
+// Copyright 2011 NTESS and the ShyLU contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 /*
   Joshua Dennis Booth
   Test the Amesos2 Interface calls with refactoring
@@ -123,7 +132,6 @@ int main(int argc, char* argv[])
 	      << totalTime(ftime, myTime()) << std::endl;
     //mybasker.DEBUG_PRINT();
     double ttime = myTime();
-    mybasker.SolveTest();
     Int *lperm;
     Int *rperm;
     mybasker.GetPerm(&lperm,&rperm);
@@ -203,7 +211,6 @@ int main(int argc, char* argv[])
 	      << totalTime(ftime, myTime()) << std::endl;
     //mybasker.DEBUG_PRINT();
     double ttime = myTime();
-    mybasker.SolveTest();
     Int *lperm;
     Int *rperm;
     mybasker.GetPerm(&lperm,&rperm);
@@ -286,7 +293,6 @@ int main(int argc, char* argv[])
 	      << totalTime(ftime, myTime()) << std::endl;
     //mybasker.DEBUG_PRINT();
     double ttime = myTime();
-    mybasker.SolveTest();
     Int *lperm;
     Int *rperm;
     mybasker.GetPerm(&lperm,&rperm);

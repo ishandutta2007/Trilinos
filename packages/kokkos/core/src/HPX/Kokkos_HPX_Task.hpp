@@ -20,17 +20,25 @@
 #include <Kokkos_Macros.hpp>
 #if defined(KOKKOS_ENABLE_HPX) && defined(KOKKOS_ENABLE_TASKDAG)
 
+#include <Kokkos_Atomic.hpp>
 #include <Kokkos_TaskScheduler_fwd.hpp>
 
 #include <HPX/Kokkos_HPX.hpp>
 
-#include <hpx/local/execution.hpp>
-#include <hpx/local/future.hpp>
+#include <impl/Kokkos_TaskTeamMember.hpp>
+
+#include <hpx/execution.hpp>
+#include <hpx/future.hpp>
 
 #include <type_traits>
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+// We allow using deprecated classes in this file
+KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_PUSH()
+#endif
 
 namespace Kokkos {
 namespace Impl {
@@ -164,7 +172,9 @@ class TaskQueueSpecializationConstrained<
         team_queue.complete(task);
       }
 
-      if (*((volatile int *)&team_queue.m_ready_count) > 0) {
+      if (desul::atomic_load(&team_queue.m_ready_count,
+                             desul::MemoryOrderAcquire(),
+                             desul::MemoryScopeDevice()) > 0) {
         task = end;
         for (int i = 0; i < queue_type::NumQueue && end == task; ++i) {
           for (int j = 0; j < 2 && end == task; ++j) {
@@ -252,6 +262,10 @@ extern template class TaskQueue<
 
 }  // namespace Impl
 }  // namespace Kokkos
+
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_POP()
+#endif
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------

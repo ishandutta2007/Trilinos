@@ -36,9 +36,9 @@ class FunctorAdapter;
    public:                                                         \
     FunctorAdapter(Functor const &functor) : m_functor(functor) {} \
                                                                    \
-    KOKKOS_IMPL_ACC_PRAGMA_HELPER(routine CLAUSE)                  \
+    KOKKOS_IMPL_ACC_PRAGMA(routine CLAUSE)                         \
     template <class... Args>                                       \
-    KOKKOS_FUNCTION void operator()(Args &&... args) const {       \
+    KOKKOS_FUNCTION void operator()(Args &&...args) const {        \
       if constexpr (std::is_void_v<WorkTag>) {                     \
         m_functor(static_cast<Args &&>(args)...);                  \
       } else {                                                     \

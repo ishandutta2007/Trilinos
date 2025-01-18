@@ -1,44 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //               Rapid Optimization Library (ROL) Package
-//                 Copyright (2014) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact lead developers:
-//              Drew Kouri   (dpkouri@sandia.gov) and
-//              Denis Ridzal (dridzal@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2014 NTESS and the ROL contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef ROL_TYPEG_INTERIORPOINTALGORITHM_DEF_H
@@ -229,96 +195,96 @@ void InteriorPointAlgorithm<Real>::run( Vector<Real>          &x,
 
 template<typename Real>
 void InteriorPointAlgorithm<Real>::writeHeader( std::ostream& os ) const {
-  std::stringstream hist;
+  std::ios_base::fmtflags osFlags(os.flags());
   if (verbosity_ > 1) {
-    hist << std::string(109,'-') << std::endl;
-    hist << "Interior Point Solver";
-    hist << " status output definitions" << std::endl << std::endl;
-    hist << "  iter     - Number of iterates (steps taken)" << std::endl;
-    hist << "  fval     - Objective function value" << std::endl;
-    hist << "  cnorm    - Norm of the constraint" << std::endl;
-    hist << "  gLnorm   - Norm of the gradient of the Lagrangian" << std::endl;
-    hist << "  snorm    - Norm of the step (update to optimization vector)" << std::endl;
-    hist << "  penalty  - Penalty parameter for bound constraints" << std::endl;
-    hist << "  #fval    - Cumulative number of times the objective function was evaluated" << std::endl;
-    hist << "  #grad    - Cumulative number of times the gradient was computed" << std::endl;
-    hist << "  #cval    - Cumulative number of times the constraint was evaluated" << std::endl;
-    hist << "  optTol   - Subproblem optimality tolerance" << std::endl;
-    hist << "  feasTol  - Subproblem feasibility tolerance" << std::endl;
-    hist << "  subiter  - Number of subproblem iterations" << std::endl;
-    hist << std::string(109,'-') << std::endl;
+    os << std::string(109,'-') << std::endl;
+    os << "Interior Point Solver";
+    os << " status output definitions" << std::endl << std::endl;
+    os << "  iter     - Number of iterates (steps taken)" << std::endl;
+    os << "  fval     - Objective function value" << std::endl;
+    os << "  cnorm    - Norm of the constraint" << std::endl;
+    os << "  gLnorm   - Norm of the gradient of the Lagrangian" << std::endl;
+    os << "  snorm    - Norm of the step (update to optimization vector)" << std::endl;
+    os << "  penalty  - Penalty parameter for bound constraints" << std::endl;
+    os << "  #fval    - Cumulative number of times the objective function was evaluated" << std::endl;
+    os << "  #grad    - Cumulative number of times the gradient was computed" << std::endl;
+    os << "  #cval    - Cumulative number of times the constraint was evaluated" << std::endl;
+    os << "  optTol   - Subproblem optimality tolerance" << std::endl;
+    os << "  feasTol  - Subproblem feasibility tolerance" << std::endl;
+    os << "  subiter  - Number of subproblem iterations" << std::endl;
+    os << std::string(109,'-') << std::endl;
   }
 
-  hist << "  ";
-  hist << std::setw(6)  << std::left << "iter";
-  hist << std::setw(15) << std::left << "fval";
-  hist << std::setw(15) << std::left << "cnorm";
-  hist << std::setw(15) << std::left << "gLnorm";
-  hist << std::setw(15) << std::left << "snorm";
-  hist << std::setw(10) << std::left << "penalty";
-  hist << std::setw(8) << std::left << "#fval";
-  hist << std::setw(8) << std::left << "#grad";
-  hist << std::setw(8) << std::left << "#cval";
-  hist << std::setw(10) << std::left << "optTol";
-  hist << std::setw(10) << std::left << "feasTol";
-  hist << std::setw(8) << std::left << "subIter";
-  hist << std::endl;
-  os << hist.str();
+  os << "  ";
+  os << std::setw(6)  << std::left << "iter";
+  os << std::setw(15) << std::left << "fval";
+  os << std::setw(15) << std::left << "cnorm";
+  os << std::setw(15) << std::left << "gLnorm";
+  os << std::setw(15) << std::left << "snorm";
+  os << std::setw(10) << std::left << "penalty";
+  os << std::setw(8) << std::left << "#fval";
+  os << std::setw(8) << std::left << "#grad";
+  os << std::setw(8) << std::left << "#cval";
+  os << std::setw(10) << std::left << "optTol";
+  os << std::setw(10) << std::left << "feasTol";
+  os << std::setw(8) << std::left << "subIter";
+  os << std::endl;
+  os.flags(osFlags);
 }
 
 template<typename Real>
 void InteriorPointAlgorithm<Real>::writeName( std::ostream& os ) const {
-  std::stringstream hist;
-  hist << std::endl << "Interior Point Solver (Type G, General Constraints)";
-  hist << std::endl;
-  hist << "Subproblem Solver: " << stepname_ << std::endl;
-  os << hist.str();
+  std::ios_base::fmtflags osFlags(os.flags());
+  os << std::endl << "Interior Point Solver (Type G, General Constraints)";
+  os << std::endl;
+  os << "Subproblem Solver: " << stepname_ << std::endl;
+  os.flags(osFlags);
 }
 
 template<typename Real>
 void InteriorPointAlgorithm<Real>::writeOutput( std::ostream& os, const bool print_header ) const {
-  std::stringstream hist;
-  hist << std::scientific << std::setprecision(6);
+  std::ios_base::fmtflags osFlags(os.flags());
+  os << std::scientific << std::setprecision(6);
   if ( state_->iter == 0 ) writeName(os);
   if ( print_header )      writeHeader(os);
   if ( state_->iter == 0 ) {
-    hist << "  ";
-    hist << std::setw(6)  << std::left << state_->iter;
-    hist << std::setw(15) << std::left << state_->value;
-    hist << std::setw(15) << std::left << state_->cnorm;
-    hist << std::setw(15) << std::left << state_->gnorm;
-    hist << std::setw(15) << std::left << "---";
-    hist << std::scientific << std::setprecision(2);
-    hist << std::setw(10) << std::left << state_->searchSize;
-    hist << std::setw(8) << std::left << state_->nfval;
-    hist << std::setw(8) << std::left << state_->ngrad;
-    hist << std::setw(8) << std::left << state_->ncval;
-    hist << std::setw(10) << std::left << "---";
-    hist << std::setw(10) << std::left << "---";
-    hist << std::setw(8) << std::left << "---";
-    hist << std::endl;
+    os << "  ";
+    os << std::setw(6)  << std::left << state_->iter;
+    os << std::setw(15) << std::left << state_->value;
+    os << std::setw(15) << std::left << state_->cnorm;
+    os << std::setw(15) << std::left << state_->gnorm;
+    os << std::setw(15) << std::left << "---";
+    os << std::scientific << std::setprecision(2);
+    os << std::setw(10) << std::left << state_->searchSize;
+    os << std::setw(8) << std::left << state_->nfval;
+    os << std::setw(8) << std::left << state_->ngrad;
+    os << std::setw(8) << std::left << state_->ncval;
+    os << std::setw(10) << std::left << "---";
+    os << std::setw(10) << std::left << "---";
+    os << std::setw(8) << std::left << "---";
+    os << std::endl;
   }
   else {
-    hist << "  ";
-    hist << std::setw(6)  << std::left << state_->iter;
-    hist << std::setw(15) << std::left << state_->value;
-    hist << std::setw(15) << std::left << state_->cnorm;
-    hist << std::setw(15) << std::left << state_->gnorm;
-    hist << std::setw(15) << std::left << state_->snorm;
-    hist << std::scientific << std::setprecision(2);
-    hist << std::setw(10) << std::left << state_->searchSize;
-    hist << std::scientific << std::setprecision(6);
-    hist << std::setw(8) << std::left << state_->nfval;
-    hist << std::setw(8) << std::left << state_->ngrad;
-    hist << std::setw(8) << std::left << state_->ncval;
-    hist << std::scientific << std::setprecision(2);
-    hist << std::setw(10) << std::left << gtol_;
-    hist << std::setw(10) << std::left << ctol_;
-    hist << std::scientific << std::setprecision(6);
-    hist << std::setw(8) << std::left << subproblemIter_;
-    hist << std::endl;
+    os << "  ";
+    os << std::setw(6)  << std::left << state_->iter;
+    os << std::setw(15) << std::left << state_->value;
+    os << std::setw(15) << std::left << state_->cnorm;
+    os << std::setw(15) << std::left << state_->gnorm;
+    os << std::setw(15) << std::left << state_->snorm;
+    os << std::scientific << std::setprecision(2);
+    os << std::setw(10) << std::left << state_->searchSize;
+    os << std::scientific << std::setprecision(6);
+    os << std::setw(8) << std::left << state_->nfval;
+    os << std::setw(8) << std::left << state_->ngrad;
+    os << std::setw(8) << std::left << state_->ncval;
+    os << std::scientific << std::setprecision(2);
+    os << std::setw(10) << std::left << gtol_;
+    os << std::setw(10) << std::left << ctol_;
+    os << std::scientific << std::setprecision(6);
+    os << std::setw(8) << std::left << subproblemIter_;
+    os << std::endl;
   }
-  os << hist.str();
+  os.flags(osFlags);
 }
 
 } // namespace TypeG

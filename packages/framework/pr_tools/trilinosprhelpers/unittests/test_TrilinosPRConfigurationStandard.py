@@ -67,6 +67,8 @@ def mock_subprocess_check_output(*args, **kwargs):
     Mock out a subprocess.check_output()
     """
     params = copy.deepcopy(args[0])
+    if not isinstance(params, list):
+        params = [params]
     for k,v in kwargs.items():
         params.append("{}={}".format(k,v))
     output = "--- subprocess.check_output({})".format(", ".join(params))
@@ -150,8 +152,9 @@ class TrilinosPRConfigurationStandardTest(TestCase):
             source_repo_url="https://github.com/trilinos/Trilinos",
             target_repo_url="https://github.com/trilinos/Trilinos",
             target_branch_name="develop",
-            pullrequest_build_name="Trilinos-pullrequest-gcc-7.2.0",
-            genconfig_build_name="rhel7_sems-gnu-7.2.0-openmpi-1.10.1-openmp_release-debug_shared_no-kokkos-arch_no-asan_no-complex_no-fpic_mpi_no-pt_no-rdc_trilinos-pr",
+            pullrequest_build_name="Trilinos-pullrequest-gcc",
+            genconfig_build_name="rhel8_sems-gnu-openmpi_release_static_no-kokkos-arch_no-asan_no-complex_no-fpic_mpi_no-pt_no-rdc_no-package-enables",
+            dashboard_build_name="gnu-openmpi_release_static",
             pullrequest_cdash_track="Pull Request",
             jenkins_job_number=99,
             pullrequest_number='0000',
@@ -164,13 +167,16 @@ class TrilinosPRConfigurationStandardTest(TestCase):
             ctest_drop_site="testing.sandia.gov",
             filename_packageenables="../packageEnables.cmake",
             filename_subprojects="../package_subproject_list.cmake",
+            skip_create_packageenables=False,
             mode="standard",
             req_mem_per_core=3.0,
             max_cores_allowed=12,
             num_concurrent_tests=-1,
             ccache_enable=False,
             dry_run = False,
-            use_explicit_cachefile = False
+            use_explicit_cachefile = False,
+            extra_configure_args = "",
+            skip_run_tests = False
         )
         return output
 

@@ -18,7 +18,7 @@
 #define KOKKOS_THREADS_WORKGRAPHPOLICY_HPP
 
 #include <Kokkos_Core_fwd.hpp>
-#include <Threads/Kokkos_Threads.hpp>
+#include <Threads/Kokkos_Threads_Instance.hpp>
 
 namespace Kokkos {
 namespace Impl {
@@ -36,13 +36,13 @@ class ParallelFor<FunctorType, Kokkos::WorkGraphPolicy<Traits...>,
   FunctorType m_functor;
 
   template <class TagType>
-  std::enable_if_t<std::is_void<TagType>::value> exec_one(
+  std::enable_if_t<std::is_void_v<TagType>> exec_one(
       const std::int32_t w) const noexcept {
     m_functor(w);
   }
 
   template <class TagType>
-  std::enable_if_t<!std::is_void<TagType>::value> exec_one(
+  std::enable_if_t<!std::is_void_v<TagType>> exec_one(
       const std::int32_t w) const noexcept {
     const TagType t{};
     m_functor(t, w);
@@ -61,16 +61,17 @@ class ParallelFor<FunctorType, Kokkos::WorkGraphPolicy<Traits...>,
     }
   }
 
-  static inline void thread_main(ThreadsExec& exec, const void* arg) noexcept {
+  static inline void thread_main(ThreadsInternal& instance,
+                                 const void* arg) noexcept {
     const Self& self = *(static_cast<const Self*>(arg));
     self.exec_one_thread();
-    exec.fan_in();
+    instance.fan_in();
   }
 
  public:
   inline void execute() {
-    ThreadsExec::start(&Self::thread_main, this);
-    ThreadsExec::fence();
+    ThreadsInternal::start(&Self::thread_main, this);
+    ThreadsInternal::fence();
   }
 
   inline ParallelFor(const FunctorType& arg_functor, const Policy& arg_policy)

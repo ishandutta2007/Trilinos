@@ -1,3 +1,13 @@
+// @HEADER
+// *****************************************************************************
+//           Panzer: A partial differential equation assembly
+//       engine for strongly coupled complex multiphysics systems
+//
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef _MiniEM_AuxiliaryEquationSet_DarcySchurComplement_impl_hpp_
 #define _MiniEM_AuxiliaryEquationSet_DarcySchurComplement_impl_hpp_
 
@@ -73,10 +83,7 @@ AuxiliaryEquationSet_DarcySchurComplement(
   m_dof_names->push_back(dof_name);
 
   this->addDOF(dof_name,basis_type,basis_order,integration_order,"AUX_MASS_RESIDUAL_"+dof_name);
-  // this->addDOF(dof_name,basis_type,basis_order,integration_order);
   this->addDOFDiv(dof_name,"Div_"+dof_name);
-
-  this->addDOFTimeDerivative(dof_name);
 
   this->addClosureModel(model_id);
 

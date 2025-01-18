@@ -1,3 +1,13 @@
+// @HEADER
+// *****************************************************************************
+//           Panzer: A partial differential equation assembly
+//       engine for strongly coupled complex multiphysics systems
+//
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+// @HEADER
+
 #ifndef MINIEM_HELPERS_HPP
 #define MINIEM_HELPERS_HPP
 
@@ -34,12 +44,10 @@ namespace mini_em {
 
   enum solverType {
     AUGMENTATION,
-    MUELU_REFMAXWELL,
-    MUELU_MAXWELL_HO,
-    ML_REFMAXWELL,
+    MUELU,
+    ML,
     CG,
-    GMRES,
-    MUELU_DARCY,
+    GMRES
   };
 
   void getMesh(Teuchos::ParameterList &mesh_pl,
@@ -59,7 +67,10 @@ namespace mini_em {
                                                            int dim,
                                                            Teuchos::RCP<const Teuchos::MpiComm<int> > &comm,
                                                            Teuchos::RCP<Teuchos::FancyOStream> &out,
-                                                           std::string &xml);
+                                                           std::string &xml,
+                                                           int basis_order,
+                                                           const bool preferTPLs = false,
+                                                           const bool truncateMueLuHierarchy = false);
 
   void setClosureParameters(physicsType physics,
                             Teuchos::ParameterList &physicsEqSet,

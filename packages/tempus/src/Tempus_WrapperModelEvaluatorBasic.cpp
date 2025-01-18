@@ -1,10 +1,11 @@
-// @HEADER
-// ****************************************************************************
-//                Tempus: Copyright (2017) Sandia Corporation
+//@HEADER
+// *****************************************************************************
+//          Tempus: Time Integration and Sensitivity Analysis Package
 //
-// Distributed under BSD 3-clause license (See accompanying file Copyright.txt)
-// ****************************************************************************
-// @HEADER
+// Copyright 2017 NTESS and the Tempus contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
+//@HEADER
 
 #include "Tempus_ExplicitTemplateInstantiation.hpp"
 
@@ -13,7 +14,7 @@
 #include "Tempus_WrapperModelEvaluatorBasic_impl.hpp"
 
 namespace Tempus {
-  TEMPUS_INSTANTIATE_TEMPLATE_CLASS(WrapperModelEvaluatorBasic)
+TEMPUS_INSTANTIATE_TEMPLATE_CLASS(WrapperModelEvaluatorBasic)
 }
 
 #endif
