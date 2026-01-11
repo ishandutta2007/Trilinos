@@ -1,5 +1,6 @@
 
 INCLUDE(TribitsLibraryMacros)
+INCLUDE(ROLUtils)
 
 #
 # A) Package-specific configuration options
@@ -18,8 +19,8 @@ TRIBITS_CONFIGURE_FILE(${PACKAGE_NAME}_config.h)
 SET(HEADERS "")
 SET(SOURCES "")
 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 
 #
 # All headers
@@ -51,6 +52,9 @@ GET_PROPERTY( LAPACK_DIR    GLOBAL PROPERTY LAPACK_DIR  )
 GET_PROPERTY( BLAS_STRING GLOBAL PROPERTY BLAS_IMPL )
 GET_PROPERTY( BLAS_DIR    GLOBAL PROPERTY BLAS_DIR  )
 
+GET_PROPERTY( MPI_STRING GLOBAL PROPERTY MPI_IMPL )
+GET_PROPERTY( MPI_DIR    GLOBAL PROPERTY MPI_DIR  )
+
 MESSAGE( "-- ROL has been configured to use the build options:"              )
 MESSAGE( "--   ROL::Ptr           is implemented by ${PTR_STRING}"           )
 MESSAGE( "--   ROL::ParameterList is implemented by ${PARAMETERLIST_STRING}" )
@@ -58,39 +62,43 @@ MESSAGE( "--   ROL::stacktrace    is implemented by ${STACKTRACE_STRING}"    )
 MESSAGE( "--   ROL::LinearAlgebra is implemented by ${LA_STRING}"            )
 MESSAGE( "--   ROL::LAPACK        is implemented by ${LAPACK_STRING}"        )
 MESSAGE( "--   ROL::BLAS          is implemented by ${BLAS_STRING}"          )
+MESSAGE( "--   ROL::MPI           is implemented by ${MPI_STRING}"           )
 
-INCLUDE_DIRECTORIES( ${PTR_DIR} )
+TRIBITS_INCLUDE_DIRECTORIES( ${PTR_DIR} )
 APPEND_GLOB( HEADERS ${PTR_DIR}/*.hpp )
 
-INCLUDE_DIRECTORIES( ${PARAMETERLIST_DIR} )
+TRIBITS_INCLUDE_DIRECTORIES( ${PARAMETERLIST_DIR} )
 APPEND_GLOB( HEADERS ${PARAMETERLIST_DIR}/*.hpp )
 
-INCLUDE_DIRECTORIES( ${STACKTRACE_DIR} )
+TRIBITS_INCLUDE_DIRECTORIES( ${STACKTRACE_DIR} )
 APPEND_GLOB( HEADERS ${STACKTRACE_DIR}/*.hpp )
 
-INCLUDE_DIRECTORIES( ${LA_DIR} )
+TRIBITS_INCLUDE_DIRECTORIES( ${LA_DIR} )
 APPEND_GLOB( HEADERS ${LA_DIR}/*.hpp )
 
-INCLUDE_DIRECTORIES( ${LAPACK_DIR} )
+TRIBITS_INCLUDE_DIRECTORIES( ${LAPACK_DIR} )
 APPEND_GLOB( HEADERS ${LAPACK_DIR}/*.hpp )
 
-INCLUDE_DIRECTORIES( ${BLAS_DIR} )
+TRIBITS_INCLUDE_DIRECTORIES( ${BLAS_DIR} )
 APPEND_GLOB( HEADERS ${BLAS_DIR}/*.hpp )
+
+ROL_INCLUDE_DIRECTORIES( ${MPI_DIR} )
+APPEND_GLOB( HEADERS ${MPI_DIR}/*.hpp )
 
 #
 # vector headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/vector)
-INCLUDE_DIRECTORIES(${DIR})
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/vector)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR})
 APPEND_GLOB(HEADERS ${DIR}/*.hpp)
 
 #
 # function headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/function)
-INCLUDE_DIRECTORIES(${DIR}
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/function)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}
                     ${DIR}/dynamic
                     ${DIR}/boundconstraint
                     ${DIR}/constraint
@@ -117,8 +125,8 @@ APPEND_GLOB(HEADERS ${DIR}/*.hpp
 #
 # step headers
 #
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/step)
-INCLUDE_DIRECTORIES(${DIR}
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/step)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}
                     ${DIR}/linesearch
                     ${DIR}/trustregion
                     ${DIR}/secant
@@ -147,12 +155,13 @@ APPEND_GLOB(HEADERS ${DIR}/*.hpp
 # algorithm headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/algorithm)
-INCLUDE_DIRECTORIES(${DIR}
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/algorithm)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}
                     ${DIR}/TypeB
                     ${DIR}/TypeE
                     ${DIR}/TypeG
                     ${DIR}/TypeU
+										${DIR}/TypeP
                     ${DIR}/TypeB/pqn
                     ${DIR}/TypeG/augmentedlagrangian/
                     ${DIR}/TypeG/fletcher
@@ -168,6 +177,7 @@ APPEND_GLOB(HEADERS ${DIR}/*.hpp
                     ${DIR}/TypeE/*.hpp
                     ${DIR}/TypeG/*.hpp
                     ${DIR}/TypeU/*.hpp
+										${DIR}/TypeP/*.hpp
                     ${DIR}/TypeB/pqn/*.hpp
                     ${DIR}/TypeG/augmentedlagrangian/*.hpp
                     ${DIR}/TypeG/fletcher/*.hpp
@@ -183,23 +193,23 @@ APPEND_GLOB(HEADERS ${DIR}/*.hpp
 # parameterlist headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/parameterlist)
-INCLUDE_DIRECTORIES(${DIR})
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/parameterlist)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR})
 APPEND_GLOB(HEADERS ${DIR}/*.hpp)
 
 #
 # status test headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/status)
-INCLUDE_DIRECTORIES(${DIR})
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/status)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR})
 APPEND_GLOB(HEADERS ${DIR}/*.hpp)
 
 #
 # sol headers
 #
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/sol)
-INCLUDE_DIRECTORIES(${DIR}/function
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/sol)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}/function
                     ${DIR}/function/distribution
                     ${DIR}/function/expectationquad
                     ${DIR}/function/randvarfunctional
@@ -249,16 +259,16 @@ APPEND_GLOB(HEADERS ${DIR}/function/*.hpp
 # elementwise function headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/elementwise)
-INCLUDE_DIRECTORIES(${DIR})
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/elementwise)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR})
 APPEND_GLOB(HEADERS ${DIR}/*.hpp)
 
 #
 # utils headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/utils)
-INCLUDE_DIRECTORIES(${DIR}
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}
                     ${DIR}/function_bindings)
 APPEND_GLOB(HEADERS ${DIR}/*.hpp
                     ${DIR}/function_bindings/*.hpp)
@@ -267,8 +277,8 @@ APPEND_GLOB(HEADERS ${DIR}/*.hpp
 # zoo headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/zoo)
-INCLUDE_DIRECTORIES(${DIR}
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/zoo)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}
                     ${DIR}/testproblems)
 APPEND_GLOB(HEADERS ${DIR}/*.hpp
                     ${DIR}/testproblems/*.hpp)
@@ -276,8 +286,8 @@ APPEND_GLOB(HEADERS ${DIR}/*.hpp
 # oed headers
 #
 
-SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/oed)
-INCLUDE_DIRECTORIES(${DIR}
+TRIBITS_SET_AND_INC_DIRS(DIR ${CMAKE_CURRENT_SOURCE_DIR}/oed)
+TRIBITS_INCLUDE_DIRECTORIES(${DIR}
                     ${DIR}/constraint
                     ${DIR}/factors
                     ${DIR}/objective

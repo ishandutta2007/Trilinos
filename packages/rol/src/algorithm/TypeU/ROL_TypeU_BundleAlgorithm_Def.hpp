@@ -1,44 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //               Rapid Optimization Library (ROL) Package
-//                 Copyright (2014) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this parlist of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this parlist of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact lead developers:
-//              Drew Kouri   (dpkouri@sandia.gov) and
-//              Denis Ridzal (dridzal@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2014 NTESS and the ROL contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef ROL_TYPEU_BUNDLEALGORITHM_DEF_H
@@ -82,7 +48,8 @@ BundleAlgorithm<Real>::BundleAlgorithm( ParameterList &parlist,
   Real omega        = blist.get("Locality Measure Coefficient",   two);
   unsigned maxSize  = blist.get("Maximum Bundle Size",            200);
   unsigned remSize  = blist.get("Removal Size for Bundle Update", 2);
-  if ( blist.get("Cutting Plane Solver",0) == 1 ) {
+  int cps = blist.get("Cutting Plane Solver",0);
+  if ( cps == 1 ) {
     bundle_ = makePtr<Bundle_U_TT<Real>>(maxSize,coeff,omega,remSize);
   }
   else {
@@ -384,71 +351,71 @@ void BundleAlgorithm<Real>::run( Vector<Real>       &x,
 
 template<typename Real>
 void BundleAlgorithm<Real>::writeHeader( std::ostream& os ) const {
-  std::stringstream hist;
-  hist << "  ";
-  hist << std::setw(6) << std::left << "iter";
-  hist << std::setw(15) << std::left << "value";
-  hist << std::setw(15) << std::left << "gnorm";
-  hist << std::setw(15) << std::left << "snorm";
-  hist << std::setw(10) << std::left << "#fval";
-  hist << std::setw(10) << std::left << "#grad";
-  hist << std::setw(15) << std::left << "znorm";
-  hist << std::setw(15) << std::left << "alpha";
-  hist << std::setw(15) << std::left << "TRparam";
-  hist << std::setw(10) << std::left << "QPiter";
-  hist << std::endl;
-  os << hist.str();
+  std::ios_base::fmtflags osFlags(os.flags());
+  os << "  ";
+  os << std::setw(6) << std::left << "iter";
+  os << std::setw(15) << std::left << "value";
+  os << std::setw(15) << std::left << "gnorm";
+  os << std::setw(15) << std::left << "snorm";
+  os << std::setw(10) << std::left << "#fval";
+  os << std::setw(10) << std::left << "#grad";
+  os << std::setw(15) << std::left << "znorm";
+  os << std::setw(15) << std::left << "alpha";
+  os << std::setw(15) << std::left << "TRparam";
+  os << std::setw(10) << std::left << "QPiter";
+  os << std::endl;
+  os.flags(osFlags);
 }
 
 template<typename Real>
 void BundleAlgorithm<Real>::writeName(std::ostream& os) const {
-  std::stringstream hist;
-  hist << std::endl << "Bundle Trust-Region Algorithm" << std::endl;
-  os << hist.str();
+  std::ios_base::fmtflags osFlags(os.flags());
+  os << std::endl << "Bundle Trust-Region Algorithm" << std::endl;
+  os.flags(osFlags);
 }
 
 template<typename Real>
 void BundleAlgorithm<Real>::writeOutput( std::ostream& os, bool print_header) const {
-  std::stringstream hist;
-  hist << std::scientific << std::setprecision(6);
+  std::ios_base::fmtflags osFlags(os.flags());
+  os << std::scientific << std::setprecision(6);
   if ( state_->iter == 0 && first_print_ ) {
     writeName(os);
     if ( print_header ) {
       writeHeader(os);
     }
-    hist << "  ";
-    hist << std::setw(6) << std::left << state_->iter;
-    hist << std::setw(15) << std::left << state_->value;
-    hist << std::setw(15) << std::left << state_->gnorm;
-    hist << std::setw(15) << std::left << "---";
-    hist << std::setw(10) << std::left << state_->nfval;
-    hist << std::setw(10) << std::left << state_->ngrad;
-    hist << std::setw(15) << std::left << "---";
-    hist << std::setw(15) << std::left << "---";
-    hist << std::setw(15) << std::left << state_->searchSize;
-    hist << std::setw(10) << std::left << "---";
-    hist << std::endl;
+    os << "  ";
+    os << std::setw(6) << std::left << state_->iter;
+    os << std::setw(15) << std::left << state_->value;
+    os << std::setw(15) << std::left << state_->gnorm;
+    os << std::setw(15) << std::left << "---";
+    os << std::setw(10) << std::left << state_->nfval;
+    os << std::setw(10) << std::left << state_->ngrad;
+    os << std::setw(15) << std::left << "---";
+    os << std::setw(15) << std::left << "---";
+    os << std::setw(15) << std::left << state_->searchSize;
+    os << std::setw(10) << std::left << "---";
+    os << std::endl;
   }
   if ( step_flag_==1 && state_->iter > 0 ) {
     if ( print_header ) {
       writeHeader(os);
     }
     else {
-      hist << "  ";
-      hist << std::setw(6) << std::left << state_->iter;
-      hist << std::setw(15) << std::left << state_->value;
-      hist << std::setw(15) << std::left << state_->gnorm;
-      hist << std::setw(15) << std::left << state_->snorm;
-      hist << std::setw(10) << std::left << state_->nfval;
-      hist << std::setw(10) << std::left << state_->ngrad;
-      hist << std::setw(15) << std::left << state_->aggregateGradientNorm;
-      hist << std::setw(15) << std::left << state_->aggregateModelError;
-      hist << std::setw(15) << std::left << state_->searchSize;
-      hist << std::setw(10) << std::left << QPiter_;
-      hist << std::endl;
+      os << "  ";
+      os << std::setw(6) << std::left << state_->iter;
+      os << std::setw(15) << std::left << state_->value;
+      os << std::setw(15) << std::left << state_->gnorm;
+      os << std::setw(15) << std::left << state_->snorm;
+      os << std::setw(10) << std::left << state_->nfval;
+      os << std::setw(10) << std::left << state_->ngrad;
+      os << std::setw(15) << std::left << state_->aggregateGradientNorm;
+      os << std::setw(15) << std::left << state_->aggregateModelError;
+      os << std::setw(15) << std::left << state_->searchSize;
+      os << std::setw(10) << std::left << QPiter_;
+      os << std::endl;
     }
   }
-  os << hist.str();
+  os.flags(osFlags);
 }
 
 } // namespace TypeU

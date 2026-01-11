@@ -1,44 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //               Rapid Optimization Library (ROL) Package
-//                 Copyright (2014) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact lead developers:
-//              Drew Kouri   (dpkouri@sandia.gov) and
-//              Denis Ridzal (dridzal@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2014 NTESS and the ROL contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef ROL_TYPEB_ALGORITHMFACTORY_H
@@ -143,22 +109,21 @@ inline EAlgorithmB StringToEAlgorithmB(std::string s) {
 }
 
 template<typename Real>
-inline Ptr<Algorithm<Real>> AlgorithmFactory(ParameterList &parlist) {
-  EAlgorithmB ealg = StringToEAlgorithmB(parlist.sublist("Step").get("Type","Trust Region"));
+inline Ptr<Algorithm<Real>> AlgorithmFactory(ParameterList &parlist, const Ptr<Secant<Real>> &secant = nullPtr) {
+  std::string stepType = parlist.sublist("Step").get("Type","Trust Region");
+  EAlgorithmB ealg = StringToEAlgorithmB(stepType);
   switch(ealg) {
     case ALGORITHM_B_LINESEARCH:
     {
-      std::string desc
-        = parlist.sublist("Step").sublist("Line Search").sublist("Descent Method").get("Type","Newton-Krylov");
+      std::string desc = parlist.sublist("Step").sublist("Line Search").sublist("Descent Method").get("Type","Newton-Krylov");
       if (desc=="Newton-Krylov" || desc=="Newton")
-        return makePtr<NewtonKrylovAlgorithm<Real>>(parlist);
-      else if (desc=="Quasi-Newton Method") {
-        std::string method
-          = parlist.sublist("Step").sublist("Line Search").sublist("Quasi-Newton").get("Method","L-Secant-B");
+        return makePtr<NewtonKrylovAlgorithm<Real>>(parlist,secant);
+      else if (desc=="Quasi-Newton Method" || desc=="Quasi-Newton") {
+        std::string method = parlist.sublist("Step").sublist("Line Search").sublist("Quasi-Newton").get("Method","L-Secant-B");
         if (method == "L-Secant-B")
-          return makePtr<LSecantBAlgorithm<Real>>(parlist);    // Similar to L-BFGS-B
+          return makePtr<LSecantBAlgorithm<Real>>(parlist,secant);    // Similar to L-BFGS-B
         else
-          return makePtr<QuasiNewtonAlgorithm<Real>>(parlist); // PQN
+          return makePtr<QuasiNewtonAlgorithm<Real>>(parlist,secant); // PQN
       }
       else {
         return makePtr<GradientAlgorithm<Real>>(parlist);
@@ -166,20 +131,19 @@ inline Ptr<Algorithm<Real>> AlgorithmFactory(ParameterList &parlist) {
     }
     case ALGORITHM_B_TRUSTREGION:
     {
-      std::string trmod
-        = parlist.sublist("Step").sublist("Trust Region").get("Subproblem Model","Lin-More");
+      std::string trmod = parlist.sublist("Step").sublist("Trust Region").get("Subproblem Model","Lin-More");
       if (trmod=="Kelley-Sachs")
-        return makePtr<KelleySachsAlgorithm<Real>>(parlist);
+        return makePtr<KelleySachsAlgorithm<Real>>(parlist,secant);
       else if (trmod=="SPG")
-        return makePtr<TrustRegionSPGAlgorithm<Real>>(parlist);
+        return makePtr<TrustRegionSPGAlgorithm<Real>>(parlist,secant);
       else if (trmod=="Coleman-Li")
-        return makePtr<ColemanLiAlgorithm<Real>>(parlist);
+        return makePtr<ColemanLiAlgorithm<Real>>(parlist,secant);
       else
-        return makePtr<LinMoreAlgorithm<Real>>(parlist);
+        return makePtr<LinMoreAlgorithm<Real>>(parlist,secant);
     }
-    case ALGORITHM_B_MOREAUYOSIDA:        return makePtr<MoreauYosidaAlgorithm<Real>>(parlist);
-    case ALGORITHM_B_PRIMALDUALACTIVESET: return makePtr<PrimalDualActiveSetAlgorithm<Real>>(parlist);
-    case ALGORITHM_B_INTERIORPOINT:       return makePtr<InteriorPointAlgorithm<Real>>(parlist);
+    case ALGORITHM_B_MOREAUYOSIDA:        return makePtr<MoreauYosidaAlgorithm<Real>>(parlist,secant);
+    case ALGORITHM_B_PRIMALDUALACTIVESET: return makePtr<PrimalDualActiveSetAlgorithm<Real>>(parlist,secant);
+    case ALGORITHM_B_INTERIORPOINT:       return makePtr<InteriorPointAlgorithm<Real>>(parlist,secant);
     case ALGORITHM_B_SPECTRALGRADIENT:    return makePtr<SpectralGradientAlgorithm<Real>>(parlist);
     default:                              return nullPtr;
   }

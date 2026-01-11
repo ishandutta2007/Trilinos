@@ -1,46 +1,11 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //               Rapid Optimization Library (ROL) Package
-//                 Copyright (2014) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact lead developers:
-//              Drew Kouri   (dpkouri@sandia.gov) and
-//              Denis Ridzal (dridzal@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2014 NTESS and the ROL contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
-
 #ifndef ROL_TYPEE_COMPOSITESTEPALGORITHM_H
 #define ROL_TYPEE_COMPOSITESTEPALGORITHM_H
 
@@ -138,16 +103,18 @@ private:
   void computeTrial(Vector<Real> &s,
                     const Vector<Real> &x,
                     const Vector<Real> &l,
-                    Objective<Real> &obj,
-                    Constraint<Real> &con);
+                    Objective<Real>    &obj,
+                    Constraint<Real>   &con,
+                    std::ostream       &os);
 
   /** \brief Update trust-region radius, take step, etc.
   */
-  void updateRadius(Vector<Real> &x,
-                    Vector<Real> &l,
+  void updateRadius(Vector<Real>       &x,
+                    Vector<Real>       &l,
                     const Vector<Real> &s,
-                    Objective<Real> &obj,
-                    Constraint<Real> &con);
+                    Objective<Real>    &obj,
+                    Constraint<Real>   &con,
+                    std::ostream       &os);
 
   /** \brief Compute Lagrange multipliers by solving the least-squares
              problem minimizing the gradient of the Lagrangian, via the
@@ -158,10 +125,11 @@ private:
              @param[in]       gf  is the gradient of the objective function; a dual optimization-space vector
              @param[in]       con is the equality constraint object
   */
-  void computeLagrangeMultiplier(Vector<Real> &l,
+  void computeLagrangeMultiplier(Vector<Real>       &l,
                                  const Vector<Real> &x,
                                  const Vector<Real> &gf,
-                                 Constraint<Real> &con);
+                                 Constraint<Real>   &con,
+                                 std::ostream       &os);
 
   /** \brief Compute quasi-normal step by minimizing the norm of
              the linearized constraint.
@@ -185,11 +153,12 @@ private:
              @param[in]       con   is the equality constraint object
 
   */
-  void computeQuasinormalStep(Vector<Real> &n,
+  void computeQuasinormalStep(Vector<Real>       &n,
                               const Vector<Real> &c,
                               const Vector<Real> &x,
-                              Real delta,
-                              Constraint<Real> &con);
+                              Real               delta,
+                              Constraint<Real>   &con,
+                              std::ostream       &os);
 
   /** \brief Solve tangential subproblem.
 
@@ -205,16 +174,17 @@ private:
              @param[in]       con   is the equality constraint object
 
   */
-  void solveTangentialSubproblem(Vector<Real> &t,
-                                 Vector<Real> &tCP,
-                                 Vector<Real> &Wg,
+  void solveTangentialSubproblem(Vector<Real>       &t,
+                                 Vector<Real>       &tCP,
+                                 Vector<Real>       &Wg,
                                  const Vector<Real> &x,
                                  const Vector<Real> &g,
                                  const Vector<Real> &n,
                                  const Vector<Real> &l,
-                                 Real delta,
-                                 Objective<Real> &obj,
-                                 Constraint<Real> &con);
+                                 Real               delta,
+                                 Objective<Real>    &obj,
+                                 Constraint<Real>   &con,
+                                 std::ostream       &os);
 
   /** \brief Check acceptance of subproblem solutions, adjust merit function penalty parameter, ensure global convergence.
   */
@@ -222,11 +192,11 @@ private:
               Vector<Real> &gf_new, Vector<Real> &l_new, Vector<Real> &g_new,
               const Vector<Real> &x, const Vector<Real> &l, Real f, const Vector<Real> &gf, const Vector<Real> &c,
               const Vector<Real> &g, Vector<Real> &tCP, Vector<Real> &Wg,
-              Objective<Real> &obj, Constraint<Real> &con);
+              Objective<Real> &obj, Constraint<Real> &con, std::ostream &os);
 
   template<typename T> int sgn(T val) const;
 
-  void printInfoLS(const std::vector<Real> &res) const;
+  void printInfoLS(const std::vector<Real> &res, std::ostream& os) const;
 
   Real setTolOSS(const Real intol) const;
 
