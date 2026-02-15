@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #include "KokkosGraph_wiki_9pt_stencil.hpp"
 #include "KokkosGraph_MIS2.hpp"
 
@@ -14,19 +16,16 @@ int main() {
     // algorithms
     {
       // Run coloring
-      auto misDevice =
-          KokkosGraph::graph_d2_mis<ExecSpace, RowmapType, ColindsType>(
-              rowmapDevice, colindsDevice, KokkosGraph::MIS2_FAST);
-      std::cout << "Distance-2 MIS, FAST algorithm: contains "
-                << misDevice.extent(0) << " out of " << GraphDemo::numVertices
-                << " vertices.\n";
+      auto misDevice = KokkosGraph::graph_d2_mis<ExecSpace, RowmapType, ColindsType>(rowmapDevice, colindsDevice,
+                                                                                     KokkosGraph::MIS2_FAST);
+      std::cout << "Distance-2 MIS, FAST algorithm: contains " << misDevice.extent(0) << " out of "
+                << GraphDemo::numVertices << " vertices.\n";
       GraphDemo::printMIS(misDevice);
       putchar('\n');
-      misDevice = KokkosGraph::graph_d2_mis<ExecSpace, RowmapType, ColindsType>(
-          rowmapDevice, colindsDevice, KokkosGraph::MIS2_QUALITY);
-      std::cout << "Distance-2 MIS, QUALITY algorithm: contains "
-                << misDevice.extent(0) << " out of " << GraphDemo::numVertices
-                << " vertices.\n";
+      misDevice = KokkosGraph::graph_d2_mis<ExecSpace, RowmapType, ColindsType>(rowmapDevice, colindsDevice,
+                                                                                KokkosGraph::MIS2_QUALITY);
+      std::cout << "Distance-2 MIS, QUALITY algorithm: contains " << misDevice.extent(0) << " out of "
+                << GraphDemo::numVertices << " vertices.\n";
       GraphDemo::printMIS(misDevice);
       putchar('\n');
     }

@@ -1,4 +1,5 @@
-
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 // Created by David Poliakoff and Amy Powell on 6/15/2021
 
@@ -6,15 +7,8 @@
 #define KOKKOSKERNELS_KOKKOSBLAS_DOT_TEST_RPS_HPP
 
 #include <Kokkos_Core.hpp>
-#include "blas/KokkosBlas1_dot.hpp"
+#include "KokkosBlas1_dot.hpp"
 #include <Kokkos_Random.hpp>
-
-// These headers are required for RPS perf test implementation
-//
-#ifdef KOKKOSKERNELS_ENABLE_TESTS_AND_PERFSUITE
-#include <PerfTestUtilities.hpp>
-test_list construct_dot_kernel_base(const rajaperf::RunParams& run_params);
-#endif  // KOKKOSKERNELS_ENABLE_TESTS_AND_PERFSUITE
 
 template <class ExecSpace>
 struct testData {
@@ -44,10 +38,8 @@ struct testData {
   // constructor or a destructor;
   // Constructor -- create function:
   testData(int m_in) : m(m_in) {
-    x = Kokkos::View<Scalar*, Device>(
-        Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), m);
-    y = Kokkos::View<Scalar*, Device>(
-        Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m);
+    x = Kokkos::View<Scalar*, Device>(Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), m);
+    y = Kokkos::View<Scalar*, Device>(Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m);
 
     Kokkos::Random_XorShift64_Pool<ExecSpace> pool(123);
 

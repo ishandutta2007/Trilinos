@@ -1,0 +1,9 @@
+kokkoskernels_include_directories(${CMAKE_CURRENT_BINARY_DIR})
+kokkoskernels_include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+#KOKKOSKERNELS_ADD_EXECUTABLE(KokkosBatched_Test_BlockTridiag
+#  SOURCES KokkosBatched_Test_BlockTridiagDirect.cpp
+#)
+#KOKKOSKERNELS_ADD_EXECUTABLE(KokkosBatched_Test_BlockJacobi
+#  SOURCES KokkosBatched_Test_BlockJacobi_Tutorial.cpp
+#)

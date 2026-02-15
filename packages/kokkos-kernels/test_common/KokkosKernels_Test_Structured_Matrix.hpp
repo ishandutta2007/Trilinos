@@ -1,46 +1,5 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSKERNELS_TEST_STRUCTURE_MATRIX_HPP
 #define KOKKOSKERNELS_TEST_STRUCTURE_MATRIX_HPP
@@ -77,10 +36,8 @@ struct fill_1D_matrix_functor {
   cols_view_t columns;
   scalar_view_t values;
 
-  fill_1D_matrix_functor(const ordinal_type numNodes_, const int leftBC_,
-                         const int rightBC_, const row_map_view_t rowmap_,
-                         const cols_view_t columns_,
-                         const scalar_view_t values_)
+  fill_1D_matrix_functor(const ordinal_type numNodes_, const int leftBC_, const int rightBC_,
+                         const row_map_view_t rowmap_, const cols_view_t columns_, const scalar_view_t values_)
       : numNodes(numNodes_),
         leftBC(leftBC_),
         rightBC(rightBC_),
@@ -104,24 +61,19 @@ struct fill_1D_matrix_functor {
   void compute() {
     // Fill interior points
     if (0 < numInterior) {
-      Kokkos::RangePolicy<execution_space, interiorTag> interiorPolicy(
-          0, numInterior);
-      Kokkos::parallel_for("Fill 1D matrix: interior points", interiorPolicy,
-                           *this);
+      Kokkos::RangePolicy<execution_space, interiorTag> interiorPolicy(0, numInterior);
+      Kokkos::parallel_for("Fill 1D matrix: interior points", interiorPolicy, *this);
     }
 
     // Fill exterior points a.k.a. boundary points
     Kokkos::RangePolicy<execution_space, exteriorTag> exteriorPolicy(0, 1);
-    Kokkos::parallel_for("Fill 1D matrix: exterior points", exteriorPolicy,
-                         *this);
+    Kokkos::parallel_for("Fill 1D matrix: exterior points", exteriorPolicy, *this);
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const interiorTag&, const ordinal_type idx) const {
-    const ordinal_type rowIdx =
-        idx + 1;  // Offset by one since first node has BC
-    const size_type rowOffset =
-        size_type(rowIdx) * interiorStencilLength + cornerStencilLength;
+    const ordinal_type rowIdx = idx + 1;  // Offset by one since first node has BC
+    const size_type rowOffset = size_type(rowIdx) * interiorStencilLength + cornerStencilLength;
 
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -183,16 +135,14 @@ CrsMatrix_t generate_structured_matrix1D(const mat_structure& structure) {
   const ordinal_type numInterior           = (nx - leftBC - rightBC);
   const ordinal_type numCorner             = leftBC + rightBC;
   const ordinal_type interiorStencilLength = 3, cornerStencilLength = 2;
-  const size_type numEntries =
-      numInterior * interiorStencilLength + numCorner * cornerStencilLength;
+  const size_type numEntries = numInterior * interiorStencilLength + numCorner * cornerStencilLength;
 
   // Create matrix data
   row_map_view_t rowmap_view("rowmap_view", numNodes + 1);
   cols_view_t columns_view("colsmap_view", numEntries);
   scalar_view_t values_view("values_view", numEntries);
 
-  fill_1D_matrix_functor<CrsMatrix_t> fill_matrix(
-      numNodes, leftBC, rightBC, rowmap_view, columns_view, values_view);
+  fill_1D_matrix_functor<CrsMatrix_t> fill_matrix(numNodes, leftBC, rightBC, rowmap_view, columns_view, values_view);
   fill_matrix.compute();
 
   graph_t static_graph(columns_view, rowmap_view);
@@ -247,12 +197,9 @@ struct fill_2D_matrix_functor {
   ordinal_type numEntriesBottomRow;
   size_type numEntries;
 
-  fill_2D_matrix_functor(const int stencil_type_, const ordinal_type nx_,
-                         const ordinal_type ny_, const int leftBC_,
-                         const int rightBC_, const int bottomBC_,
-                         const int topBC_, const row_map_view_t rowmap_,
-                         const cols_view_t columns_,
-                         const scalar_view_t values_)
+  fill_2D_matrix_functor(const int stencil_type_, const ordinal_type nx_, const ordinal_type ny_, const int leftBC_,
+                         const int rightBC_, const int bottomBC_, const int topBC_, const row_map_view_t rowmap_,
+                         const cols_view_t columns_, const scalar_view_t values_)
       : stencil_type(stencil_type_),
         nx(nx_),
         ny(ny_),
@@ -286,14 +233,11 @@ struct fill_2D_matrix_functor {
     numYEdge    = ny - 2;
     numCorner   = 4;
 
-    numEntriesPerGridRow =
-        (nx - 2) * interiorStencilLength + 2 * edgeStencilLength;
+    numEntriesPerGridRow = (nx - 2) * interiorStencilLength + 2 * edgeStencilLength;
 
-    numEntriesBottomRow =
-        (nx - 2) * edgeStencilLength + 2 * cornerStencilLength;
+    numEntriesBottomRow = (nx - 2) * edgeStencilLength + 2 * cornerStencilLength;
 
-    numEntries = numInterior * interiorStencilLength +
-                 (2 * numXEdge + 2 * numYEdge) * edgeStencilLength +
+    numEntries = numInterior * interiorStencilLength + (2 * numXEdge + 2 * numYEdge) * edgeStencilLength +
                  numCorner * cornerStencilLength;
   }
 
@@ -301,15 +245,11 @@ struct fill_2D_matrix_functor {
     // Fill interior points
     if (0 < numInterior) {
       if (stencil_type == FD) {
-        Kokkos::RangePolicy<execution_space, interiorFDTag> policy(0,
-                                                                   numInterior);
-        Kokkos::parallel_for("Fill 2D FD matrix: interior points", policy,
-                             *this);
+        Kokkos::RangePolicy<execution_space, interiorFDTag> policy(0, numInterior);
+        Kokkos::parallel_for("Fill 2D FD matrix: interior points", policy, *this);
       } else if (stencil_type == FE) {
-        Kokkos::RangePolicy<execution_space, interiorFETag> policy(0,
-                                                                   numInterior);
-        Kokkos::parallel_for("Fill 2D FE matrix: interior points", policy,
-                             *this);
+        Kokkos::RangePolicy<execution_space, interiorFETag> policy(0, numInterior);
+        Kokkos::parallel_for("Fill 2D FE matrix: interior points", policy, *this);
       }
     }
 
@@ -357,9 +297,8 @@ struct fill_2D_matrix_functor {
     const ordinal_type rowIdx = (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    const size_type rowOffset =
-        size_type(j) * numEntriesPerGridRow + numEntriesBottomRow +
-        size_type(i + 1) * interiorStencilLength + edgeStencilLength;
+    const size_type rowOffset = size_type(j) * numEntriesPerGridRow + numEntriesBottomRow +
+                                size_type(i + 1) * interiorStencilLength + edgeStencilLength;
 
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -384,8 +323,7 @@ struct fill_2D_matrix_functor {
     /* Bottom edge */
     /***************/
     ordinal_type rowIdx = idx + 1;
-    size_type rowOffset =
-        size_type(idx + 1) * edgeStencilLength + cornerStencilLength;
+    size_type rowOffset = size_type(idx + 1) * edgeStencilLength + cornerStencilLength;
 
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -443,8 +381,7 @@ struct fill_2D_matrix_functor {
     /* Left edge */
     /*************/
     ordinal_type rowIdx = (idx + 1) * nx;
-    size_type rowOffset = size_type(idx) * numEntriesPerGridRow +
-                          numEntriesBottomRow + edgeStencilLength;
+    size_type rowOffset = size_type(idx) * numEntriesPerGridRow + numEntriesBottomRow + edgeStencilLength;
 
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -470,8 +407,8 @@ struct fill_2D_matrix_functor {
     /**************/
     /* Right edge */
     /**************/
-    rowIdx    = (idx + 2) * nx - 1;
-    rowOffset = size_type(idx + 1) * numEntriesPerGridRow + numEntriesBottomRow;
+    rowIdx             = (idx + 2) * nx - 1;
+    rowOffset          = size_type(idx + 1) * numEntriesPerGridRow + numEntriesBottomRow;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -533,9 +470,8 @@ struct fill_2D_matrix_functor {
     }
 
     // Top-left corner
-    rowIdx    = (ny - 1) * nx;
-    rowOffset = size_type(ny - 2) * numEntriesPerGridRow + numEntriesBottomRow +
-                cornerStencilLength;
+    rowIdx             = (ny - 1) * nx;
+    rowOffset          = size_type(ny - 2) * numEntriesPerGridRow + numEntriesBottomRow + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     columns(rowOffset - 3) = rowIdx - nx;
@@ -580,9 +516,8 @@ struct fill_2D_matrix_functor {
     const ordinal_type rowIdx = (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    const size_type rowOffset =
-        size_type(j) * numEntriesPerGridRow + numEntriesBottomRow +
-        size_type(i + 1) * interiorStencilLength + edgeStencilLength;
+    const size_type rowOffset = size_type(j) * numEntriesPerGridRow + numEntriesBottomRow +
+                                size_type(i + 1) * interiorStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -614,9 +549,8 @@ struct fill_2D_matrix_functor {
     /* Bottom edge */
     /***************/
     ordinal_type rowIdx = idx + 1;
-    size_type rowOffset =
-        size_type(idx + 1) * edgeStencilLength + cornerStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(idx + 1) * edgeStencilLength + cornerStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 6) = rowIdx - 1;
@@ -683,9 +617,8 @@ struct fill_2D_matrix_functor {
     /* Left edge */
     /*************/
     ordinal_type rowIdx = (idx + 1) * nx;
-    size_type rowOffset = size_type(idx) * numEntriesPerGridRow +
-                          numEntriesBottomRow + edgeStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(idx) * numEntriesPerGridRow + numEntriesBottomRow + edgeStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 6) = rowIdx - nx;
@@ -715,8 +648,8 @@ struct fill_2D_matrix_functor {
     /**************/
     /* Right edge */
     /**************/
-    rowIdx    = (idx + 2) * nx - 1;
-    rowOffset = size_type(idx + 1) * numEntriesPerGridRow + numEntriesBottomRow;
+    rowIdx             = (idx + 2) * nx - 1;
+    rowOffset          = size_type(idx + 1) * numEntriesPerGridRow + numEntriesBottomRow;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -790,9 +723,8 @@ struct fill_2D_matrix_functor {
     }
 
     // Top-left corner
-    rowIdx    = (ny - 1) * nx;
-    rowOffset = size_type(ny - 2) * numEntriesPerGridRow + numEntriesBottomRow +
-                cornerStencilLength;
+    rowIdx             = (ny - 1) * nx;
+    rowOffset          = size_type(ny - 2) * numEntriesPerGridRow + numEntriesBottomRow + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     columns(rowOffset - 4) = rowIdx - nx;
@@ -835,8 +767,7 @@ struct fill_2D_matrix_functor {
 };
 
 template <typename CrsMatrix_t, typename mat_structure>
-CrsMatrix_t generate_structured_matrix2D(const std::string stencil,
-                                         const mat_structure& structure) {
+CrsMatrix_t generate_structured_matrix2D(const std::string stencil, const mat_structure& structure) {
   typedef typename CrsMatrix_t::StaticCrsGraphType graph_t;
   typedef typename CrsMatrix_t::row_map_type::non_const_type row_map_view_t;
   typedef typename CrsMatrix_t::index_type::non_const_type cols_view_t;
@@ -868,8 +799,7 @@ CrsMatrix_t generate_structured_matrix2D(const std::string stencil,
   const ordinal_type numInterior     = (nx - 2) * (ny - 2);
   const ordinal_type numEdge         = 2 * (nx - 2) + 2 * (ny - 2);
   const ordinal_type numCorner       = 4;
-  ordinal_type interiorStencilLength = 0, edgeStencilLength = 0,
-               cornerStencilLength = 0;
+  ordinal_type interiorStencilLength = 0, edgeStencilLength = 0, cornerStencilLength = 0;
 
   if (stencil_type == FD) {
     interiorStencilLength = 5;
@@ -881,18 +811,16 @@ CrsMatrix_t generate_structured_matrix2D(const std::string stencil,
     cornerStencilLength   = 4;
   }
 
-  const size_type numEntries = numInterior * interiorStencilLength +
-                               numEdge * edgeStencilLength +
-                               numCorner * cornerStencilLength;
+  const size_type numEntries =
+      numInterior * interiorStencilLength + numEdge * edgeStencilLength + numCorner * cornerStencilLength;
 
   // Create matrix data
   row_map_view_t rowmap_view("rowmap_view", numNodes + 1);
   cols_view_t columns_view("colsmap_view", numEntries);
   scalar_view_t values_view("values_view", numEntries);
 
-  fill_2D_matrix_functor<CrsMatrix_t> fill_2D_matrix(
-      stencil_type, nx, ny, leftBC, rightBC, bottomBC, topBC, rowmap_view,
-      columns_view, values_view);
+  fill_2D_matrix_functor<CrsMatrix_t> fill_2D_matrix(stencil_type, nx, ny, leftBC, rightBC, bottomBC, topBC,
+                                                     rowmap_view, columns_view, values_view);
 
   fill_2D_matrix.compute();
 
@@ -973,14 +901,10 @@ struct fill_3D_matrix_functor {
   ordinal_type numEntriesFrontRow;
   ordinal_type numEntriesBottomFrontRow;
 
-  fill_3D_matrix_functor(const int stencil_type_, const ordinal_type nx_,
-                         const ordinal_type ny_, const ordinal_type nz_,
-                         const int leftBC_, const int rightBC_,
-                         const int frontBC_, const int backBC_,
-                         const int bottomBC_, const int topBC_,
-                         const row_map_view_t rowmap_,
-                         const cols_view_t columns_,
-                         const scalar_view_t values_)
+  fill_3D_matrix_functor(const int stencil_type_, const ordinal_type nx_, const ordinal_type ny_,
+                         const ordinal_type nz_, const int leftBC_, const int rightBC_, const int frontBC_,
+                         const int backBC_, const int bottomBC_, const int topBC_, const row_map_view_t rowmap_,
+                         const cols_view_t columns_, const scalar_view_t values_)
       : stencil_type(stencil_type_),
         nx(nx_),
         ny(ny_),
@@ -1014,38 +938,26 @@ struct fill_3D_matrix_functor {
     numYEdge    = ny - 2;
     numZEdge    = nz - 2;
 
-    numEntries = numInterior * interiorStencilLength +
-                 2 * (numXFace + numYFace + numZFace) * faceStencilLength +
-                 4 * (numXEdge + numYEdge + numZEdge) * edgeStencilLength +
-                 8 * cornerStencilLength;
-    numEntriesPerGridPlane =
-        numZFace * interiorStencilLength + 2 * numXEdge * faceStencilLength +
-        2 * numYEdge * faceStencilLength + 4 * edgeStencilLength;
-    ;
-    numEntriesBottomPlane =
-        numZFace * faceStencilLength + 2 * numXEdge * edgeStencilLength +
-        2 * numYEdge * edgeStencilLength + 4 * cornerStencilLength;
-    ;
-    numEntriesPerGridRow =
-        numXEdge * interiorStencilLength + 2 * faceStencilLength;
-    numEntriesFrontRow = numXEdge * faceStencilLength + 2 * edgeStencilLength;
-    numEntriesBottomFrontRow =
-        numXEdge * edgeStencilLength + 2 * cornerStencilLength;
+    numEntries = numInterior * interiorStencilLength + 2 * (numXFace + numYFace + numZFace) * faceStencilLength +
+                 4 * (numXEdge + numYEdge + numZEdge) * edgeStencilLength + 8 * cornerStencilLength;
+    numEntriesPerGridPlane = numZFace * interiorStencilLength + 2 * numXEdge * faceStencilLength +
+                             2 * numYEdge * faceStencilLength + 4 * edgeStencilLength;
+    numEntriesBottomPlane = numZFace * faceStencilLength + 2 * numXEdge * edgeStencilLength +
+                            2 * numYEdge * edgeStencilLength + 4 * cornerStencilLength;
+    numEntriesPerGridRow     = numXEdge * interiorStencilLength + 2 * faceStencilLength;
+    numEntriesFrontRow       = numXEdge * faceStencilLength + 2 * edgeStencilLength;
+    numEntriesBottomFrontRow = numXEdge * edgeStencilLength + 2 * cornerStencilLength;
   }
 
   void compute() {
     // Fill interior points
     if (0 < numInterior) {
       if (stencil_type == FD) {
-        Kokkos::RangePolicy<execution_space, interiorFDTag> policy(0,
-                                                                   numInterior);
-        Kokkos::parallel_for("Fill 3D FD matrix: interior points", policy,
-                             *this);
+        Kokkos::RangePolicy<execution_space, interiorFDTag> policy(0, numInterior);
+        Kokkos::parallel_for("Fill 3D FD matrix: interior points", policy, *this);
       } else if (stencil_type == FE) {
-        Kokkos::RangePolicy<execution_space, interiorFETag> policy(0,
-                                                                   numInterior);
-        Kokkos::parallel_for("Fill 3D FE matrix: interior points", policy,
-                             *this);
+        Kokkos::RangePolicy<execution_space, interiorFETag> policy(0, numInterior);
+        Kokkos::parallel_for("Fill 3D FE matrix: interior points", policy, *this);
       }
     }
 
@@ -1134,10 +1046,9 @@ struct fill_3D_matrix_functor {
     const ordinal_type rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    const size_type rowOffset =
-        size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-        size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-        size_type(i + 1) * interiorStencilLength + faceStencilLength;
+    const size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
+                                size_type(i + 1) * interiorStencilLength + faceStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1171,10 +1082,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i;
 
     // Compute rowOffset
-    size_type rowOffset = size_type(k) * numEntriesPerGridPlane +
-                          numEntriesBottomPlane +
-                          size_type(j) * numEntriesPerGridRow +
-                          numEntriesFrontRow + faceStencilLength;
+    size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                          size_type(j) * numEntriesPerGridRow + numEntriesFrontRow + faceStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1253,9 +1162,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (k + 1) * ny * nx + i + 1;
 
     // Compute rowOffset
-    size_type rowOffset =
-        size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-        size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                          size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1293,9 +1201,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-                size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesPerGridRow +
+                numEntriesFrontRow + size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1335,9 +1242,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    size_type rowOffset =
-        size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-        size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    size_type rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
+                          size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1375,9 +1281,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesFrontRow +
+                numEntriesBottomFrontRow + size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1413,9 +1318,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = i + 1;
 
     // Compute rowOffset
-    size_type rowOffset =
-        size_type(i + 1) * edgeStencilLength + cornerStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 5) = rowIdx - 1;
@@ -1445,8 +1349,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow + size_type(i + 1) * edgeStencilLength +
+                cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1477,8 +1381,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(i + 1) * edgeStencilLength +
+                cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1510,9 +1414,8 @@ struct fill_3D_matrix_functor {
     rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesFrontRow +
+                numEntriesBottomFrontRow + size_type(i + 1) * edgeStencilLength + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1545,9 +1448,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (j + 1) * nx;
 
     // Compute rowOffset
-    size_type rowOffset = size_type(j) * numEntriesFrontRow +
-                          numEntriesBottomFrontRow + edgeStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow + edgeStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 5) = rowIdx - nx;
@@ -1577,8 +1479,7 @@ struct fill_3D_matrix_functor {
     rowIdx         = (j + 1) * nx + i;
 
     // Compute rowOffset
-    rowOffset =
-        size_type(j + 1) * numEntriesFrontRow + numEntriesBottomFrontRow;
+    rowOffset          = size_type(j + 1) * numEntriesFrontRow + numEntriesBottomFrontRow;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1609,9 +1510,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesFrontRow +
+                numEntriesBottomFrontRow + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1643,8 +1543,7 @@ struct fill_3D_matrix_functor {
     rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j + 1) * numEntriesFrontRow +
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j + 1) * numEntriesFrontRow +
                 numEntriesBottomFrontRow;
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -1678,9 +1577,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (k + 1) * ny * nx;
 
     // Compute rowOffset
-    size_type rowOffset = size_type(k) * numEntriesPerGridPlane +
-                          numEntriesBottomPlane + edgeStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + edgeStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 5) = rowIdx - ny * nx;
@@ -1710,8 +1608,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(i) * faceStencilLength + 2 * edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(i) * faceStencilLength +
+                2 * edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1742,9 +1640,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-                edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesPerGridRow +
+                numEntriesFrontRow + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1776,9 +1673,8 @@ struct fill_3D_matrix_functor {
     rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-                size_type(i) * faceStencilLength + 2 * edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesPerGridRow +
+                numEntriesFrontRow + size_type(i) * faceStencilLength + 2 * edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1853,9 +1749,8 @@ struct fill_3D_matrix_functor {
       values(rowOffset - 1) = -1.0;
     }
 
-    rowIdx    = (ny - 1) * nx;
-    rowOffset = size_type(ny - 2) * numEntriesFrontRow +
-                numEntriesBottomFrontRow + cornerStencilLength;
+    rowIdx             = (ny - 1) * nx;
+    rowOffset          = size_type(ny - 2) * numEntriesFrontRow + numEntriesBottomFrontRow + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1900,9 +1795,8 @@ struct fill_3D_matrix_functor {
       values(rowOffset - 1) = -1.0;
     }
 
-    rowIdx    = (nz - 1) * ny * nx;
-    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane +
-                numEntriesBottomPlane + cornerStencilLength;
+    rowIdx             = (nz - 1) * ny * nx;
+    rowOffset          = size_type(nz - 2) * numEntriesPerGridPlane + numEntriesBottomPlane + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1924,9 +1818,8 @@ struct fill_3D_matrix_functor {
       values(rowOffset - 1) = -1.0;
     }
 
-    rowIdx    = (nz - 1) * ny * nx + nx - 1;
-    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane +
-                numEntriesBottomPlane + numEntriesBottomFrontRow;
+    rowIdx             = (nz - 1) * ny * nx + nx - 1;
+    rowOffset          = size_type(nz - 2) * numEntriesPerGridPlane + numEntriesBottomPlane + numEntriesBottomFrontRow;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -1949,8 +1842,7 @@ struct fill_3D_matrix_functor {
     }
 
     rowIdx    = nz * ny * nx - nx;
-    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane +
-                numEntriesBottomPlane + (ny - 2) * numEntriesFrontRow +
+    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane + numEntriesBottomPlane + (ny - 2) * numEntriesFrontRow +
                 numEntriesBottomFrontRow + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -2007,10 +1899,9 @@ struct fill_3D_matrix_functor {
     const ordinal_type rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    const size_type rowOffset =
-        size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-        size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-        size_type(i + 1) * interiorStencilLength + faceStencilLength;
+    const size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
+                                size_type(i + 1) * interiorStencilLength + faceStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2084,10 +1975,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i;
 
     // Compute rowOffset
-    size_type rowOffset = size_type(k) * numEntriesPerGridPlane +
-                          numEntriesBottomPlane +
-                          size_type(j) * numEntriesPerGridRow +
-                          numEntriesFrontRow + faceStencilLength;
+    size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                          size_type(j) * numEntriesPerGridRow + numEntriesFrontRow + faceStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2238,9 +2127,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (k + 1) * ny * nx + i + 1;
 
     // Compute rowOffset
-    size_type rowOffset =
-        size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-        size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                          size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2314,9 +2202,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-                size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesPerGridRow +
+                numEntriesFrontRow + size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2392,9 +2279,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    size_type rowOffset =
-        size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-        size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    size_type rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
+                          size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2468,9 +2354,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                size_type(i + 1) * faceStencilLength + edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesFrontRow +
+                numEntriesBottomFrontRow + size_type(i + 1) * faceStencilLength + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2542,9 +2427,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = i + 1;
 
     // Compute rowOffset
-    size_type rowOffset =
-        size_type(i + 1) * edgeStencilLength + cornerStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 12) = rowIdx - 1;
@@ -2595,8 +2479,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow + size_type(i + 1) * edgeStencilLength +
+                cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2648,8 +2532,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(i + 1) * edgeStencilLength +
+                cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2702,9 +2586,8 @@ struct fill_3D_matrix_functor {
     rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                size_type(i + 1) * edgeStencilLength + cornerStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesFrontRow +
+                numEntriesBottomFrontRow + size_type(i + 1) * edgeStencilLength + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2758,9 +2641,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (j + 1) * nx;
 
     // Compute rowOffset
-    size_type rowOffset = size_type(j) * numEntriesFrontRow +
-                          numEntriesBottomFrontRow + edgeStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow + edgeStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 12) = rowIdx - nx;
@@ -2811,8 +2693,7 @@ struct fill_3D_matrix_functor {
     rowIdx         = (j + 1) * nx + i;
 
     // Compute rowOffset
-    rowOffset =
-        size_type(j + 1) * numEntriesFrontRow + numEntriesBottomFrontRow;
+    rowOffset          = size_type(j + 1) * numEntriesFrontRow + numEntriesBottomFrontRow;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2864,9 +2745,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesFrontRow + numEntriesBottomFrontRow +
-                edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesFrontRow +
+                numEntriesBottomFrontRow + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -2919,8 +2799,7 @@ struct fill_3D_matrix_functor {
     rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j + 1) * numEntriesFrontRow +
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j + 1) * numEntriesFrontRow +
                 numEntriesBottomFrontRow;
     rowmap(rowIdx + 1) = rowOffset;
 
@@ -2975,9 +2854,8 @@ struct fill_3D_matrix_functor {
     ordinal_type rowIdx = (k + 1) * ny * nx;
 
     // Compute rowOffset
-    size_type rowOffset = size_type(k) * numEntriesPerGridPlane +
-                          numEntriesBottomPlane + edgeStencilLength;
-    rowmap(rowIdx + 1) = rowOffset;
+    size_type rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + edgeStencilLength;
+    rowmap(rowIdx + 1)  = rowOffset;
 
     // Fill column indices
     columns(rowOffset - 12) = rowIdx - nx * ny;
@@ -3028,8 +2906,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(i) * faceStencilLength + 2 * edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(i) * faceStencilLength +
+                2 * edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3081,9 +2959,8 @@ struct fill_3D_matrix_functor {
     rowIdx         = (k + 1) * ny * nx + (j + 1) * nx;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-                edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesPerGridRow +
+                numEntriesFrontRow + edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3136,9 +3013,8 @@ struct fill_3D_matrix_functor {
     rowIdx = (k + 1) * ny * nx + (j + 1) * nx + i + 1;
 
     // Compute rowOffset
-    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane +
-                size_type(j) * numEntriesPerGridRow + numEntriesFrontRow +
-                size_type(i) * faceStencilLength + 2 * edgeStencilLength;
+    rowOffset = size_type(k) * numEntriesPerGridPlane + numEntriesBottomPlane + size_type(j) * numEntriesPerGridRow +
+                numEntriesFrontRow + size_type(i) * faceStencilLength + 2 * edgeStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3258,9 +3134,8 @@ struct fill_3D_matrix_functor {
       values(rowOffset - 1) = -1.0;
     }
 
-    rowIdx    = (ny - 1) * nx;
-    rowOffset = size_type(ny - 2) * numEntriesFrontRow +
-                numEntriesBottomFrontRow + cornerStencilLength;
+    rowIdx             = (ny - 1) * nx;
+    rowOffset          = size_type(ny - 2) * numEntriesFrontRow + numEntriesBottomFrontRow + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3330,9 +3205,8 @@ struct fill_3D_matrix_functor {
     }
 
     // Top corners
-    rowIdx    = (nz - 1) * ny * nx;
-    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane +
-                numEntriesBottomPlane + cornerStencilLength;
+    rowIdx             = (nz - 1) * ny * nx;
+    rowOffset          = size_type(nz - 2) * numEntriesPerGridPlane + numEntriesBottomPlane + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3366,9 +3240,8 @@ struct fill_3D_matrix_functor {
       values(rowOffset - 1) = -1.0;
     }
 
-    rowIdx    = (nz - 1) * ny * nx + nx - 1;
-    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane +
-                numEntriesBottomPlane + numEntriesBottomFrontRow;
+    rowIdx             = (nz - 1) * ny * nx + nx - 1;
+    rowOffset          = size_type(nz - 2) * numEntriesPerGridPlane + numEntriesBottomPlane + numEntriesBottomFrontRow;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3403,9 +3276,8 @@ struct fill_3D_matrix_functor {
     }
 
     rowIdx    = nz * ny * nx - nx;
-    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane +
-                numEntriesBottomPlane + size_type(ny - 2) * numEntriesFrontRow +
-                numEntriesBottomFrontRow + cornerStencilLength;
+    rowOffset = size_type(nz - 2) * numEntriesPerGridPlane + numEntriesBottomPlane +
+                size_type(ny - 2) * numEntriesFrontRow + numEntriesBottomFrontRow + cornerStencilLength;
     rowmap(rowIdx + 1) = rowOffset;
 
     // Fill column indices
@@ -3477,8 +3349,7 @@ struct fill_3D_matrix_functor {
 };
 
 template <typename CrsMatrix_t, typename mat_structure>
-CrsMatrix_t generate_structured_matrix3D(const std::string stencil,
-                                         const mat_structure& structure) {
+CrsMatrix_t generate_structured_matrix3D(const std::string stencil, const mat_structure& structure) {
   typedef typename CrsMatrix_t::StaticCrsGraphType graph_t;
   typedef typename CrsMatrix_t::row_map_type::non_const_type row_map_view_t;
   typedef typename CrsMatrix_t::index_type::non_const_type cols_view_t;
@@ -3510,29 +3381,18 @@ CrsMatrix_t generate_structured_matrix3D(const std::string stencil,
   const ordinal_type backBC      = structure(1, 2);
   const ordinal_type bottomBC    = structure(2, 1);
   const ordinal_type topBC       = structure(2, 2);
-  const ordinal_type numInterior = (nx - leftBC - rightBC) *
-                                   (ny - frontBC - backBC) *
-                                   (nz - bottomBC - topBC);
-  const ordinal_type numFace =
-      (leftBC + rightBC) * (ny - frontBC - backBC) * (nz - bottomBC - topBC) +
-      (frontBC + backBC) * (nx - leftBC - rightBC) * (nz - bottomBC - topBC) +
-      (bottomBC + topBC) * (nx - leftBC - rightBC) * (ny - frontBC - backBC);
-  const ordinal_type numEdge = (frontBC * bottomBC + frontBC * topBC +
-                                backBC * bottomBC + backBC * topBC) *
-                                   (nx - leftBC - rightBC) +
-                               (leftBC * bottomBC + leftBC * topBC +
-                                rightBC * bottomBC + rightBC * topBC) *
-                                   (ny - frontBC - backBC) +
-                               (leftBC * frontBC + leftBC * backBC +
-                                rightBC * frontBC + rightBC * backBC) *
-                                   (nz - bottomBC - topBC);
-  const ordinal_type numCorner =
-      leftBC * frontBC * bottomBC + rightBC * frontBC * bottomBC +
-      leftBC * backBC * bottomBC + rightBC * backBC * bottomBC +
-      leftBC * frontBC * topBC + rightBC * frontBC * topBC +
-      leftBC * backBC * topBC + rightBC * backBC * topBC;
-  ordinal_type interiorStencilLength = 0, faceStencilLength = 0,
-               edgeStencilLength = 0, cornerStencilLength = 0;
+  const ordinal_type numInterior = (nx - leftBC - rightBC) * (ny - frontBC - backBC) * (nz - bottomBC - topBC);
+  const ordinal_type numFace     = (leftBC + rightBC) * (ny - frontBC - backBC) * (nz - bottomBC - topBC) +
+                               (frontBC + backBC) * (nx - leftBC - rightBC) * (nz - bottomBC - topBC) +
+                               (bottomBC + topBC) * (nx - leftBC - rightBC) * (ny - frontBC - backBC);
+  const ordinal_type numEdge =
+      (frontBC * bottomBC + frontBC * topBC + backBC * bottomBC + backBC * topBC) * (nx - leftBC - rightBC) +
+      (leftBC * bottomBC + leftBC * topBC + rightBC * bottomBC + rightBC * topBC) * (ny - frontBC - backBC) +
+      (leftBC * frontBC + leftBC * backBC + rightBC * frontBC + rightBC * backBC) * (nz - bottomBC - topBC);
+  const ordinal_type numCorner = leftBC * frontBC * bottomBC + rightBC * frontBC * bottomBC +
+                                 leftBC * backBC * bottomBC + rightBC * backBC * bottomBC + leftBC * frontBC * topBC +
+                                 rightBC * frontBC * topBC + leftBC * backBC * topBC + rightBC * backBC * topBC;
+  ordinal_type interiorStencilLength = 0, faceStencilLength = 0, edgeStencilLength = 0, cornerStencilLength = 0;
 
   if (stencil_type == FD) {
     interiorStencilLength = 7;
@@ -3546,9 +3406,8 @@ CrsMatrix_t generate_structured_matrix3D(const std::string stencil,
     cornerStencilLength   = 8;
   }
 
-  const size_type numEntries =
-      numInterior * interiorStencilLength + numFace * faceStencilLength +
-      numEdge * edgeStencilLength + numCorner * cornerStencilLength;
+  const size_type numEntries = numInterior * interiorStencilLength + numFace * faceStencilLength +
+                               numEdge * edgeStencilLength + numCorner * cornerStencilLength;
 
   // Create matrix data
   row_map_view_t rowmap_view("rowmap_view", numNodes + 1);
@@ -3559,9 +3418,8 @@ CrsMatrix_t generate_structured_matrix3D(const std::string stencil,
   // To start simple we construct 2D 5pt stencil Laplacian.
   // We assume Neumann boundary conditions on the edge of the domain.
 
-  fill_3D_matrix_functor<CrsMatrix_t> fill_3D_matrix(
-      stencil_type, nx, ny, nz, leftBC, rightBC, frontBC, backBC, bottomBC,
-      topBC, rowmap_view, columns_view, values_view);
+  fill_3D_matrix_functor<CrsMatrix_t> fill_3D_matrix(stencil_type, nx, ny, nz, leftBC, rightBC, frontBC, backBC,
+                                                     bottomBC, topBC, rowmap_view, columns_view, values_view);
 
   fill_3D_matrix.compute();
 
