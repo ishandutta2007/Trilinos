@@ -1,53 +1,16 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <cstdio>
-#include <stdexcept>
 #include <sstream>
 #include <iostream>
 
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+#else
 #include <Kokkos_Core.hpp>
+#endif
 
 namespace Test {
 
@@ -59,18 +22,6 @@ class MyArray {
   KOKKOS_INLINE_FUNCTION
   void operator+=(const MyArray& src) {
     for (int i = 0; i < N; i++) values[i] += src.values[i];
-  }
-  KOKKOS_INLINE_FUNCTION
-  void operator=(const MyArray& src) {
-    for (int i = 0; i < N; i++) values[i] = src.values[i];
-  }
-  KOKKOS_INLINE_FUNCTION
-  void operator+=(const volatile MyArray& src) volatile {
-    for (int i = 0; i < N; i++) values[i] += src.values[i];
-  }
-  KOKKOS_INLINE_FUNCTION
-  void operator=(const volatile MyArray& src) volatile {
-    for (int i = 0; i < N; i++) values[i] = src.values[i];
   }
 };
 
@@ -90,12 +41,35 @@ struct FunctorReduce {
   }
 };
 }  // namespace
+}  // namespace Test
+
+template <class T, int N>
+struct Kokkos::reduction_identity<Test::MyArray<T, N>> {
+  KOKKOS_FUNCTION static Test::MyArray<T, N> sum() {
+    return Test::MyArray<T, N>{};
+  }
+};
+
+namespace Test {
 
 using policy_type = Kokkos::TeamPolicy<TEST_EXECSPACE>;
 using policy_type_128_8 =
-    Kokkos::TeamPolicy<TEST_EXECSPACE, Kokkos::LaunchBounds<128, 8> >;
+    Kokkos::TeamPolicy<TEST_EXECSPACE, Kokkos::LaunchBounds<128, 8>>;
+
+// We need to special case for NVIDIA architectures which don't have space for
+// 2048 threads ptxas warns and with errors as warning errors out: "ptxas error
+// : Value of threads per SM for entry _ZN6... is out of range. .minnctapersm
+// will be ignored" And yes I understand I am lying now with the name of the
+// policy
+#if defined(KOKKOS_ARCH_TURING75) || defined(KOKKOS_ARCH_AMPERE86) || \
+    defined(KOKKOS_ARCH_AMPERE87) || defined(KOKKOS_ARCH_ADA89) ||    \
+    defined(KOKKOS_ARCH_BLACKWELL120)
 using policy_type_1024_2 =
-    Kokkos::TeamPolicy<TEST_EXECSPACE, Kokkos::LaunchBounds<1024, 2> >;
+    Kokkos::TeamPolicy<TEST_EXECSPACE, Kokkos::LaunchBounds<1024, 1>>;
+#else
+using policy_type_1024_2 =
+    Kokkos::TeamPolicy<TEST_EXECSPACE, Kokkos::LaunchBounds<1024, 2>>;
+#endif
 
 template <class T, int N, class PolicyType, int S>
 void test_team_policy_max_recommended_static_size(int scratch_size) {
@@ -107,11 +81,19 @@ void test_team_policy_max_recommended_static_size(int scratch_size) {
       FunctorFor<T, N, PolicyType, S>(), Kokkos::ParallelForTag());
   int team_size_max_reduce = p.team_size_max(
       FunctorReduce<T, N, PolicyType, S>(), Kokkos::ParallelReduceTag());
+  MyArray<T, N> dummy;
+  int team_size_max_reduce_reducer = p.team_size_max(
+      FunctorReduce<T, N, PolicyType, S>(), Kokkos::Sum<MyArray<T, N>>{dummy},
+      Kokkos::ParallelReduceTag());
   int team_size_rec_reduce = p.team_size_recommended(
       FunctorReduce<T, N, PolicyType, S>(), Kokkos::ParallelReduceTag());
+  int team_size_rec_reduce_reducer = p.team_size_recommended(
+      FunctorReduce<T, N, PolicyType, S>(), Kokkos::Sum<MyArray<T, N>>{dummy},
+      Kokkos::ParallelReduceTag());
 
   ASSERT_GE(team_size_max_for, team_size_rec_for);
   ASSERT_GE(team_size_max_reduce, team_size_rec_reduce);
+  ASSERT_GE(team_size_max_reduce_reducer, team_size_rec_reduce_reducer);
   ASSERT_GE(team_size_max_for, team_size_max_reduce);
 
   Kokkos::parallel_for(PolicyType(10000, team_size_max_for, 4)

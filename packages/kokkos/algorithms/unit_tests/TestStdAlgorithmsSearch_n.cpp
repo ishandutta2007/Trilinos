@@ -1,50 +1,7 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <TestStdAlgorithmsCommon.hpp>
-#include <std_algorithms/Kokkos_BeginEnd.hpp>
-#include <std_algorithms/Kokkos_ModifyingSequenceOperations.hpp>
 #include <utility>
 
 namespace Test {
@@ -52,50 +9,6 @@ namespace stdalgos {
 namespace Search_n {
 
 namespace KE = Kokkos::Experimental;
-
-// search_n is only available from c++20, so I have to put it here
-template <class ForwardIt, class Size, class T, class BinaryPredicate>
-ForwardIt my_std_search_n(ForwardIt first, ForwardIt last, Size count,
-                          const T& value, BinaryPredicate p) {
-  if (count <= 0) {
-    return first;
-  }
-  for (; first != last; ++first) {
-    if (!p(*first, value)) {
-      continue;
-    }
-
-    ForwardIt candidate = first;
-    Size cur_count      = 0;
-
-    while (true) {
-      ++cur_count;
-      if (cur_count >= count) {
-        // success
-        return candidate;
-      }
-      ++first;
-      if (first == last) {
-        // exhausted the list
-        return last;
-      }
-      if (!p(*first, value)) {
-        // too few in a row
-        break;
-      }
-    }
-  }
-
-  return last;
-}
-
-template <class ForwardIt, class Size, class T>
-ForwardIt my_std_search_n(ForwardIt first, ForwardIt last, Size count,
-                          const T& value) {
-  using iter_value_type = typename ForwardIt::value_type;
-  using p_type          = IsEqualFunctor<iter_value_type, T>;
-  return my_std_search_n(first, last, count, value, p_type());
-}
 
 std::string value_type_to_string(int) { return "int"; }
 std::string value_type_to_string(double) { return "double"; }
@@ -184,7 +97,7 @@ void fill_view(ViewType dest_view, ValueType value, std::size_t count,
   }
 
   else {
-    throw std::runtime_error("Kokkos: test: search_n: this should not happen");
+    FAIL() << "Kokkos: test: search_n: this should not happen";
   }
 
   Kokkos::deep_copy(aux_view, v_h);
@@ -225,34 +138,34 @@ void run_single_scenario(const InfoType& scenario_info, std::size_t count,
 
   // run std
   auto view_h = create_host_space_copy(view);
-  auto stdrit = my_std_search_n(KE::cbegin(view_h), KE::cend(view_h), count,
-                                value, args...);
+  auto stdrit = std::search_n(KE::cbegin(view_h), KE::cend(view_h), count,
+                              value, args...);
   const auto stddiff = stdrit - KE::cbegin(view_h);
 
   {
     auto myrit = KE::search_n(exespace(), KE::cbegin(view), KE::cend(view),
                               count, value, args...);
     const auto mydiff = myrit - KE::cbegin(view);
-    EXPECT_TRUE(mydiff == stddiff);
+    ASSERT_EQ(mydiff, stddiff);
   }
 
   {
     auto myrit        = KE::search_n("label", exespace(), KE::cbegin(view),
-                              KE::cend(view), count, value, args...);
+                                     KE::cend(view), count, value, args...);
     const auto mydiff = myrit - KE::cbegin(view);
-    EXPECT_TRUE(mydiff == stddiff);
+    ASSERT_EQ(mydiff, stddiff);
   }
 
   {
     auto myrit = KE::search_n("label", exespace(), view, count, value, args...);
     const auto mydiff = myrit - KE::begin(view);
-    EXPECT_TRUE(mydiff == stddiff);
+    ASSERT_EQ(mydiff, stddiff);
   }
 
   {
     auto myrit        = KE::search_n(exespace(), view, count, value, args...);
     const auto mydiff = myrit - KE::begin(view);
-    EXPECT_TRUE(mydiff == stddiff);
+    ASSERT_EQ(mydiff, stddiff);
   }
 
   Kokkos::fence();

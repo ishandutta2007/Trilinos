@@ -1,9 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
+
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+#else
 #include <Kokkos_Core.hpp>
+#endif
 #include <cstddef>
 
 namespace Test {
 
-#ifdef KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA
 namespace Impl {
 template <class MemorySpaceA, class MemorySpaceB>
 struct TestDeepCopy {
@@ -212,7 +219,6 @@ TEST(TEST_CATEGORY, deep_copy_alignment) {
                        Kokkos::HostSpace>::run_test(100000);
   }
 }
-#endif
 
 namespace Impl {
 template <class Scalar1, class Scalar2, class Layout1, class Layout2>
@@ -225,12 +231,12 @@ struct TestDeepCopyScalarConversion {
   using view_type_s1_2d = Kokkos::View<Scalar1**, Layout1, TEST_EXECSPACE>;
   using view_type_s2_2d = Kokkos::View<Scalar2**, Layout2, TEST_EXECSPACE>;
 
-  using base_layout1 = typename std::conditional<
-      std::is_same<Layout1, Kokkos::LayoutStride>::value, Kokkos::LayoutLeft,
-      Layout1>::type;
-  using base_layout2 = typename std::conditional<
-      std::is_same<Layout2, Kokkos::LayoutStride>::value, Kokkos::LayoutLeft,
-      Layout2>::type;
+  using base_layout1 =
+      std::conditional_t<std::is_same_v<Layout1, Kokkos::LayoutStride>,
+                         Kokkos::LayoutLeft, Layout1>;
+  using base_layout2 =
+      std::conditional_t<std::is_same_v<Layout2, Kokkos::LayoutStride>,
+                         Kokkos::LayoutLeft, Layout2>;
 
   using base_type_s1_1d = Kokkos::View<Scalar1*, base_layout1, TEST_EXECSPACE>;
   using base_type_s2_1d = Kokkos::View<Scalar2*, base_layout2, TEST_EXECSPACE>;
@@ -325,6 +331,9 @@ struct TestDeepCopyScalarConversion {
 }  // namespace Impl
 
 TEST(TEST_CATEGORY, deep_copy_conversion) {
+#ifdef KOKKOS_IMPL_32BIT
+  GTEST_SKIP() << "Failing KOKKOS_IMPL_32BIT";  // FIXME_32BIT
+#endif
   int64_t N0 = 19381;
   int64_t N1 = 17;
 

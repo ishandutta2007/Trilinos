@@ -1,46 +1,5 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOS_HIP_HALF_HPP_
 #define KOKKOS_HIP_HALF_HPP_
@@ -48,10 +7,8 @@
 #ifdef KOKKOS_IMPL_HALF_TYPE_DEFINED
 
 #include <Kokkos_Half.hpp>
-#include <Kokkos_NumericTraits.hpp>  // reduction_identity
 
-namespace Kokkos {
-namespace Experimental {
+namespace Kokkos::Experimental {
 
 /************************** half conversions **********************************/
 KOKKOS_INLINE_FUNCTION
@@ -133,25 +90,25 @@ half_t cast_to_half(unsigned long val) {
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, float>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, float>, T>
 cast_from_half(half_t val) {
   return __half2float(half_t::impl_type(val));
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, bool>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, bool>, T>
 cast_from_half(half_t val) {
   return static_cast<T>(cast_from_half<float>(val));
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, double>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, double>, T>
 cast_from_half(half_t val) {
   return static_cast<T>(__half2float(half_t::impl_type(val)));
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, short>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, short>, T>
 cast_from_half(half_t val) {
 #ifdef __HIP_DEVICE_COMPILE__
   return __half2short_rz(half_t::impl_type(val));
@@ -161,9 +118,8 @@ cast_from_half(half_t val) {
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION
-    std::enable_if_t<std::is_same<T, unsigned short>::value, T>
-    cast_from_half(half_t val) {
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, unsigned short>, T>
+cast_from_half(half_t val) {
 #ifdef __HIP_DEVICE_COMPILE__
   return __half2ushort_rz(half_t::impl_type(val));
 #else
@@ -171,7 +127,7 @@ KOKKOS_INLINE_FUNCTION
 #endif
 }
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, int>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, int>, T>
 cast_from_half(half_t val) {
 #ifdef __HIP_DEVICE_COMPILE__
   return __half2int_rz(half_t::impl_type(val));
@@ -181,7 +137,7 @@ cast_from_half(half_t val) {
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, unsigned>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, unsigned>, T>
 cast_from_half(half_t val) {
 #ifdef __HIP_DEVICE_COMPILE__
   return __half2uint_rz(half_t::impl_type(val));
@@ -191,7 +147,7 @@ cast_from_half(half_t val) {
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, long long>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, long long>, T>
 cast_from_half(half_t val) {
 #ifdef __HIP_DEVICE_COMPILE__
   return __half2ll_rz(half_t::impl_type(val));
@@ -202,7 +158,7 @@ cast_from_half(half_t val) {
 
 template <class T>
 KOKKOS_INLINE_FUNCTION
-    std::enable_if_t<std::is_same<T, unsigned long long>::value, T>
+    std::enable_if_t<std::is_same_v<T, unsigned long long>, T>
     cast_from_half(half_t val) {
 #ifdef __HIP_DEVICE_COMPILE__
   return __half2ull_rz(half_t::impl_type(val));
@@ -212,37 +168,132 @@ KOKKOS_INLINE_FUNCTION
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same<T, long>::value, T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, long>, T>
 cast_from_half(half_t val) {
   return static_cast<T>(cast_from_half<long long>(val));
 }
 
 template <class T>
-KOKKOS_INLINE_FUNCTION
-    std::enable_if_t<std::is_same<T, unsigned long>::value, T>
-    cast_from_half(half_t val) {
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, unsigned long>, T>
+cast_from_half(half_t val) {
   return static_cast<T>(cast_from_half<unsigned long long>(val));
 }
-}  // namespace Experimental
 
-// use float as the return type for sum and prod since hip_fp16.h
-// has no constexpr functions for casting to __half
-template <>
-struct reduction_identity<Kokkos::Experimental::half_t> {
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static float sum() noexcept {
-    return 0.0F;
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static float prod() noexcept {
-    return 1.0F;
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static float max() noexcept {
-    return -65504.0F;
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static float min() noexcept {
-    return 65504.0F;
-  }
-};
+/************************** bhalf conversions *********************************/
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(bhalf_t val) { return val; }
 
-}  // namespace Kokkos
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(float val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(bool val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(double val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(short val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(unsigned short val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(int val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(unsigned int val) { return bhalf_t::impl_type(val); }
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(long long val) {
+  // FIXME_HIP
+  return bhalf_t::impl_type(static_cast<double>(val));
+}
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(unsigned long long val) {
+  // FIXME_HIP
+  return bhalf_t::impl_type(static_cast<double>(val));
+}
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(long val) {
+  return cast_to_bhalf(static_cast<long long>(val));
+}
+
+KOKKOS_INLINE_FUNCTION
+bhalf_t cast_to_bhalf(unsigned long val) {
+  return cast_to_bhalf(static_cast<unsigned long long>(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, float>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, bool>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, double>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, short>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, unsigned short>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, int>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, unsigned>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, long long>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION
+    std::enable_if_t<std::is_same_v<T, unsigned long long>, T>
+    cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, long>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION std::enable_if_t<std::is_same_v<T, unsigned long>, T>
+cast_from_bhalf(bhalf_t val) {
+  return static_cast<T>(bhalf_t::impl_type(val));
+}
+
+}  // namespace Kokkos::Experimental
+
 #endif
 #endif

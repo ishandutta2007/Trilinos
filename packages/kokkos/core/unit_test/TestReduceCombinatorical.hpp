@@ -1,53 +1,16 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#include <stdexcept>
 #include <sstream>
 #include <iostream>
 #include <limits>
 
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+#else
 #include <Kokkos_Core.hpp>
+#endif
 
 namespace Test {
 
@@ -72,11 +35,6 @@ struct AddPlus {
   // Required.
   KOKKOS_INLINE_FUNCTION
   void join(value_type& dest, const value_type& src) const { dest += src + 1; }
-
-  KOKKOS_INLINE_FUNCTION
-  void join(volatile value_type& dest, const volatile value_type& src) const {
-    dest += src + 1;
-  }
 
   // Optional.
   KOKKOS_INLINE_FUNCTION
@@ -195,9 +153,7 @@ struct FunctorScalarJoin<0> {
   void operator()(const int& i, double& update) const { update += i; }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 };
 
 template <>
@@ -214,9 +170,7 @@ struct FunctorScalarJoin<1> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 };
 
 template <int ISTEAM>
@@ -232,9 +186,7 @@ struct FunctorScalarJoinFinal<0> {
   void operator()(const int& i, double& update) const { update += i; }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 
   KOKKOS_INLINE_FUNCTION
   void final(double& update) const { result() = update; }
@@ -254,9 +206,7 @@ struct FunctorScalarJoinFinal<1> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 
   KOKKOS_INLINE_FUNCTION
   void final(double& update) const { result() = update; }
@@ -275,9 +225,7 @@ struct FunctorScalarJoinInit<0> {
   void operator()(const int& i, double& update) const { update += i; }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 
   KOKKOS_INLINE_FUNCTION
   void init(double& update) const { update = 0.0; }
@@ -297,9 +245,7 @@ struct FunctorScalarJoinInit<1> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 
   KOKKOS_INLINE_FUNCTION
   void init(double& update) const { update = 0.0; }
@@ -318,9 +264,7 @@ struct FunctorScalarJoinFinalInit<0> {
   void operator()(const int& i, double& update) const { update += i; }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 
   KOKKOS_INLINE_FUNCTION
   void final(double& update) const { result() = update; }
@@ -343,9 +287,7 @@ struct FunctorScalarJoinFinalInit<1> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double& dst, const volatile double& update) const {
-    dst += update;
-  }
+  void join(double& dst, const double& update) const { dst += update; }
 
   KOKKOS_INLINE_FUNCTION
   void final(double& update) const { result() = update; }
@@ -379,7 +321,7 @@ struct Functor2 {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile double dst[], const volatile double src[]) const {
+  void join(double dst[], const double src[]) const {
     for (unsigned i = 0; i < value_count; ++i) dst[i] += src[i];
   }
 };
@@ -408,13 +350,11 @@ struct TestReduceCombinatoricalInstantiation {
     Kokkos::fence();
     ASSERT_EQ(expected_result, result_view());
 
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
     result_view() = 99;
     CallParallelReduce(args..., result_view_device);
     Kokkos::fence();
     Kokkos::deep_copy(result_view, result_view_device);
     ASSERT_EQ(expected_result, result_view());
-#endif
 
     value = 99;
     CallParallelReduce(
@@ -433,15 +373,13 @@ struct TestReduceCombinatoricalInstantiation {
     ASSERT_EQ(expected_result, result_view_const_um());
 
     value = 99;
-// WORKAROUND OPENMPTARGET Custom Reducers not implemented
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
     CallParallelReduce(args...,
                        Test::ReduceCombinatorical::AddPlus<double>(value));
-    if ((Kokkos::DefaultExecutionSpace::concurrency() > 1) &&
-        (ExecSpace::concurrency() > 1) && (expected_result > 0)) {
+    if ((Kokkos::DefaultExecutionSpace().concurrency() > 1) &&
+        (ExecSpace().concurrency() > 1) && (expected_result > 0)) {
       ASSERT_LT(expected_result, value);
-    } else if (((Kokkos::DefaultExecutionSpace::concurrency() > 1) ||
-                (ExecSpace::concurrency() > 1)) &&
+    } else if (((Kokkos::DefaultExecutionSpace().concurrency() > 1) ||
+                (ExecSpace().concurrency() > 1)) &&
                (expected_result > 0)) {
       ASSERT_LE(expected_result, value);
     } else {
@@ -451,23 +389,27 @@ struct TestReduceCombinatoricalInstantiation {
     value = 99;
     Test::ReduceCombinatorical::AddPlus<double> add(value);
     CallParallelReduce(args..., add);
-    if ((Kokkos::DefaultExecutionSpace::concurrency() > 1) &&
-        (ExecSpace::concurrency() > 1) && (expected_result > 0)) {
+    if ((Kokkos::DefaultExecutionSpace().concurrency() > 1) &&
+        (ExecSpace().concurrency() > 1) && (expected_result > 0)) {
       ASSERT_LT(expected_result, value);
-    } else if (((Kokkos::DefaultExecutionSpace::concurrency() > 1) ||
-                (ExecSpace::concurrency() > 1)) &&
+    } else if (((Kokkos::DefaultExecutionSpace().concurrency() > 1) ||
+                (ExecSpace().concurrency() > 1)) &&
                (expected_result > 0)) {
       ASSERT_LE(expected_result, value);
     } else {
       ASSERT_EQ(expected_result, value);
     }
-#endif
   }
+
+  // FIXME_CUDA segfaults at runtime when using a lambda
+  struct AddIndexToSum {
+    KOKKOS_FUNCTION
+    void operator()(const int i, double& lsum) const { lsum += i; }
+  };
 
   template <class... Args>
   static void AddLambdaRange(int N, void*, Args... args) {
-    AddReturnArgument(
-        N, args..., KOKKOS_LAMBDA(const int& i, double& lsum) { lsum += i; });
+    AddReturnArgument(N, args..., AddIndexToSum{});
   }
 
   template <class... Args>
@@ -496,9 +438,6 @@ struct TestReduceCombinatoricalInstantiation {
     AddReturnArgument(
         N, args...,
         Test::ReduceCombinatorical::FunctorScalar<ISTEAM>(result_view));
-// WORKAROUND OPENMPTARGET: reductions with functor join/init/final
-// not implemented
-#if !defined(KOKKOS_ENABLE_OPENMPTARGET)
     AddReturnArgument(
         N, args...,
         Test::ReduceCombinatorical::FunctorScalarInit<ISTEAM>(result_view));
@@ -536,33 +475,26 @@ struct TestReduceCombinatoricalInstantiation {
     Kokkos::fence();
     Kokkos::deep_copy(h_r, result_view);
     ASSERT_EQ(expected_result, h_r());
-#endif
   }
 
   template <class... Args>
   static void AddFunctorLambdaRange(int N, Args... args) {
     AddFunctor<0, Args...>(N, args...);
-#ifdef KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA
-    AddLambdaRange(
-        N,
-        typename std::conditional<
-            std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
-            void*, Kokkos::InvalidType>::type(),
-        args...);
-#endif
+    AddLambdaRange(N,
+                   std::conditional_t<
+                       std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace>,
+                       void*, Kokkos::InvalidType>(),
+                   args...);
   }
 
   template <class... Args>
   static void AddFunctorLambdaTeam(int N, Args... args) {
     AddFunctor<1, Args...>(N, args...);
-#ifdef KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA
-    AddLambdaTeam(
-        N,
-        typename std::conditional<
-            std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
-            void*, Kokkos::InvalidType>::type(),
-        args...);
-#endif
+    AddLambdaTeam(N,
+                  std::conditional_t<
+                      std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace>,
+                      void*, Kokkos::InvalidType>(),
+                  args...);
   }
 
   template <class... Args>
@@ -617,9 +549,7 @@ struct TestReduceCombinatoricalInstantiation {
     std::string s("Std::String");
     AddPolicy_1(1000, s.c_str());
     AddPolicy_1(1000, "Char Constant");
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
     AddPolicy_1(0, "Char Constant");
-#endif
   }
 
   static void execute_c1() {
@@ -633,9 +563,7 @@ struct TestReduceCombinatoricalInstantiation {
     std::string s("Std::String");
     AddPolicy_2(1000, s.c_str());
     AddPolicy_2(1000, "Char Constant");
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
     AddPolicy_2(0, "Char Constant");
-#endif
   }
 
   static void execute_c2() {
@@ -643,26 +571,18 @@ struct TestReduceCombinatoricalInstantiation {
     AddPolicy_2(1000, s);
   }
 
-  static void execute_a3() {
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
-    AddPolicy_3(1000);
-#endif
-  }
+  static void execute_a3() { AddPolicy_3(1000); }
 
   static void execute_b3() {
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
     std::string s("Std::String");
     AddPolicy_3(1000, s.c_str());
     AddPolicy_3(1000, "Char Constant");
     AddPolicy_3(0, "Char Constant");
-#endif
   }
 
   static void execute_c3() {
-#ifndef KOKKOS_ENABLE_OPENMPTARGET
     std::string s("Std::String");
     AddPolicy_3(1000, s);
-#endif
   }
 };
 

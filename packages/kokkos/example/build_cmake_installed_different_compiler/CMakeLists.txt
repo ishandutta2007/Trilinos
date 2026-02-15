@@ -1,14 +1,10 @@
-# Kokkos minimally requires 3.16 right now,
+# Kokkos minimally requires 3.22 right now,
 # but your project can set it higher
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 
-# Projects can safely mix languages - must have C++ support
+# Projects must have C++ support
 # Kokkos flags will only apply to C++ files
-project(Example CXX Fortran)
-
-# You need this for using Kokkos_ROOT variable
-message(STATUS "Setting policy CMP0074 to use <Package>_ROOT variables")
-cmake_policy(SET CMP0074 NEW)
+project(Example CXX)
 
 # Look for an installed Kokkos but force using the compiler launcher
 # to ensure that targets depending on Kokkos use the same compiler

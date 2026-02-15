@@ -1,46 +1,5 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_DualView.hpp>
@@ -76,9 +35,9 @@ struct localsum {
   // overrides Kokkos' default execution space.
   using execution_space = ExecutionSpace;
 
-  using memory_space = typename Kokkos::Impl::if_c<
-      std::is_same<ExecutionSpace, Kokkos::DefaultExecutionSpace>::value,
-      idx_type::memory_space, idx_type::host_mirror_space>::type;
+  using memory_space = std::conditional_t<
+      std::is_same_v<ExecutionSpace, Kokkos::DefaultExecutionSpace>,
+      idx_type::memory_space, idx_type::host_mirror_space>;
 
   // Get the view types on the particular device for which the functor
   // is instantiated.
@@ -89,10 +48,9 @@ struct localsum {
   // double**.
   Kokkos::View<idx_type::const_data_type, idx_type::array_layout, memory_space>
       idx;
-  // "scalar_array_type" is an alias in ViewTraits (and DualView) which is the
+  // "data_type" is an alias in ViewTraits (and DualView) which is the
   // array version of the value(s) stored in the View.
-  Kokkos::View<view_type::scalar_array_type, view_type::array_layout,
-               memory_space>
+  Kokkos::View<view_type::data_type, view_type::array_layout, memory_space>
       dest;
   Kokkos::View<view_type::const_data_type, view_type::array_layout,
                memory_space, Kokkos::MemoryRandomAccess>
@@ -159,7 +117,7 @@ int main(int narg, char* arg[]) {
   {
     ParticleTypes test("Test");
     Kokkos::fence();
-    test.h_view(0) = ParticleType(-1e4, 1);
+    test.view_host()(0) = ParticleType(-1e4, 1);
     Kokkos::fence();
 
     int size = 1000000;
@@ -174,7 +132,7 @@ int main(int narg, char* arg[]) {
 
     // Get a reference to the host view of idx directly (equivalent to
     // idx.view<idx_type::host_mirror_space>() )
-    idx_type::t_host h_idx = idx.h_view;
+    idx_type::t_host h_idx = idx.view_host();
     using size_type        = view_type::size_type;
     for (int i = 0; i < size; ++i) {
       for (size_type j = 0; j < static_cast<size_type>(h_idx.extent(1)); ++j) {

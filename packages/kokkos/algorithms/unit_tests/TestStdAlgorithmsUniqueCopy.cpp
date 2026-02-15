@@ -1,50 +1,7 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <TestStdAlgorithmsCommon.hpp>
-#include <std_algorithms/Kokkos_BeginEnd.hpp>
-#include <std_algorithms/Kokkos_ModifyingSequenceOperations.hpp>
 #include <utility>
 
 namespace Test {
@@ -52,33 +9,6 @@ namespace stdalgos {
 namespace UniqueCopy {
 
 namespace KE = Kokkos::Experimental;
-
-// impl is here for std because it is only avail from c++>=17
-template <class InputIterator, class OutputIterator, class BinaryPredicate>
-auto my_unique_copy(InputIterator first, InputIterator last,
-                    OutputIterator result, BinaryPredicate pred) {
-  if (first != last) {
-    typename OutputIterator::value_type t(*first);
-    *result = t;
-    ++result;
-    while (++first != last) {
-      if (!pred(t, *first)) {
-        t       = *first;
-        *result = t;
-        ++result;
-      }
-    }
-  }
-  return result;
-}
-
-template <class InputIterator, class OutputIterator>
-auto my_unique_copy(InputIterator first, InputIterator last,
-                    OutputIterator result) {
-  using value_type = typename OutputIterator::value_type;
-  using func_t     = IsEqualFunctor<value_type>;
-  return my_unique_copy(first, last, result, func_t());
-}
 
 template <class ValueType>
 struct UnifDist;
@@ -171,12 +101,12 @@ std::size_t fill_view(ViewType dest_view, const std::string& name) {
     std::fill(tmp.begin(), tmp.end(), static_cast<value_type>(0));
     using func_t = IsEqualFunctor<value_type>;
     auto std_r =
-        my_unique_copy(KE::cbegin(v_h), KE::cend(v_h), tmp.begin(), func_t());
+        std::unique_copy(KE::cbegin(v_h), KE::cend(v_h), tmp.begin(), func_t());
     count = (std::size_t)(std_r - tmp.begin());
   }
 
   else {
-    throw std::runtime_error("invalid choice");
+    Kokkos::abort("invalid choice");
   }
 
   Kokkos::deep_copy(aux_view, v_h);
@@ -204,68 +134,68 @@ void verify_data(const std::string& name, ViewTypeFrom view_from,
   }
 
   else if (name == "one-element-a") {
-    EXPECT_TRUE(view_test_h(0) == static_cast<value_type>(1));
+    ASSERT_EQ(view_test_h(0), static_cast<value_type>(1));
   }
 
   else if (name == "one-element-b") {
-    EXPECT_TRUE(view_test_h(0) == static_cast<value_type>(2));
+    ASSERT_EQ(view_test_h(0), static_cast<value_type>(2));
   }
 
   else if (name == "two-elements-a") {
-    EXPECT_TRUE(view_test_h(0) == static_cast<value_type>(1));
-    EXPECT_TRUE(view_test_h(1) == static_cast<value_type>(2));
+    ASSERT_EQ(view_test_h(0), static_cast<value_type>(1));
+    ASSERT_EQ(view_test_h(1), static_cast<value_type>(2));
   }
 
   else if (name == "two-elements-b") {
-    EXPECT_TRUE(view_test_h(0) == static_cast<value_type>(2));
-    EXPECT_TRUE(view_test_h(1) == static_cast<value_type>(-1));
+    ASSERT_EQ(view_test_h(0), static_cast<value_type>(2));
+    ASSERT_EQ(view_test_h(1), static_cast<value_type>(-1));
   }
 
   else if (name == "small-a") {
-    EXPECT_TRUE(view_test_h(0) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(1) == static_cast<value_type>(1));
-    EXPECT_TRUE(view_test_h(2) == static_cast<value_type>(2));
-    EXPECT_TRUE(view_test_h(3) == static_cast<value_type>(3));
-    EXPECT_TRUE(view_test_h(4) == static_cast<value_type>(4));
-    EXPECT_TRUE(view_test_h(5) == static_cast<value_type>(5));
-    EXPECT_TRUE(view_test_h(6) == static_cast<value_type>(6));
-    EXPECT_TRUE(view_test_h(7) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(8) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(9) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(10) == static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(0), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(1), static_cast<value_type>(1));
+    ASSERT_EQ(view_test_h(2), static_cast<value_type>(2));
+    ASSERT_EQ(view_test_h(3), static_cast<value_type>(3));
+    ASSERT_EQ(view_test_h(4), static_cast<value_type>(4));
+    ASSERT_EQ(view_test_h(5), static_cast<value_type>(5));
+    ASSERT_EQ(view_test_h(6), static_cast<value_type>(6));
+    ASSERT_EQ(view_test_h(7), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(8), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(9), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(10), static_cast<value_type>(0));
   }
 
   else if (name == "small-b") {
-    EXPECT_TRUE(view_test_h(0) == static_cast<value_type>(1));
-    EXPECT_TRUE(view_test_h(1) == static_cast<value_type>(2));
-    EXPECT_TRUE(view_test_h(2) == static_cast<value_type>(3));
-    EXPECT_TRUE(view_test_h(3) == static_cast<value_type>(4));
-    EXPECT_TRUE(view_test_h(4) == static_cast<value_type>(5));
-    EXPECT_TRUE(view_test_h(5) == static_cast<value_type>(6));
-    EXPECT_TRUE(view_test_h(6) == static_cast<value_type>(8));
-    EXPECT_TRUE(view_test_h(7) == static_cast<value_type>(9));
-    EXPECT_TRUE(view_test_h(8) == static_cast<value_type>(8));
-    EXPECT_TRUE(view_test_h(9) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(10) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(11) == static_cast<value_type>(0));
-    EXPECT_TRUE(view_test_h(12) == static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(0), static_cast<value_type>(1));
+    ASSERT_EQ(view_test_h(1), static_cast<value_type>(2));
+    ASSERT_EQ(view_test_h(2), static_cast<value_type>(3));
+    ASSERT_EQ(view_test_h(3), static_cast<value_type>(4));
+    ASSERT_EQ(view_test_h(4), static_cast<value_type>(5));
+    ASSERT_EQ(view_test_h(5), static_cast<value_type>(6));
+    ASSERT_EQ(view_test_h(6), static_cast<value_type>(8));
+    ASSERT_EQ(view_test_h(7), static_cast<value_type>(9));
+    ASSERT_EQ(view_test_h(8), static_cast<value_type>(8));
+    ASSERT_EQ(view_test_h(9), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(10), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(11), static_cast<value_type>(0));
+    ASSERT_EQ(view_test_h(12), static_cast<value_type>(0));
   }
 
   else if (name == "medium" || name == "large") {
     std::vector<value_type> tmp(view_test_h.extent(0));
     std::fill(tmp.begin(), tmp.end(), static_cast<value_type>(0));
 
-    auto std_r = my_unique_copy(KE::cbegin(view_from_h), KE::cend(view_from_h),
-                                tmp.begin(), args...);
+    auto std_r = std::unique_copy(KE::cbegin(view_from_h),
+                                  KE::cend(view_from_h), tmp.begin(), args...);
     (void)std_r;
 
     for (std::size_t i = 0; i < view_from_h.extent(0); ++i) {
-      EXPECT_TRUE(view_test_h(i) == tmp[i]);
+      ASSERT_EQ(view_test_h(i), tmp[i]);
     }
   }
 
   else {
-    throw std::runtime_error("invalid choice");
+    FAIL() << "invalid choice";
   }
 }
 
@@ -303,7 +233,7 @@ void run_single_scenario(const InfoType& scenario_info, Args... args) {
         KE::unique_copy(exespace(), KE::cbegin(view_from), KE::cend(view_from),
                         KE::begin(view_dest), args...);
     verify_data(name, view_from, view_dest, args...);
-    EXPECT_TRUE(rit == (KE::begin(view_dest) + n));
+    ASSERT_EQ(rit, (KE::begin(view_dest) + n));
   }
 
   {
@@ -313,7 +243,7 @@ void run_single_scenario(const InfoType& scenario_info, Args... args) {
         KE::unique_copy("label", exespace(), KE::cbegin(view_from),
                         KE::cend(view_from), KE::begin(view_dest), args...);
     verify_data(name, view_from, view_dest, args...);
-    EXPECT_TRUE(rit == (KE::begin(view_dest) + n));
+    ASSERT_EQ(rit, (KE::begin(view_dest) + n));
   }
 
   {
@@ -321,7 +251,7 @@ void run_single_scenario(const InfoType& scenario_info, Args... args) {
         create_view<ValueType>(Tag{}, view_ext, "unique_copy_dest");
     auto rit = KE::unique_copy(exespace(), view_from, view_dest, args...);
     verify_data(name, view_from, view_dest, args...);
-    EXPECT_TRUE(rit == (KE::begin(view_dest) + n));
+    ASSERT_EQ(rit, (KE::begin(view_dest) + n));
   }
 
   {
@@ -330,7 +260,7 @@ void run_single_scenario(const InfoType& scenario_info, Args... args) {
     auto rit =
         KE::unique_copy("label", exespace(), view_from, view_dest, args...);
     verify_data(name, view_from, view_dest, args...);
-    EXPECT_TRUE(rit == (KE::begin(view_dest) + n));
+    ASSERT_EQ(rit, (KE::begin(view_dest) + n));
   }
 
   Kokkos::fence();

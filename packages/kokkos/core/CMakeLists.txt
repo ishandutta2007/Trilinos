@@ -1,12 +1,6 @@
+if(NOT Kokkos_INSTALL_TESTING)
+  add_subdirectory(src)
+endif()
 
-
-KOKKOS_SUBPACKAGE(Core)
-
-IF (NOT Kokkos_INSTALL_TESTING)
-  ADD_SUBDIRECTORY(src)
-ENDIF()
-
-KOKKOS_ADD_TEST_DIRECTORIES(unit_test)
-KOKKOS_ADD_TEST_DIRECTORIES(perf_test)
-
-KOKKOS_SUBPACKAGE_POSTPROCESS()
+kokkos_add_test_directories(unit_test)
+kokkos_add_benchmark_directories(perf_test)

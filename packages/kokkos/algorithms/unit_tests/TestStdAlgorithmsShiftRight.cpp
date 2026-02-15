@@ -1,50 +1,7 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <TestStdAlgorithmsCommon.hpp>
-#include <std_algorithms/Kokkos_BeginEnd.hpp>
-#include <std_algorithms/Kokkos_ModifyingSequenceOperations.hpp>
 #include <utility>
 #include <algorithm>
 
@@ -103,42 +60,23 @@ void fill_view(ViewType dest_view, const std::string& name) {
   Kokkos::parallel_for("copy", dest_view.extent(0), F1);
 }
 
-template <class ForwardIterator>
-ForwardIterator my_std_shift_right(
-    ForwardIterator first, ForwardIterator last,
-    typename std::iterator_traits<ForwardIterator>::difference_type n) {
-  // copied from
-  // https://github.com/llvm/llvm-project/blob/main/libcxx/include/__algorithm/shift_right.h
-
-  if (n == 0) {
-    return first;
-  }
-
-  decltype(n) d = last - first;
-  if (n >= d) {
-    return last;
-  }
-  ForwardIterator m = first + (d - n);
-  return std::move_backward(first, m, last);
-}
-
 template <class ViewType, class ResultIt, class ViewHostType>
 void verify_data(ResultIt result_it, ViewType view, ViewHostType data_view_host,
                  std::size_t shift_value) {
-  auto std_rit = my_std_shift_right(KE::begin(data_view_host),
-                                    KE::end(data_view_host), shift_value);
+  auto std_rit = std::shift_right(KE::begin(data_view_host),
+                                  KE::end(data_view_host), shift_value);
 
   // make sure results match
   const auto my_diff  = KE::end(view) - result_it;
   const auto std_diff = KE::end(data_view_host) - std_rit;
-  EXPECT_TRUE(my_diff == std_diff);
+  ASSERT_EQ(my_diff, std_diff);
 
   // check views match
   auto view_h = create_host_space_copy(view);
   auto it1    = KE::cbegin(view_h);
   auto it2    = KE::cbegin(data_view_host);
   for (std::size_t i = 0; i < (std::size_t)my_diff; ++i) {
-    EXPECT_TRUE(it1[i] == it2[i]);
+    ASSERT_EQ(it1[i], it2[i]);
     // std::cout << "i= " << i << " "
     // 	      << "mine: " << it1[i] << " "
     // 	      << "std:  " << it2[i]
@@ -171,7 +109,7 @@ void run_single_scenario(const InfoType& scenario_info,
     // create host copy BEFORE shift_right or view will be modified
     auto view_h = create_host_space_copy(view);
     auto rit    = KE::shift_right(exespace(), KE::begin(view), KE::end(view),
-                               shift_value);
+                                  shift_value);
     verify_data(rit, view, view_h, shift_value);
   }
 
@@ -182,7 +120,7 @@ void run_single_scenario(const InfoType& scenario_info,
     // create host copy BEFORE shift_right or view will be modified
     auto view_h = create_host_space_copy(view);
     auto rit    = KE::shift_right("label", exespace(), KE::begin(view),
-                               KE::end(view), shift_value);
+                                  KE::end(view), shift_value);
     verify_data(rit, view, view_h, shift_value);
   }
 

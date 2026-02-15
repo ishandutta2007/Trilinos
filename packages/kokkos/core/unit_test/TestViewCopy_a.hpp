@@ -1,52 +1,16 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <cstdio>
 
 #include <gtest/gtest.h>
 
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+#else
 #include <Kokkos_Core.hpp>
+#endif
 
 namespace Test {
 
@@ -57,7 +21,7 @@ struct CheckResult {
   using value_type = typename ViewType::non_const_value_type;
   ViewType v;
   value_type value;
-  CheckResult(ViewType v_, value_type value_) : v(v_), value(value_){};
+  CheckResult(ViewType v_, value_type value_) : v(v_), value(value_) {}
   KOKKOS_FUNCTION
   void operator()(const int i, int& lsum) const {
     for (int j = 0; j < static_cast<int>(v.extent(1)); j++) {
@@ -105,6 +69,10 @@ TEST(TEST_CATEGORY, view_copy_tests) {
 
   // Contiguous copies
   { Kokkos::deep_copy(defaulted, defaulted); }
+  {
+    Kokkos::deep_copy(a, 0);
+    ASSERT_TRUE(run_check(a, 0));
+  }
   {
     Kokkos::deep_copy(a, 1);
     ASSERT_TRUE(run_check(a, 1));
@@ -175,10 +143,48 @@ TEST(TEST_CATEGORY, view_copy_tests) {
       Kokkos::deep_copy(s_a, hs_a);
       ASSERT_TRUE(run_check(s_a, 6));
     }
+  } else {
+    // These copies won't succeed, but they should each throw
+    // an exception whose message contains the view labels,
+    // and the names of the views' memory spaces.
+    //
+    // Note: original a,b both have the same device type,
+    // and their mirrors have the same device type.
+    using memory_space        = typename decltype(a)::memory_space;
+    using mirror_memory_space = typename decltype(h_a)::memory_space;
+    bool threw                = false;
+    std::string msg;
+    try {
+      Kokkos::deep_copy(hs_b, s_b);
+    } catch (std::exception& e) {
+      threw = true;
+      msg   = e.what();
+    }
+    ASSERT_TRUE(threw);
+    ASSERT_NE(msg.find(hs_b.label()), std::string::npos);
+    ASSERT_NE(msg.find(s_b.label()), std::string::npos);
+    ASSERT_NE(msg.find(memory_space().name()), std::string::npos);
+    ASSERT_NE(msg.find(mirror_memory_space().name()), std::string::npos);
+    threw = false;
+    try {
+      Kokkos::deep_copy(s_a, hs_a);
+    } catch (std::exception& e) {
+      threw = true;
+      msg   = e.what();
+    }
+    ASSERT_TRUE(threw);
+    ASSERT_NE(msg.find(s_a.label()), std::string::npos);
+    ASSERT_NE(msg.find(hs_a.label()), std::string::npos);
+    ASSERT_NE(msg.find(memory_space().name()), std::string::npos);
+    ASSERT_NE(msg.find(mirror_memory_space().name()), std::string::npos);
   }
 
   // Contiguous copies
   { Kokkos::deep_copy(dev, defaulted, defaulted); }
+  {
+    Kokkos::deep_copy(dev, a, 0);
+    ASSERT_TRUE(run_check(a, 0));
+  }
   {
     Kokkos::deep_copy(dev, a, 1);
     ASSERT_TRUE(run_check(a, 1));
@@ -223,6 +229,7 @@ TEST(TEST_CATEGORY, view_copy_tests) {
     Kokkos::deep_copy(dev, b, h_b);
     ASSERT_TRUE(run_check(b, 4));
   }
+
   // Non contiguous copies
   {
     Kokkos::deep_copy(dev, s_a, 5);
@@ -253,6 +260,10 @@ TEST(TEST_CATEGORY, view_copy_tests) {
 
   // Contiguous copies
   { Kokkos::deep_copy(host, defaulted, defaulted); }
+  {
+    Kokkos::deep_copy(host, a, 0);
+    ASSERT_TRUE(run_check(a, 0));
+  }
   {
     Kokkos::deep_copy(host, a, 1);
     ASSERT_TRUE(run_check(a, 1));

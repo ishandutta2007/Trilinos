@@ -1,54 +1,17 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <gtest/gtest.h>
 
-#include <stdexcept>
 #include <sstream>
 #include <iostream>
 
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+#else
 #include <Kokkos_Core.hpp>
+#endif
 
 namespace Test {
 
@@ -69,36 +32,32 @@ struct TestViewMappingSubview {
   using BS = Kokkos::Subview<BT, range, range, range>;
 
   enum { CN0 = 10, CN1 = 11, CN2 = 12 };
-  using CT = Kokkos::View<int** * [13][14], ExecSpace>;
+  using CT = Kokkos::View<int*** [13][14], ExecSpace>;
   // changing CS to CTS here because when compiling with nvshmem, there is a
   // define for CS that makes this fail...
   using CTS = Kokkos::Subview<CT, range, range, range, int, int>;
 
   enum { DN0 = 10, DN1 = 11, DN2 = 12, DN3 = 13, DN4 = 14 };
-  using DT = Kokkos::View<int** * [DN3][DN4], ExecSpace>;
+  using DT = Kokkos::View<int*** [DN3][DN4], ExecSpace>;
   using DS = Kokkos::Subview<DT, int, range, range, range, int>;
 
-  using DLT  = Kokkos::View<int** * [13][14], Kokkos::LayoutLeft, ExecSpace>;
+  using DLT  = Kokkos::View<int*** [13][14], Kokkos::LayoutLeft, ExecSpace>;
   using DLS1 = Kokkos::Subview<DLT, range, int, int, int, int>;
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000
   static_assert(
       DLS1::rank == 1 &&
-          std::is_same<typename DLS1::array_layout, Kokkos::LayoutLeft>::value,
+          std::is_same_v<typename DLS1::array_layout, Kokkos::LayoutLeft>,
       "Subview layout error for rank 1 subview of left-most range of "
       "LayoutLeft");
-#endif
 
-  using DRT  = Kokkos::View<int** * [13][14], Kokkos::LayoutRight, ExecSpace>;
+  using DRT  = Kokkos::View<int*** [13][14], Kokkos::LayoutRight, ExecSpace>;
   using DRS1 = Kokkos::Subview<DRT, int, int, int, int, range>;
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000
   static_assert(
       DRS1::rank == 1 &&
-          std::is_same<typename DRS1::array_layout, Kokkos::LayoutRight>::value,
+          std::is_same_v<typename DRS1::array_layout, Kokkos::LayoutRight>,
       "Subview layout error for rank 1 subview of right-most range of "
       "LayoutRight");
-#endif
 
   AT Aa;
   AS Ab;
@@ -129,8 +88,7 @@ struct TestViewMappingSubview {
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int, long& error_count) const {
-    auto Ad = Kokkos::subview<Kokkos::MemoryUnmanaged>(
-        Aa, Kokkos::pair<int, int>(1, AN - 1));
+    auto Ad = Kokkos::subview(Aa, Kokkos::pair<int, int>(1, AN - 1));
 
     for (int i = 1; i < AN - 1; ++i)
       if (&Aa[i] != &Ab[i - 1]) ++error_count;
@@ -192,9 +150,17 @@ struct TestViewMappingSubview {
     ASSERT_EQ(Db.extent(1), (size_t)DN2 - 2);
     ASSERT_EQ(Db.extent(2), (size_t)DN3 - 2);
 
-    ASSERT_EQ(Da.stride_1(), Db.stride_0());
-    ASSERT_EQ(Da.stride_2(), Db.stride_1());
-    ASSERT_EQ(Da.stride_3(), Db.stride_2());
+    ASSERT_EQ(Da.stride(1), Db.stride(0));
+    ASSERT_EQ(Da.stride(2), Db.stride(1));
+    ASSERT_EQ(Da.stride(3), Db.stride(2));
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_4
+    KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_PUSH()
+    ASSERT_EQ(Da.stride_1(), Db.stride_0());  // NOLINT
+    ASSERT_EQ(Da.stride_2(), Db.stride_1());  // NOLINT
+    ASSERT_EQ(Da.stride_3(), Db.stride_2());  // NOLINT
+    KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_POP()
+#endif
 
     long error_count = -1;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 1), *this,

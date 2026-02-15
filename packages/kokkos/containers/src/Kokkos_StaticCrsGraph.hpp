@@ -1,49 +1,29 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOS_STATICCRSGRAPH_HPP
 #define KOKKOS_STATICCRSGRAPH_HPP
+#ifndef KOKKOS_IMPL_PUBLIC_INCLUDE
+#define KOKKOS_IMPL_PUBLIC_INCLUDE
+#define KOKKOS_IMPL_PUBLIC_INCLUDE_NOTDEFINED_STATICCRSGRAPH
+#endif
+
+#include <Kokkos_Macros.hpp>
+
+#if defined(KOKKOS_ENABLE_DEPRECATED_CODE_4)
+#if defined(KOKKOS_ENABLE_DEPRECATION_WARNINGS) && \
+    !defined(KOKKOS_IMPL_DO_NOT_WARN_INCLUDE_STATIC_CRS_GRAPH)
+namespace {
+[[deprecated("Deprecated <Kokkos_StaticCrsGraph.hpp> header is included")]] int
+emit_warning_kokkos_static_crs_graph_deprecated() {
+  return 0;
+}
+static auto do_not_include = emit_warning_kokkos_static_crs_graph_deprecated();
+}  // namespace
+#endif
+#else
+#error "Deprecated <Kokkos_StaticCrsGraph.hpp> header is included"
+#endif
 
 #include <string>
 #include <vector>
@@ -214,8 +194,7 @@ struct GraphRowViewConst {
       const typename GraphType::entries_type& colidx_in,
       const ordinal_type& stride, const ordinal_type& count,
       const OffsetType& idx,
-      const typename std::enable_if<std::is_integral<OffsetType>::value,
-                                    int>::type& = 0)
+      const std::enable_if_t<std::is_integral_v<OffsetType>, int>& = 0)
       : colidx_(&colidx_in(idx)), stride_(stride), length(count) {}
 
   /// \brief Number of entries in the row.
@@ -296,9 +275,15 @@ class StaticCrsGraph {
 
   using staticcrsgraph_type =
       StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type, SizeType>;
-  using HostMirror = StaticCrsGraph<data_type, array_layout,
-                                    typename traits::host_mirror_space,
-                                    memory_traits, size_type>;
+
+  using host_mirror_type = StaticCrsGraph<data_type, array_layout,
+                                          typename traits::host_mirror_space,
+                                          memory_traits, size_type>;
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_4
+  using HostMirror KOKKOS_DEPRECATED_WITH_COMMENT(
+      "Use host_mirror_type instead.") = host_mirror_type;
+#endif
 
   using row_map_type =
       View<const size_type*, array_layout, device_type, memory_traits>;
@@ -311,39 +296,19 @@ class StaticCrsGraph {
   row_map_type row_map;
   row_block_type row_block_offsets;
 
-  //! Construct an empty view.
-  KOKKOS_INLINE_FUNCTION
-  StaticCrsGraph() : entries(), row_map(), row_block_offsets() {}
-
-  //! Copy constructor (shallow copy).
-  KOKKOS_INLINE_FUNCTION
-  StaticCrsGraph(const StaticCrsGraph& rhs)
-      : entries(rhs.entries),
-        row_map(rhs.row_map),
-        row_block_offsets(rhs.row_block_offsets) {}
+  KOKKOS_DEFAULTED_FUNCTION
+  StaticCrsGraph() = default;
 
   template <class EntriesType, class RowMapType>
   KOKKOS_INLINE_FUNCTION StaticCrsGraph(const EntriesType& entries_,
                                         const RowMapType& row_map_)
-      : entries(entries_), row_map(row_map_), row_block_offsets() {}
+      : entries(entries_), row_map(row_map_) {}
 
-  /** \brief  Assign to a view of the rhs array.
-   *          If the old view is the last view
-   *          then allocated memory is deallocated.
-   */
-  KOKKOS_INLINE_FUNCTION
-  StaticCrsGraph& operator=(const StaticCrsGraph& rhs) {
-    entries           = rhs.entries;
-    row_map           = rhs.row_map;
-    row_block_offsets = rhs.row_block_offsets;
-    return *this;
-  }
-
-  /**  \brief  Destroy this view of the array.
-   *           If the last view then allocated memory is deallocated.
-   */
-  KOKKOS_DEFAULTED_FUNCTION
-  ~StaticCrsGraph() = default;
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION StaticCrsGraph(const StaticCrsGraph<Args...>& other)
+      : entries(other.entries),
+        row_map(other.row_map),
+        row_block_offsets(other.row_block_offsets) {}
 
   /**  \brief  Return number of rows in the graph
    */
@@ -429,14 +394,14 @@ typename StaticCrsGraphType::staticcrsgraph_type create_staticcrsgraph(
 template <class DataType, class Arg1Type, class Arg2Type, class Arg3Type,
           typename SizeType>
 typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
-                        SizeType>::HostMirror
+                        SizeType>::host_mirror_type
 create_mirror_view(const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
                                         SizeType>& input);
 
 template <class DataType, class Arg1Type, class Arg2Type, class Arg3Type,
           typename SizeType>
 typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
-                        SizeType>::HostMirror
+                        SizeType>::host_mirror_type
 create_mirror(const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
                                    SizeType>& input);
 
@@ -471,8 +436,7 @@ struct StaticCrsGraphMaximumEntry {
   void init(value_type& update) const { update = 0; }
 
   KOKKOS_INLINE_FUNCTION
-  void join(volatile value_type& update,
-            volatile const value_type& input) const {
+  void join(value_type& update, const value_type& input) const {
     if (update < input) update = input;
   }
 };
@@ -498,4 +462,8 @@ DataType maximum_entry(const StaticCrsGraph<DataType, Arg1Type, Arg2Type,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
+#ifdef KOKKOS_IMPL_PUBLIC_INCLUDE_NOTDEFINED_STATICCRSGRAPH
+#undef KOKKOS_IMPL_PUBLIC_INCLUDE
+#undef KOKKOS_IMPL_PUBLIC_INCLUDE_NOTDEFINED_STATICCRSGRAPH
+#endif
 #endif /* #ifndef KOKKOS_CRSARRAY_HPP */

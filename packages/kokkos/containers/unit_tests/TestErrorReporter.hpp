@@ -1,54 +1,19 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOS_TEST_EXPERIMENTAL_ERROR_REPORTER_HPP
 #define KOKKOS_TEST_EXPERIMENTAL_ERROR_REPORTER_HPP
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+import kokkos.error_reporter;
+#else
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ErrorReporter.hpp>
+#endif
 
 namespace Test {
 
@@ -83,6 +48,7 @@ struct ErrorReporterDriverBase {
   using report_type = ThreeValReport<int, int, double>;
   using error_reporter_type =
       Kokkos::Experimental::ErrorReporter<report_type, DeviceType>;
+
   error_reporter_type m_errorReporter;
 
   ErrorReporterDriverBase(int reporter_capacity, int /*test_size*/)
@@ -94,8 +60,18 @@ struct ErrorReporterDriverBase {
 
   void check_expectations(int reporter_capacity, int test_size) {
     using namespace std;
-    int num_reported = m_errorReporter.getNumReports();
-    int num_attempts = m_errorReporter.getNumReportAttempts();
+    int num_reported = m_errorReporter.num_reports();
+    int num_attempts = m_errorReporter.num_report_attempts();
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_4
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+    KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_PUSH()
+#endif
+    EXPECT_EQ(num_reported, m_errorReporter.getNumReports());
+    EXPECT_EQ(num_attempts, m_errorReporter.getNumReportAttempts());
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+    KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_POP()
+#endif
+#endif
 
     int expected_num_reports = min(reporter_capacity, test_size / 2);
     EXPECT_EQ(expected_num_reports, num_reported);
@@ -110,23 +86,32 @@ struct ErrorReporterDriverBase {
 template <typename ErrorReporterDriverType>
 void TestErrorReporter() {
   using tester_type = ErrorReporterDriverType;
+
   std::vector<int> reporters;
   std::vector<typename tester_type::report_type> reports;
 
   tester_type test1(100, 10);
-  test1.m_errorReporter.getReports(reporters, reports);
+
+  std::tie(reporters, reports) = test1.m_errorReporter.get_reports();
   checkReportersAndReportsAgree(reporters, reports);
 
   tester_type test2(10, 100);
+  auto [reporters2, reports2] = test2.m_errorReporter.get_reports();
+  checkReportersAndReportsAgree(reporters2, reports2);
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_4
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+  KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_PUSH()
+#endif
   test2.m_errorReporter.getReports(reporters, reports);
   checkReportersAndReportsAgree(reporters, reports);
 
-  typename Kokkos::View<
-      int *, typename ErrorReporterDriverType::execution_space>::HostMirror
-      view_reporters;
+  typename Kokkos::View<int *,
+                        typename ErrorReporterDriverType::execution_space>::
+      host_mirror_type view_reporters;
   typename Kokkos::View<typename tester_type::report_type *,
                         typename ErrorReporterDriverType::execution_space>::
-      HostMirror view_reports;
+      host_mirror_type view_reports;
   test2.m_errorReporter.getReports(view_reporters, view_reports);
 
   int num_reports = view_reporters.extent(0);
@@ -140,6 +125,10 @@ void TestErrorReporter() {
     reports.push_back(view_reports(i));
   }
   checkReportersAndReportsAgree(reporters, reports);
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+  KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_POP()
+#endif
+#endif
 }
 
 template <typename DeviceType>
@@ -150,12 +139,23 @@ struct ErrorReporterDriver : public ErrorReporterDriverBase<DeviceType> {
 
   ErrorReporterDriver(int reporter_capacity, int test_size)
       : driver_base(reporter_capacity, test_size) {
+    EXPECT_EQ(driver_base::m_errorReporter.capacity(), reporter_capacity);
+    EXPECT_EQ(driver_base::m_errorReporter.num_reports(), 0);
+    EXPECT_EQ(driver_base::m_errorReporter.num_report_attempts(), 0);
+
     execute(reporter_capacity, test_size);
 
     // Test that clear() and resize() work across memory spaces.
     if (reporter_capacity < test_size) {
       driver_base::m_errorReporter.clear();
+      EXPECT_EQ(driver_base::m_errorReporter.capacity(), reporter_capacity);
+      EXPECT_EQ(driver_base::m_errorReporter.num_reports(), 0);
+      EXPECT_EQ(driver_base::m_errorReporter.num_report_attempts(), 0);
+
       driver_base::m_errorReporter.resize(test_size);
+      EXPECT_EQ(driver_base::m_errorReporter.capacity(), test_size);
+      EXPECT_EQ(driver_base::m_errorReporter.num_reports(), 0);
+      EXPECT_EQ(driver_base::m_errorReporter.num_report_attempts(), 0);
       execute(test_size, test_size);
     }
   }
@@ -170,16 +170,13 @@ struct ErrorReporterDriver : public ErrorReporterDriverBase<DeviceType> {
   KOKKOS_INLINE_FUNCTION
   void operator()(const int work_idx) const {
     if (driver_base::error_condition(work_idx)) {
-      double val =
-          Kokkos::Experimental::pi_v<double> * static_cast<double>(work_idx);
+      double val = Kokkos::numbers::pi * static_cast<double>(work_idx);
       typename driver_base::report_type report = {work_idx, -2 * work_idx, val};
       driver_base::m_errorReporter.add_report(work_idx, report);
     }
   }
 };
 
-#if defined(KOKKOS_CLASS_LAMBDA) && \
-    (!defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_CUDA_LAMBDA))
 template <typename DeviceType>
 struct ErrorReporterDriverUseLambda
     : public ErrorReporterDriverBase<DeviceType> {
@@ -195,10 +192,10 @@ struct ErrorReporterDriverUseLambda
   void execute(int reporter_capacity, int test_size) {
     Kokkos::parallel_for(
         Kokkos::RangePolicy<execution_space>(0, test_size),
+        // NOLINTNEXTLINE(kokkos-implicit-this-capture)
         KOKKOS_CLASS_LAMBDA(const int work_idx) {
           if (driver_base::error_condition(work_idx)) {
-            double val = Kokkos::Experimental::pi_v<double> *
-                         static_cast<double>(work_idx);
+            double val = Kokkos::numbers::pi * static_cast<double>(work_idx);
             typename driver_base::report_type report = {work_idx, -2 * work_idx,
                                                         val};
             driver_base::m_errorReporter.add_report(work_idx, report);
@@ -208,7 +205,6 @@ struct ErrorReporterDriverUseLambda
     driver_base::check_expectations(reporter_capacity, test_size);
   }
 };
-#endif
 
 #ifdef KOKKOS_ENABLE_OPENMP
 struct ErrorReporterDriverNativeOpenMP
@@ -222,8 +218,7 @@ struct ErrorReporterDriverNativeOpenMP
 #pragma omp parallel for
     for (int work_idx = 0; work_idx < test_size; ++work_idx) {
       if (driver_base::error_condition(work_idx)) {
-        double val =
-            Kokkos::Experimental::pi_v<double> * static_cast<double>(work_idx);
+        double val = Kokkos::numbers::pi * static_cast<double>(work_idx);
         typename driver_base::report_type report = {work_idx, -2 * work_idx,
                                                     val};
         driver_base::m_errorReporter.add_report(work_idx, report);
@@ -234,8 +229,9 @@ struct ErrorReporterDriverNativeOpenMP
 };
 #endif
 
-#if defined(KOKKOS_CLASS_LAMBDA) && \
-    (!defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_CUDA_LAMBDA))
+// FIXME_MSVC MSVC just gets confused when using the base class in the
+// KOKKOS_CLASS_LAMBDA
+#ifndef KOKKOS_COMPILER_MSVC
 TEST(TEST_CATEGORY, ErrorReporterViaLambda) {
   TestErrorReporter<ErrorReporterDriverUseLambda<TEST_EXECSPACE>>();
 }
@@ -244,6 +240,34 @@ TEST(TEST_CATEGORY, ErrorReporterViaLambda) {
 TEST(TEST_CATEGORY, ErrorReporter) {
   TestErrorReporter<ErrorReporterDriver<TEST_EXECSPACE>>();
 }
+
+TEST(TEST_CATEGORY, ErrorReporter_label_ctor) {
+  Kokkos::Experimental::ErrorReporter<int, TEST_EXECSPACE> logger("Reporter",
+                                                                  10);
+}
+
+void ErrorReporter_test_resize() {
+  Kokkos::Experimental::ErrorReporter<int, TEST_EXECSPACE> logger("Reporter",
+                                                                  10);
+
+  // produce more errors when we can store
+  Kokkos::parallel_for(
+      "TestErrorReporter_resize", Kokkos::RangePolicy<TEST_EXECSPACE>(0, 20),
+      KOKKOS_LAMBDA(int i) { logger.add_report(i, 0); });
+
+  ASSERT_EQ(logger.num_reports(), 10);
+  ASSERT_EQ(logger.num_report_attempts(), 20);
+
+  logger.resize(15);
+  ASSERT_EQ(logger.num_reports(), 10);
+  ASSERT_EQ(logger.num_report_attempts(), 10);
+
+  logger.resize(5);
+  ASSERT_EQ(logger.num_reports(), 5);
+  ASSERT_EQ(logger.num_report_attempts(), 10);
+}
+
+TEST(TEST_CATEGORY, ErrorReporter_resize) { ErrorReporter_test_resize(); }
 
 }  // namespace Test
 #endif  // #ifndef KOKKOS_TEST_ERROR_REPORTING_HPP

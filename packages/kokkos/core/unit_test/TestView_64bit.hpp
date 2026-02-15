@@ -1,60 +1,18 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
-//@HEADER
-*/
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+#else
 #include <Kokkos_Core.hpp>
+#endif
 
 namespace Test {
 
 template <class Device>
 void test_64bit() {
-#if defined(KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA)
-  // We are running out of device memory on Intel GPUs
-#ifdef KOKKOS_ENABLE_SYCL
-  int64_t N = 4000000000;
-#else
-  int64_t N = 5000000000;
-#endif
+  int64_t N   = 5000000000;
   int64_t sum = 0;
   {
     Kokkos::parallel_reduce(
@@ -111,12 +69,7 @@ void test_64bit() {
     ASSERT_EQ(N0 * N1, sum);
   }
   {
-// We are running out of device memory on Intel GPUs
-#ifdef KOKKOS_ENABLE_SYCL
-    int64_t N0 = 1024 * 1024 * 900;
-#else
-    int N0 = 1024 * 1024 * 1500;
-#endif
+    int N0    = 1024 * 1024 * 1500;
     int64_t P = 1713091;
     Kokkos::View<int*, Device> a("A", N0);
     Kokkos::parallel_for(
@@ -134,11 +87,18 @@ void test_64bit() {
         (P * (P - 1) / 2) * int64_t(N0 / P) + (N0 % P) * (N0 % P - 1) / 2;
     ASSERT_EQ(expected, sum0);
   }
-#endif
 }
 
 #ifdef KOKKOS_ENABLE_LARGE_MEM_TESTS
-TEST(TEST_CATEGORY, view_64bit) { test_64bit<TEST_EXECSPACE>(); }
+TEST(TEST_CATEGORY, view_64bit) {
+#if defined(KOKKOS_ENABLE_DEBUG) && defined(KOKKOS_ENABLE_SERIAL)
+  if constexpr (std::is_same_v<TEST_EXECSPACE, Kokkos::Serial>)
+    GTEST_SKIP()
+        << "Test is too expensive to run with the Serial backend in Debug mode";
+#endif
+
+  test_64bit<TEST_EXECSPACE>();
+}
 #endif
 
 }  // namespace Test
